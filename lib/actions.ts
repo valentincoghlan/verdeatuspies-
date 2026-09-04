@@ -339,12 +339,17 @@ export async function guardarAvisos(fd: FormData) {
   const { supabase, user } = await sesion();
 
   const todos = fd.getAll("todos").map(String);
-  const prendidos = new Set(fd.getAll("prendidos").map(String));
-  const apagados = todos.filter((t) => !prendidos.has(t));
+  const conMail = fd.getAll("con_mail").map(String);
+
+  const push = new Set(fd.getAll("push").map(String));
+  const mail = new Set(fd.getAll("mail").map(String));
+
+  const avisos_apagados = todos.filter((t) => !push.has(t));
+  const mails_apagados = conMail.filter((t) => !mail.has(t));
 
   const { error } = await supabase
     .from("perfiles")
-    .update({ avisos_apagados: apagados })
+    .update({ avisos_apagados, mails_apagados })
     .eq("id", user.id);
 
   if (error) throw new Error(`No se pudieron guardar los avisos: ${error.message}`);
@@ -352,9 +357,7 @@ export async function guardarAvisos(fd: FormData) {
   redirect(
     "/config/cuenta?aviso=" +
       encodeURIComponent(
-        apagados.length === 0
-          ? "Vas a recibir todos los avisos."
-          : `Listo. Apagaste ${apagados.length} de ${todos.length} avisos.`,
+        `Listo. Recibís ${push.size} de ${todos.length} avisos en el celular y ${mail.size} de ${conMail.length} por mail.`,
       ),
   );
 }

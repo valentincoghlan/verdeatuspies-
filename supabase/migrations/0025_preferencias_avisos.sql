@@ -14,3 +14,10 @@ alter table perfiles
 
 comment on column perfiles.avisos_apagados is
   'Tipos de aviso que esta persona NO quiere recibir en el celular.';
+
+-- Lo mismo para el correo: cada uno elige qué recibe y por dónde.
+alter table perfiles
+  add column if not exists mails_apagados text[] not null default '{}';
+
+comment on column perfiles.mails_apagados is
+  'Tipos de aviso que esta persona NO quiere recibir por mail.';

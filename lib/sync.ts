@@ -557,12 +557,23 @@ export async function generarAlertas() {
 /* 4. Digest por mail                                                  */
 /* =================================================================== */
 
+/**
+ * El resumen por mail.
+ *
+ * Va uno por persona y no uno para todos, porque cada una elige qué
+ * quiere recibir por mail: si a Miguel no le interesan los cortes
+ * atrasados, su mail no los trae, y el de Valentín sí.
+ *
+ * Una alerta se marca como enviada si le llegó al menos a alguien. Si
+ * todos la tenían apagada, queda pendiente y no vuelve a intentarse
+ * todos los días: nadie la quiere.
+ */
 export async function enviarDigest() {
   const sb = createAdminClient();
 
   const { data: pendientes } = await sb
     .from("notificaciones")
-    .select("id, titulo, mensaje, severidad, accion_url")
+    .select("id, tipo, titulo, mensaje, severidad, accion_url")
     .eq("resuelta", false)
     .is("mail_enviado_at", null)
     .neq("severidad", "info")
@@ -573,30 +584,49 @@ export async function enviarDigest() {
 
   const { data: perfiles } = await sb
     .from("perfiles")
-    .select("email")
+    .select("email, mails_apagados")
     .eq("activo", true)
     .eq("notificar_mail", true);
 
-  const to = (perfiles ?? []).map((p: any) => p.email).filter(Boolean);
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const enviadas = new Set<string>();
+  let destinatarios = 0;
 
-  const res = await enviarMail({
-    to,
-    asunto:
-      pendientes.length === 1
-        ? pendientes[0].titulo
-        : `Verde A Tus Pies: ${pendientes.length} pendientes`,
-    html: plantilla(pendientes as NotiMail[], baseUrl),
-  });
+  for (const p of (perfiles ?? []) as any[]) {
+    if (!p.email) continue;
 
-  if (res.enviado) {
+    const apagados: string[] = p.mails_apagados ?? [];
+    const suyas = pendientes.filter((n: any) => !apagados.includes(n.tipo));
+    if (!suyas.length) continue;
+
+    const res = await enviarMail({
+      to: [p.email],
+      asunto:
+        suyas.length === 1
+          ? suyas[0].titulo
+          : `Verde A Tus Pies: ${suyas.length} pendientes`,
+      html: plantilla(suyas as NotiMail[], baseUrl),
+    });
+
+    if (res.enviado) {
+      destinatarios++;
+      for (const n of suyas) enviadas.add(n.id);
+    }
+  }
+
+  if (enviadas.size) {
     await sb
       .from("notificaciones")
       .update({ mail_enviado_at: new Date().toISOString() })
-      .in("id", pendientes.map((p: any) => p.id));
+      .in("id", [...enviadas]);
   }
 
-  return { ok: true, enviado: res.enviado, motivo: res.motivo, destinatarios: to.length };
+  return {
+    ok: true,
+    enviado: destinatarios > 0,
+    destinatarios,
+    alertas: enviadas.size,
+  };
 }
 
 /* =================================================================== */
