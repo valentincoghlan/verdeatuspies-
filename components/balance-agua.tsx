@@ -42,7 +42,7 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
 
   return (
     <div className="-mx-4 overflow-x-auto px-4">
-      <table className="w-full min-w-[620px] border-collapse overflow-hidden rounded-xl">
+      <table className="w-full border-collapse overflow-hidden rounded-xl sm:min-w-[620px]">
         <thead>
           <tr>
             <th className="th" />
@@ -53,7 +53,8 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
               Riego
             </th>
             <th className="th text-right" colSpan={3}>
-              Balance del día
+              <span className="hidden sm:inline">Balance del día</span>
+              <span className="sm:hidden">Total</span>
             </th>
           </tr>
           <tr>
@@ -63,8 +64,8 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
             <th className={`th hidden text-right sm:table-cell ${riego}`}>Minutos</th>
             <th className={`th text-right ${riego}`}>Regamos</th>
             <th className="th text-right">Total</th>
-            <th className="th text-right">Perdió (ET₀)</th>
-            <th className="th text-right">Queda</th>
+            <th className="th hidden text-right sm:table-cell">Perdió (ET₀)</th>
+            <th className="th hidden text-right sm:table-cell">Queda</th>
           </tr>
         </thead>
 
@@ -82,7 +83,8 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
             return (
               <tr key={d.fecha} className={d.fecha === hoy ? "bg-beige/60" : ""}>
                 <td className="td whitespace-nowrap font-medium">
-                  {fechaLarga(d.fecha)}
+                  <span className="hidden sm:inline">{fechaLarga(d.fecha)}</span>
+                  <span className="sm:hidden">{d.fecha.slice(8, 10)}/{d.fecha.slice(5, 7)}</span>
                   {d.esPronostico && (
                     <span className="ml-2">
                       <Chip tono="azul">pronóstico</Chip>
@@ -138,12 +140,12 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
                 >
                   {total ? mm(total) : "—"}
                 </td>
-                <td className="td text-right tabular-nums text-tinta-2">
+                <td className="td hidden text-right tabular-nums text-tinta-2 sm:table-cell">
                   {d.et0 ? mm(d.et0) : "—"}
                 </td>
                 <td
                   className={
-                    "td text-right tabular-nums " +
+                    "td hidden text-right tabular-nums sm:table-cell " +
                     (!hayDatos
                       ? "text-tinta-3"
                       : previsto

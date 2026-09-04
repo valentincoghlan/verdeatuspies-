@@ -2,10 +2,12 @@ import { createClient } from "@/lib/supabase/server";
 import { Card } from "@/components/ui";
 import { Campo } from "@/components/campos";
 import { AvisosCelular } from "@/components/avisos-celular";
+import { AVISOS, GRUPOS } from "@/lib/avisos";
 import {
   borrarSuscripcion,
   cambiarAvisoMail,
   cambiarPassword,
+  guardarAvisos,
   guardarSuscripcion,
   probarAviso,
 } from "@/lib/actions";
@@ -32,6 +34,13 @@ export default async function ConfigCuentaPage({
   const { count: telefonos } = await supabase
     .from("push_suscripciones")
     .select("id", { count: "exact", head: true });
+
+  const { data: miPerfilAvisos } = await supabase
+    .from("perfiles")
+    .select("avisos_apagados")
+    .eq("id", user?.id ?? "")
+    .maybeSingle();
+  const apagados: string[] = (miPerfilAvisos as any)?.avisos_apagados ?? [];
 
   return (
     <>
@@ -60,6 +69,52 @@ export default async function ConfigCuentaPage({
             </span>
           </form>
         )}
+      </Card>
+
+      <Card titulo="Qué avisos quiero recibir">
+        <p className="mb-4 text-sm text-tinta-2">
+          Cada uno decide qué le llega a su teléfono. Lo que apagues acá no le afecta a los demás,
+          y las alertas se siguen viendo igual dentro de la app.
+        </p>
+
+        <form action={guardarAvisos}>
+          {AVISOS.map((a) => (
+            <input key={a.tipo} type="hidden" name="todos" value={a.tipo} />
+          ))}
+
+          <div className="space-y-4">
+            {GRUPOS.map((grupo) => (
+              <div key={grupo}>
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
+                  {grupo}
+                </p>
+                <ul className="space-y-1.5">
+                  {AVISOS.filter((a) => a.grupo === grupo).map((a) => (
+                    <li key={a.tipo}>
+                      <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-borde bg-crema p-3">
+                        <input
+                          type="checkbox"
+                          name="prendidos"
+                          value={a.tipo}
+                          defaultChecked={!apagados.includes(a.tipo)}
+                          className="mt-0.5 size-5 shrink-0 accent-pasto"
+                        />
+                        <span className="min-w-0">
+                          <span className="block text-sm font-semibold text-tinta">{a.titulo}</span>
+                          <span className="block text-xs text-tinta-2">{a.detalle}</span>
+                        </span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4">
+            <button className="btn btn-alto">Guardar avisos</button>
+          </div>
+        </form>
       </Card>
 
       <Card titulo="Mi contraseña">

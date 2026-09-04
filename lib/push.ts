@@ -33,14 +33,30 @@ export type Aviso = {
   url?: string;
   /** Los avisos con la misma etiqueta se reemplazan en vez de apilarse. */
   tag?: string;
+  /** De qué se trata. Sirve para respetar quién apagó qué. */
+  tipo?: string;
 };
 
 export async function enviarPush(aviso: Aviso) {
   if (!preparar()) return { enviados: 0, motivo: "faltan las claves VAPID" };
 
   const sb = createAdminClient();
-  const { data: destinos } = await sb.from("push_suscripciones").select("*");
-  if (!destinos?.length) return { enviados: 0, motivo: "no hay celulares registrados" };
+  const { data: todos } = await sb
+    .from("push_suscripciones")
+    .select("*, perfiles(avisos_apagados)");
+
+  // Cada uno decide qué le llega al celular. Sin tipo, el aviso va a
+  // todos: es el caso de la prueba, que tiene que llegar siempre.
+  const destinos = (todos ?? []).filter((d: any) =>
+    aviso.tipo ? !(d.perfiles?.avisos_apagados ?? []).includes(aviso.tipo) : true,
+  );
+
+  if (!destinos.length) {
+    return {
+      enviados: 0,
+      motivo: todos?.length ? "nadie quiere recibir este aviso" : "no hay celulares registrados",
+    };
+  }
 
   const cuerpo = JSON.stringify({ url: "/", ...aviso });
   let enviados = 0;

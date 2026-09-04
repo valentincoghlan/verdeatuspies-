@@ -82,6 +82,7 @@ async function noti(
   const esNueva = (data?.length ?? 0) > 0;
   if (esNueva) {
     await enviarPush({
+      tipo: n.tipo,
       titulo: n.titulo,
       mensaje: n.mensaje ?? "",
       url: n.accion_url ?? "/",
@@ -130,6 +131,7 @@ async function avisoEntrega(
   if (!existente) {
     await sb.from("notificaciones").insert(fila);
     await enviarPush({
+      tipo: n.tipo,
       titulo: n.titulo,
       mensaje: n.mensaje,
       url: "/ventas/pedidos",

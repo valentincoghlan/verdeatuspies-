@@ -173,6 +173,7 @@ export async function regarZona(fd: FormData) {
     }
 
     await enviarPush({
+      tipo: "riego_empieza",
       titulo: "Empezó a regar",
       mensaje: `${zona.nombre} está regando ${minutos} minutos.`,
       url: "/mantenimiento/riego",
@@ -291,6 +292,7 @@ async function intentarSuspender(fd: FormData): Promise<string | null> {
     hour12: false,
   });
   await enviarPush({
+    tipo: "riego_cancelado",
     titulo: reanudar ? "Riegos reanudados" : "Riegos cancelados",
     mensaje: reanudar
       ? `${zonas.length} zonas vuelven a regar con su programa.`
@@ -325,6 +327,36 @@ export async function guardarSuscripcion(fd: FormData) {
   );
   if (error) throw new Error(`No se pudo registrar el teléfono: ${error.message}`);
   bump("/config/cuenta");
+}
+
+/**
+ * Prende y apaga los avisos, uno por uno.
+ *
+ * Se guarda lo apagado, no lo prendido: así un aviso nuevo empieza
+ * encendido para todos sin que nadie tenga que ir a habilitarlo.
+ */
+export async function guardarAvisos(fd: FormData) {
+  const { supabase, user } = await sesion();
+
+  const todos = fd.getAll("todos").map(String);
+  const prendidos = new Set(fd.getAll("prendidos").map(String));
+  const apagados = todos.filter((t) => !prendidos.has(t));
+
+  const { error } = await supabase
+    .from("perfiles")
+    .update({ avisos_apagados: apagados })
+    .eq("id", user.id);
+
+  if (error) throw new Error(`No se pudieron guardar los avisos: ${error.message}`);
+
+  redirect(
+    "/config/cuenta?aviso=" +
+      encodeURIComponent(
+        apagados.length === 0
+          ? "Vas a recibir todos los avisos."
+          : `Listo. Apagaste ${apagados.length} de ${todos.length} avisos.`,
+      ),
+  );
 }
 
 export async function borrarSuscripcion(fd: FormData) {
@@ -674,6 +706,7 @@ export async function crearPedido(fd: FormData) {
     .maybeSingle();
 
   await enviarPush({
+    tipo: "pedido_nuevo",
     titulo: "Pedido nuevo",
     mensaje:
       `${cliente?.nombre ?? "Cliente"} · ${numeroCorto(metros ?? 0)} m²` +
@@ -721,6 +754,7 @@ export async function confirmarEntrega(fd: FormData) {
   if (venta) {
     const regalados = Number(venta.m2_cortesia ?? 0);
     await enviarPush({
+      tipo: "entrega_confirmada",
       titulo: "Entrega confirmada",
       mensaje:
         `${(venta.clientes as any)?.nombre ?? "Cliente"} · ` +
