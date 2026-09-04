@@ -10,6 +10,14 @@ export function pesos(n: number | null | undefined, decimales = 0) {
   }).format(n);
 }
 
+export function dolares(n: number | null | undefined, decimales = 0) {
+  if (n === null || n === undefined) return "—";
+  return `US$${NBSP}${new Intl.NumberFormat("es-AR", {
+    minimumFractionDigits: decimales,
+    maximumFractionDigits: decimales,
+  }).format(n)}`;
+}
+
 export function numero(n: number | null | undefined, decimales = 0) {
   if (n === null || n === undefined) return "—";
   return new Intl.NumberFormat("es-AR", {
@@ -33,6 +41,13 @@ export function fechaCorta(iso: string | null | undefined) {
   if (!iso) return "—";
   const [y, m, d] = iso.slice(0, 10).split("-");
   return `${d}/${m}`;
+}
+
+/** Fecha ISO a dd/mm/aa. Para tablas, donde el espacio manda. */
+export function fechaBreve(iso: string | null | undefined) {
+  if (!iso) return "—";
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${y.slice(2)}`;
 }
 
 export function fechaLarga(iso: string | null | undefined) {

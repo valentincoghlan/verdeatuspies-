@@ -9,7 +9,7 @@ export default function LoginPage() {
         </div>
         <h1 className="text-xl font-bold">Verde A Tus Pies</h1>
         <p className="mt-1 text-sm text-tierra-600">
-          Entrá con tu mail. Te mandamos un link, sin contraseñas.
+          Entrá con tu mail y tu contraseña. Si todavía no tenés, pedí el link.
         </p>
       </div>
       <div className="card">

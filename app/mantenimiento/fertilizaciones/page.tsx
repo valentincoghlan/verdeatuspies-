@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota, Selector } from "@/components/campos";
+import { Checks } from "@/components/checks";
 import {
   borrarFertilizacion,
   cancelarFertilizacion,
@@ -8,7 +9,7 @@ import {
   crearFertilizante,
   marcarFertilizacionAplicada,
 } from "@/lib/actions";
-import { fechaLarga, hoyISO, numero, pesos } from "@/lib/format";
+import { fechaBreve, fechaLarga, hoyISO, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,7 @@ export default async function FertilizacionesPage() {
         bajada="Agendá una fertilización y la app te manda un mail cuando se acerca la fecha."
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-3">
         <Stat label="Agendadas" valor={numero((programadas ?? []).length)} tono="verde" />
         <Stat
           label="Atrasadas"
@@ -57,21 +58,19 @@ export default async function FertilizacionesPage() {
         <Stat label={`Costo ${hoy.slice(0, 4)}`} valor={pesos(costoAnio)} />
       </div>
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-3 space-y-3">
         <Card titulo="Agendar fertilización">
           <form action={crearFertilizacion} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Selector
-              label="Lote"
+            <Checks
+              label="Lotes"
               name="lote_id"
-              required
-              vacio="Elegí un lote"
+              resumenVacio="Elegí uno o los dos"
               opciones={(lotes ?? []).map((l: any) => ({ value: l.id, label: l.nombre }))}
             />
-            <Selector
-              label="Fertilizante"
+            <Checks
+              label="Fertilizantes"
               name="fertilizante_id"
-              required
-              vacio="Elegí el producto"
+              resumenVacio="Elegí uno o varios"
               opciones={(fertilizantes ?? []).map((f: any) => ({ value: f.id, label: f.nombre }))}
             />
             <Campo label="Fecha programada" name="fecha_programada" type="date" required defaultValue={hoy} />
@@ -95,8 +94,10 @@ export default async function FertilizacionesPage() {
             </div>
           </form>
           <p className="mt-3 text-xs text-tierra-400">
-            El aviso sale en la corrida diaria, con la anticipación que definís en Config
-            (por defecto 3 días), y se repite como urgente si pasa la fecha sin aplicar.
+            Podés marcar varios lotes y varios productos: se agenda una fertilización por cada
+            combinación, para aplicarlas o cancelarlas por separado. El aviso sale en la corrida
+            diaria, con la anticipación que definís en Ajustes (por defecto 3 días), y se repite
+            como urgente si pasa la fecha sin aplicar.
           </p>
         </Card>
 
@@ -161,7 +162,7 @@ export default async function FertilizacionesPage() {
           >
             {(historial ?? []).map((f: any) => (
               <tr key={f.id}>
-                <td className="td whitespace-nowrap">{fechaLarga(f.fecha_aplicada)}</td>
+                <td className="td whitespace-nowrap">{fechaBreve(f.fecha_aplicada)}</td>
                 <td className="td font-medium">{f.lotes?.nombre}</td>
                 <td className="td">{f.fertilizantes?.nombre}</td>
                 <td className="td tabular-nums">

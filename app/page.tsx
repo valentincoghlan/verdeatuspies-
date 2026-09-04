@@ -1,10 +1,13 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
-import { diasDesde, fechaCorta, hoyISO, m2, mm, numero, pesos, sumarDiasISO } from "@/lib/format";
+import { diasDesde, fechaCorta, fechaLarga, hoyISO, m2, mm, numero, pesos, sumarDiasISO } from "@/lib/format";
 import {
+  anularPedido,
+  confirmarEntrega,
   descartarAlertaLluvia,
   registrarLluvia,
+  reprogramarPedido,
   resolverNotificacion,
   sincronizarAhora,
 } from "@/lib/actions";
@@ -23,8 +26,9 @@ export default async function Dashboard() {
     { data: ventasMes },
     { data: cobrosMes },
     { data: pagosMes },
-    { data: cuentas },
     { data: fertProx },
+    { data: pedidosPend },
+    { data: dolar },
   ] = await Promise.all([
     supabase
       .from("notificaciones")
@@ -40,28 +44,46 @@ export default async function Dashboard() {
       .gte("fecha", hoy)
       .lte("fecha", sumarDiasISO(hoy, 5))
       .order("fecha"),
-    supabase.from("ventas").select("m2, total, estado").gte("fecha", inicioMes).neq("estado", "anulada"),
-    supabase.from("cobros").select("monto").gte("fecha", inicioMes),
-    supabase.from("pagos").select("monto").gte("fecha", inicioMes),
-    supabase.from("v_cuenta_clientes").select("saldo"),
+    supabase
+      .from("ventas")
+      .select("m2, total, estado")
+      .gte("fecha", inicioMes)
+      .in("estado", ["confirmada", "entregada"]),
+    supabase.from("movimientos").select("monto").eq("tipo", "I").gte("fecha", inicioMes),
+    supabase.from("movimientos").select("monto").eq("tipo", "E").gte("fecha", inicioMes),
     supabase
       .from("fertilizaciones")
       .select("id, fecha_programada, dosis, unidad, lotes(nombre), fertilizantes(nombre)")
       .eq("estado", "programada")
       .order("fecha_programada")
       .limit(5),
+    supabase.from("v_pedidos_pendientes").select("*").order("fecha_entrega"),
+    supabase
+      .from("cotizaciones")
+      .select("*")
+      .order("fecha", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const m2Mes = (ventasMes ?? []).reduce((a, v: any) => a + Number(v.m2 ?? 0), 0);
-  const facturadoMes = (ventasMes ?? []).reduce((a, v: any) => a + Number(v.total ?? 0), 0);
+  const m2Comprometidos = (pedidosPend ?? []).reduce((a, p: any) => a + Number(p.m2 ?? 0), 0);
+  const vendidoMes = (ventasMes ?? []).reduce((a, v: any) => a + Number(v.total ?? 0), 0);
   const cobradoMes = (cobrosMes ?? []).reduce((a, c: any) => a + Number(c.monto ?? 0), 0);
   const pagadoMes = (pagosMes ?? []).reduce((a, p: any) => a + Number(p.monto ?? 0), 0);
-  const porCobrar = (cuentas ?? []).reduce(
-    (a, c: any) => a + Math.max(0, Number(c.saldo ?? 0)),
-    0,
-  );
 
-  const tono = (s: string) => (s === "urgente" ? "rojo" : s === "aviso" ? "ambar" : "azul");
+  const franja = (s: string) =>
+    s === "urgente"
+      ? "bg-urgente-bg text-urgente-tx"
+      : s === "aviso"
+        ? "bg-atencion-bg text-atencion-tx"
+        : "bg-info-bg text-info-tx";
+
+  // Para prellenar el formulario de "se entregó" con los datos del pedido.
+  const pedidoPorId = new Map((pedidosPend ?? []).map((p: any) => [p.id, p]));
+
+  // Alertas que se resuelven con su propio formulario, no con el botón "Listo".
+  const CON_FORMULARIO = ["confirmar_lluvia", "confirmar_entrega"];
 
   return (
     <>
@@ -75,61 +97,100 @@ export default async function Dashboard() {
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="m² vendidos este mes" valor={m2(m2Mes)} detalle={`${(ventasMes ?? []).length} operaciones`} />
-        <Stat label="Facturado este mes" valor={pesos(facturadoMes)} tono="verde" />
-        <Stat label="Cobrado este mes" valor={pesos(cobradoMes)} detalle={`Pagos: ${pesos(pagadoMes)}`} />
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
         <Stat
-          label="Por cobrar"
-          valor={pesos(porCobrar)}
-          tono={porCobrar > 0 ? "ambar" : "neutro"}
-          detalle="Saldo de todos los clientes"
+          label="m² vendidos este mes"
+          valor={m2(m2Mes)}
+          tono="verde"
+          detalle={`${(ventasMes ?? []).length} operaciones`}
+        />
+        <Stat
+          label="m² pedidos a entregar"
+          valor={m2(m2Comprometidos)}
+          tono={m2Comprometidos > 0 ? "ambar" : "neutro"}
+          detalle={`${(pedidosPend ?? []).length} pedidos pendientes`}
         />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2 space-y-4">
+      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3">
+        <Stat
+          label="Dólar MEP"
+          valor={dolar ? pesos(Number(dolar.mep), 2) : "—"}
+          detalle={
+            dolar
+              ? `Al ${fechaLarga(dolar.fecha)}${dolar.fecha === hoy ? "" : " · sincronizá para actualizar"}`
+              : "Tocá Sincronizar ahora"
+          }
+        />
+        <Stat label="Vendido este mes" valor={pesos(vendidoMes)} tono="verde" />
+        <Stat label="Cobrado este mes" valor={pesos(cobradoMes)} detalle={`Pagos: ${pesos(pagadoMes)}`} />
+      </div>
+
+      <div className="mt-3 grid gap-4 lg:grid-cols-3">
+        <div className="min-w-0 lg:col-span-2 space-y-4">
           <Card titulo="Pendientes y alertas" id="alertas">
             {(notis ?? []).length === 0 ? (
-              <p className="py-6 text-center text-sm text-tierra-400">
+              <p className="rounded-[16px] bg-crema py-8 text-center text-[15px] text-tinta-2">
                 No hay nada pendiente. Todo al día.
               </p>
             ) : (
-              <ul className="divide-y divide-tierra-100">
+              <ul className="space-y-3">
                 {(notis ?? []).map((n: any) => (
-                  <li key={n.id} className="py-3 first:pt-0 last:pb-0">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <Chip tono={tono(n.severidad) as any}>{n.severidad}</Chip>
-                          <span className="text-sm font-semibold">{n.titulo}</span>
-                        </div>
-                        {n.mensaje && (
-                          <p className="mt-1 text-sm text-tierra-600">{n.mensaje}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {n.accion_url && (
-                          <Link
-                            href={n.accion_url}
-                            className="text-xs font-semibold text-hoja-700 hover:underline"
-                          >
-                            Ir
-                          </Link>
-                        )}
-                        {n.tipo !== "confirmar_lluvia" && (
-                          <form action={resolverNotificacion}>
-                            <input type="hidden" name="id" value={n.id} />
-                            <button className="text-xs font-semibold text-tierra-400 hover:text-tierra-900">
-                              Listo
-                            </button>
-                          </form>
-                        )}
-                      </div>
+                  <li
+                    key={n.id}
+                    className="overflow-hidden rounded-[20px] border border-borde bg-white shadow-[0_1px_2px_rgba(26,29,24,.05)]"
+                  >
+                    {/* La urgencia vive en la franja de arriba, no en un borde
+                        de costado: el cuerpo queda blanco y los campos se leen. */}
+                    <div
+                      className={
+                        "flex items-center justify-between gap-2 px-[18px] py-3 " + franja(n.severidad)
+                      }
+                    >
+                      <span className="text-xs font-extrabold uppercase tracking-[.08em]">
+                        {n.severidad}
+                      </span>
+                      {n.fecha_referencia && (
+                        <span className="text-[12.5px] font-semibold">
+                          {fechaCorta(n.fecha_referencia)}
+                        </span>
+                      )}
                     </div>
 
+                    <div className="flex flex-col gap-4 p-[18px]">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[19px] font-bold leading-tight text-pasto-oscuro">
+                            {n.titulo}
+                          </p>
+                          {n.mensaje && (
+                            <p className="mt-1.5 text-[15px] leading-relaxed text-tinta-2">
+                              {n.mensaje}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3">
+                          {n.accion_url && (
+                            <Link
+                              href={n.accion_url}
+                              className="text-sm font-semibold text-pasto hover:underline"
+                            >
+                              Ir
+                            </Link>
+                          )}
+                          {!CON_FORMULARIO.includes(n.tipo) && (
+                            <form action={resolverNotificacion}>
+                              <input type="hidden" name="id" value={n.id} />
+                              <button className="text-sm font-semibold text-tinta-3 hover:text-tinta">
+                                Listo
+                              </button>
+                            </form>
+                          )}
+                        </div>
+                      </div>
+
                     {n.tipo === "confirmar_lluvia" && (
-                      <div className="mt-2 flex flex-wrap items-end gap-2 rounded-xl bg-hoja-50 p-3">
+                      <div className="flex flex-wrap items-end gap-2">
                         <form action={registrarLluvia} className="flex flex-wrap items-end gap-2">
                           <input type="hidden" name="notificacion_id" value={n.id} />
                           <input type="hidden" name="fecha" value={n.fecha_referencia ?? hoy} />
@@ -153,6 +214,76 @@ export default async function Dashboard() {
                         </form>
                       </div>
                     )}
+
+                    {n.tipo === "confirmar_entrega" && (
+                      <div className="space-y-3">
+                        <form
+                          action={confirmarEntrega}
+                          className="flex flex-wrap items-end gap-2"
+                        >
+                          <input type="hidden" name="id" value={n.entidad_id} />
+                          <div>
+                            <label className="label">m² facturados</label>
+                            <input
+                              name="m2"
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              required
+                              defaultValue={Number(pedidoPorId.get(n.entidad_id)?.m2 ?? 0)}
+                              className="input w-28"
+                            />
+                          </div>
+                          <div>
+                            <label className="label">m² de cortesía</label>
+                            <input
+                              name="m2_cortesia"
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              defaultValue={0}
+                              className="input w-28"
+                            />
+                          </div>
+                          <div>
+                            <label className="label">Fecha</label>
+                            <input
+                              name="fecha_entrega"
+                              type="date"
+                              defaultValue={n.fecha_referencia ?? hoy}
+                              className="input w-40"
+                            />
+                          </div>
+                          <button className="btn">Se entregó</button>
+                        </form>
+
+                        <div className="flex flex-wrap items-end gap-2 border-t border-beige pt-3">
+                          <form
+                            action={reprogramarPedido}
+                            className="flex flex-wrap items-end gap-2"
+                          >
+                            <input type="hidden" name="id" value={n.entidad_id} />
+                            <div>
+                              <label className="label">Fecha nueva</label>
+                              <input
+                                name="fecha_entrega"
+                                type="date"
+                                required
+                                className="input w-40"
+                              />
+                            </div>
+                            <button className="btn-ghost">Reprogramar</button>
+                          </form>
+                          <form action={anularPedido}>
+                            <input type="hidden" name="id" value={n.entidad_id} />
+                            <button className="text-xs font-semibold text-tierra-400 hover:text-red-600">
+                              Se cayó
+                            </button>
+                          </form>
+                        </div>
+                      </div>
+                    )}
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -201,7 +332,7 @@ export default async function Dashboard() {
           </Card>
         </div>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <Card titulo="Clima en Cardales">
             {(clima ?? []).length === 0 ? (
               <p className="py-4 text-sm text-tierra-400">

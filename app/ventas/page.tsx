@@ -4,12 +4,13 @@ import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota, Selector } from "@/components/campos";
 import Barras from "@/components/barras";
 import { borrarVenta, cambiarEstadoVenta, crearVenta } from "@/lib/actions";
-import { fechaCorta, fechaLarga, hoyISO, m2, numero, pesos } from "@/lib/format";
+import { fechaBreve, fechaCorta, fechaLarga, hoyISO, m2, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 const ESTADOS = [
   { value: "presupuesto", label: "Presupuesto" },
+  { value: "pedido", label: "Pedido" },
   { value: "confirmada", label: "Confirmada" },
   { value: "entregada", label: "Entregada" },
   { value: "anulada", label: "Anulada" },
@@ -28,14 +29,17 @@ export default async function VentasPage() {
       supabase.from("lotes").select("id, nombre").eq("activo", true).order("nombre"),
       supabase
         .from("ventas")
-        .select("*, clientes(nombre), lotes(nombre)")
+        .select("*, clientes!cliente_id(nombre), vinculante:clientes!vinculante_id(nombre), lotes(nombre)")
         .order("fecha", { ascending: false })
         .limit(80),
       supabase.from("v_ventas_por_mes").select("*").order("mes", { ascending: false }).limit(12),
       supabase.from("config").select("valor").eq("clave", "precio_m2_default").single(),
     ]);
 
-  const activas = (ventas ?? []).filter((v: any) => v.estado !== "anulada");
+  // Un pedido todavía no es una venta: no suma a los m² ni a lo facturado.
+  const activas = (ventas ?? []).filter(
+    (v: any) => v.estado === "confirmada" || v.estado === "entregada",
+  );
   const delMes = activas.filter((v: any) => v.fecha >= inicioMes);
   const m2Mes = delMes.reduce((a, v: any) => a + Number(v.m2 ?? 0), 0);
   const totalMes = delMes.reduce((a, v: any) => a + Number(v.total ?? 0), 0);
@@ -54,7 +58,15 @@ export default async function VentasPage() {
     }));
 
   const tonoEstado = (e: string) =>
-    e === "entregada" ? "verde" : e === "confirmada" ? "azul" : e === "anulada" ? "rojo" : "neutro";
+    e === "entregada"
+      ? "verde"
+      : e === "confirmada"
+        ? "azul"
+        : e === "pedido"
+          ? "ambar"
+          : e === "anulada"
+            ? "rojo"
+            : "neutro";
 
   return (
     <>
@@ -62,28 +74,54 @@ export default async function VentasPage() {
         titulo="Ventas"
         bajada="m² vendidos por cliente y por fecha, con estado de cada operación."
         accion={
-          <Link href="/ventas/clientes" className="btn-ghost">
-            Clientes
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/ventas/pedidos" className="btn-ghost">
+              Pedidos
+            </Link>
+            <Link href="/ventas/clientes" className="btn-ghost">
+              Clientes
+            </Link>
+          </div>
         }
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat label="m² del mes" valor={m2(m2Mes)} tono="verde" detalle={`${delMes.length} operaciones`} />
         <Stat label="Facturado del mes" valor={pesos(totalMes)} />
         <Stat label="Precio promedio m²" valor={pesos(precioProm, 0)} />
         <Stat label={`m² ${hoy.slice(0, 4)}`} valor={m2(m2Anio)} />
       </div>
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-3 space-y-3">
         <Card titulo="Nueva venta">
           <form action={crearVenta} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Selector
-              label="Cliente"
+              label="Comprador"
               name="cliente_id"
               required
               vacio="Elegí un cliente"
               opciones={(clientes ?? []).map((c: any) => ({ value: c.id, label: c.nombre }))}
+              className="col-span-2"
+            />
+            <Selector
+              label="Canal de venta"
+              name="canal"
+              defaultValue="directa"
+              opciones={[
+                { value: "directa", label: "Directa" },
+                { value: "distribuidor", label: "Distribuidores" },
+              ]}
+            />
+            <Selector
+              label="Distribuidor"
+              name="vinculante_id"
+              vacio="Sin distribuidor"
+              opciones={(clientes ?? []).map((c: any) => ({ value: c.id, label: c.nombre }))}
+            />
+            <Campo
+              label="Cliente final"
+              name="cliente_final"
+              placeholder="Nombre de quien recibe"
               className="col-span-2"
             />
             <Campo label="Fecha" name="fecha" type="date" required defaultValue={hoy} />
@@ -136,8 +174,17 @@ export default async function VentasPage() {
           >
             {(ventas ?? []).map((v: any) => (
               <tr key={v.id}>
-                <td className="td whitespace-nowrap">{fechaLarga(v.fecha)}</td>
-                <td className="td font-medium">{v.clientes?.nombre}</td>
+                <td className="td whitespace-nowrap">{fechaBreve(v.fecha)}</td>
+                <td className="td font-medium">
+                  {v.clientes?.nombre}
+                  {(v.vinculante || v.cliente_final) && (
+                    <span className="block text-xs font-normal text-tierra-400">
+                      {v.vinculante ? `vía ${v.vinculante.nombre}` : ""}
+                      {v.vinculante && v.cliente_final ? " · " : ""}
+                      {v.cliente_final ? `entrega a ${v.cliente_final}` : ""}
+                    </span>
+                  )}
+                </td>
                 <td className="td tabular-nums">{numero(v.m2)}</td>
                 <td className="td tabular-nums">{pesos(Number(v.precio_m2))}</td>
                 <td className="td tabular-nums font-semibold">{pesos(Number(v.total))}</td>

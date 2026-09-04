@@ -1,62 +1,191 @@
 @import "tailwindcss";
 
+/* ══════════════════════════════════════════════════════════════
+   Sistema de diseño — Verde A Tus Pies
+
+   Los nombres de escala viejos (hoja-*, tierra-*, y los amber/red/blue
+   de Tailwind) apuntan ahora a los colores nuevos. Así las 12 pantallas
+   toman el diseño sin tocar una sola clase en cada archivo.
+   ══════════════════════════════════════════════════════════════ */
+
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: Figtree, ui-sans-serif, system-ui, sans-serif;
 
-  --color-hoja-50: #f1fdf5;
-  --color-hoja-100: #dcfce9;
-  --color-hoja-200: #bbf7d2;
-  --color-hoja-300: #86efb0;
-  --color-hoja-400: #4ade82;
-  --color-hoja-500: #22c55e;
-  --color-hoja-600: #16a34a;
-  --color-hoja-700: #15803c;
-  --color-hoja-800: #166533;
-  --color-hoja-900: #14532b;
+  /* --- Verdes ------------------------------------------------ */
+  --color-pasto: #1e5631; /* dominante: botón principal, links, acentos */
+  --color-pasto-oscuro: #143c22; /* cabeceras, títulos, tarjeta destacada */
+  --color-pasto-medio: #2f7a45; /* hover del principal, mes en curso */
+  --color-brote: #8fd14f; /* solo sobre verde oscuro: marca */
+  --color-pasto-claro: #a9c4b0; /* texto secundario sobre verde oscuro */
+  --color-pasto-nav: #c6d8cb; /* menú inactivo sobre verde oscuro */
+  --color-borde-boton: #cfd8c9; /* borde del botón secundario */
 
-  --color-tierra-50: #f8f8ff;
-  --color-tierra-100: #f1f2f6;
-  --color-tierra-200: #e3e5ec;
-  --color-tierra-400: #9ba1b0;
-  --color-tierra-600: #5b6273;
-  --color-tierra-800: #2b303c;
-  --color-tierra-900: #16181f;
+  /* --- Fondos y neutros -------------------------------------- */
+  --color-crema: #fbf8f1; /* fondo de pantalla y de campos */
+  --color-beige: #f2ede2; /* separa sin línea: cabecera de tabla, filas */
+  --color-borde: #e7e0d2; /* hairline, solo donde el fondo no alcanza */
+  --color-borde-riel: #e2dcce; /* riel de barras sobre beige */
+
+  /* --- Tinta ------------------------------------------------- */
+  --color-tinta: #1a1d18; /* texto principal, datos */
+  --color-tinta-2: #5a6154; /* secundario, cuerpo */
+  --color-tinta-3: #6b7264; /* rótulos chicos. Nunca más claro: se lee con sol */
+  --color-tinta-fuerte: #3f463b; /* números chicos sobre beige */
+
+  /* --- Semáforo de estados ----------------------------------- */
+  --color-urgente-tx: #9e2b25;
+  --color-urgente-bg: #fae7e4;
+  --color-atencion-tx: #8a5200;
+  --color-atencion-bg: #fbefd9;
+  --color-info-tx: #1b5a82;
+  --color-info-bg: #e5eff6;
+  --color-hecho-tx: #1e5631;
+  --color-hecho-bg: #e4efe2;
+  --color-neutro-tx: #5a6154;
+  --color-neutro-bg: #edeae1;
+
+  /* --- Pronóstico -------------------------------------------- */
+  --color-lluvia-fuerte: #1b5a82;
+  --color-lluvia-media: #7fa6c4;
+  --color-lluvia-seca: #c9d3c5;
+
+  /* --- Radios ------------------------------------------------ */
+  --radius-chico: 8px;
+  --radius-campo: 14px;
+  --radius-medio: 16px;
+  --radius-tarjeta: 20px;
+
+  /* --- Sombras: siempre con tinte verde, nunca gris ---------- */
+  --shadow-min: 0 1px 2px rgba(26, 29, 24, 0.05);
+  --shadow-tarjeta: 0 6px 18px -8px rgba(20, 60, 34, 0.16);
+  --shadow-hoja: 0 18px 40px -20px rgba(20, 60, 34, 0.35);
+
+  /* --- Compatibilidad: la paleta vieja apunta a la nueva ----- */
+  --color-hoja-50: #f7faf6;
+  --color-hoja-100: #e4efe2;
+  --color-hoja-200: #cfd8c9;
+  --color-hoja-300: #a9c4b0;
+  --color-hoja-400: #2f7a45;
+  --color-hoja-500: #2f7a45;
+  --color-hoja-600: #1e5631;
+  --color-hoja-700: #1e5631;
+  --color-hoja-800: #143c22;
+  --color-hoja-900: #143c22;
+
+  --color-tierra-50: #fbf8f1;
+  --color-tierra-100: #f2ede2;
+  --color-tierra-200: #e7e0d2;
+  --color-tierra-400: #6b7264;
+  --color-tierra-600: #5a6154;
+  --color-tierra-800: #1a1d18;
+  --color-tierra-900: #1a1d18;
+
+  --color-amber-50: #fbefd9;
+  --color-amber-100: #fbefd9;
+  --color-amber-200: #f0dcb6;
+  --color-amber-700: #8a5200;
+  --color-amber-800: #8a5200;
+
+  --color-red-50: #fae7e4;
+  --color-red-100: #fae7e4;
+  --color-red-200: #f0cdc8;
+  --color-red-600: #9e2b25;
+  --color-red-700: #9e2b25;
+  --color-red-800: #9e2b25;
+
+  --color-blue-50: #e5eff6;
+  --color-blue-100: #e5eff6;
+  --color-blue-200: #c8dced;
+  --color-blue-700: #1b5a82;
+  --color-blue-800: #1b5a82;
 }
 
 :root {
   color-scheme: light;
+  /* Aro de foco: se usa en campos y botones. */
+  --anillo-foco: 0 0 0 4px rgba(30, 86, 49, 0.12);
 }
 
 html,
 body {
-  background: var(--color-tierra-50);
-  color: var(--color-tierra-900);
+  background: var(--color-crema);
+  color: var(--color-tinta);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
 
-/* --- utilidades propias, para no repetir clases --- */
+/* ══════════════════════════════════════════════════════════════
+   Utilidades propias
+   ══════════════════════════════════════════════════════════════ */
+
+/* --- 1 · Tarjeta ------------------------------------------- */
 .card {
-  @apply rounded-2xl border border-tierra-200 bg-white p-5;
+  @apply rounded-2xl border border-borde bg-white p-4 shadow-[0_1px_2px_rgba(26,29,24,.05)];
 }
+
+/* --- 4 · Campo de formulario -------------------------------- */
 .label {
-  @apply mb-1 block text-xs font-medium text-tierra-600;
+  @apply mb-1 block text-xs font-bold text-tinta-2;
 }
 .input {
-  @apply w-full rounded-xl border border-tierra-200 bg-white px-3 py-2 text-sm outline-none focus:border-hoja-500 focus:ring-2 focus:ring-hoja-200;
+  /* 16px de fuente evita el zoom automático de iOS. 44px de alto sigue
+     siendo un objetivo de toque cómodo y ocupa cuatro píxeles menos. */
+  @apply h-11 w-full rounded-xl border-[1.5px] border-borde bg-crema px-3 text-base text-tinta outline-none transition sm:h-9 sm:text-sm;
 }
+.input:focus,
+.input:focus-visible {
+  background: #fff;
+  border-color: var(--color-pasto);
+  box-shadow: var(--anillo-foco);
+}
+.input::placeholder {
+  color: var(--color-tinta-3);
+}
+.input:disabled {
+  opacity: 0.4;
+}
+/* Los <select> y <textarea> con .input no llevan alto fijo. */
+select.input {
+  @apply py-0;
+}
+textarea.input {
+  @apply h-auto py-3;
+}
+
+/* --- 5 · Botones -------------------------------------------- */
 .btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-hoja-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-hoja-700 disabled:opacity-50;
+  @apply inline-flex min-h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-pasto px-5 text-base font-semibold text-crema transition hover:bg-pasto-medio active:scale-[.98] disabled:opacity-40 disabled:active:scale-100 sm:min-h-10 sm:text-sm;
 }
 .btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-tierra-200 bg-white px-4 py-2 text-sm font-semibold text-tierra-800 transition hover:bg-tierra-100;
+  @apply inline-flex min-h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full border-[1.5px] border-borde-boton bg-white px-5 text-base font-semibold text-pasto transition hover:bg-hecho-bg active:scale-[.98] sm:min-h-10 sm:text-sm;
 }
+/* La acción principal de una pantalla: más alta y a todo el ancho. */
+.btn-alto {
+  @apply min-h-[52px] w-full text-[17px] sm:min-h-10 sm:w-auto sm:text-sm;
+}
+.btn:focus-visible,
+.btn-ghost:focus-visible {
+  outline: none;
+  box-shadow: var(--anillo-foco);
+}
+
+/* --- 6 · Chip de estado (no es tocable) --------------------- */
 .chip {
-  @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold;
+  @apply inline-flex items-center whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-bold;
 }
+
+/* --- 3 · Tabla ---------------------------------------------- */
 .th {
-  @apply px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-tierra-600;
+  @apply bg-beige px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[.06em] text-tinta-2;
 }
 .td {
-  @apply px-3 py-2.5 text-sm text-tierra-800;
+  @apply px-3 py-2 text-sm text-tinta;
+}
+
+/* --- Movimiento --------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

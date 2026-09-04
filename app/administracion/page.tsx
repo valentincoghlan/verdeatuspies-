@@ -1,242 +1,228 @@
 import { createClient } from "@/lib/supabase/server";
-import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
-import { Campo, Nota, Selector } from "@/components/campos";
-import Barras from "@/components/barras";
-import { borrarCobro, borrarPago, crearCobro, crearPago } from "@/lib/actions";
-import { fechaLarga, hoyISO, numero, pesos } from "@/lib/format";
+import { Card, PageHeader, Stat, Tabla } from "@/components/ui";
+import { Campo, Nota, Opciones, Selector } from "@/components/campos";
+import { Elegir } from "@/components/elegir";
+import { CuentaYMonto } from "@/components/plata";
+import { QuePaso } from "@/components/que-paso";
+import { Confirmar } from "@/components/confirmar";
+import { FiltroFechas, resolverRango } from "@/components/filtro-fechas";
+import { borrarMovimiento, crearMovimiento, crearPersona } from "@/lib/actions";
+import { fechaBreve, hoyISO, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const MEDIOS = [
-  { value: "transferencia", label: "Transferencia" },
-  { value: "efectivo", label: "Efectivo" },
-  { value: "cheque", label: "Cheque" },
-  { value: "mercadopago", label: "Mercado Pago" },
+const TIPOS_PERSONA = [
+  { value: "proveedor", label: "Proveedor" },
+  { value: "comprador", label: "Comprador" },
+  { value: "empleado", label: "Empleado" },
+  { value: "socio", label: "Socio" },
   { value: "otro", label: "Otro" },
 ];
 
-const CATEGORIAS = [
-  { value: "fertilizante", label: "Fertilizante" },
-  { value: "insumos", label: "Insumos" },
-  { value: "combustible", label: "Combustible" },
-  { value: "mano_de_obra", label: "Mano de obra" },
-  { value: "maquinaria", label: "Maquinaria" },
-  { value: "flete", label: "Flete" },
-  { value: "servicios", label: "Servicios" },
-  { value: "impuestos", label: "Impuestos" },
-  { value: "otro", label: "Otro" },
-];
-
-export default async function AdministracionPage() {
+export default async function CajaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ p?: string; desde?: string; hasta?: string }>;
+}) {
+  const sp = await searchParams;
+  const rango = resolverRango(sp);
   const supabase = await createClient();
   const hoy = hoyISO();
-  const inicioMes = `${hoy.slice(0, 7)}-01`;
-  const inicioAnio = `${hoy.slice(0, 4)}-01-01`;
 
   const [
-    { data: clientes },
-    { data: lotes },
-    { data: ventasAbiertas },
-    { data: cobros },
-    { data: pagos },
     { data: cuentas },
+    { data: categorias },
+    { data: personas },
+    { data: lotes },
+    { data: movs },
+    { data: totales },
+    { data: cotizacion },
   ] = await Promise.all([
-    supabase.from("clientes").select("id, nombre").eq("activo", true).order("nombre"),
+    supabase.from("cuentas").select("*").eq("activa", true).order("orden"),
+    supabase.from("categorias").select("*").eq("activa", true).order("orden"),
+    supabase.from("personas").select("*").eq("activa", true).order("nombre"),
     supabase.from("lotes").select("id, nombre").eq("activo", true).order("nombre"),
     supabase
-      .from("ventas")
-      .select("id, fecha, total, m2, clientes(nombre)")
-      .neq("estado", "anulada")
+      .from("v_movimientos")
+      .select("*")
+      .gte("fecha", rango.desde)
+      .lte("fecha", rango.hasta)
       .order("fecha", { ascending: false })
-      .limit(50),
+      .limit(300),
+    // Los totales se calculan sobre TODO el período, no sobre las 300 filas
+    // que se muestran en la tabla.
     supabase
-      .from("cobros")
-      .select("*, clientes(nombre), ventas(fecha, m2)")
-      .gte("fecha", inicioAnio)
+      .from("movimientos")
+      // `monto` está siempre en pesos, sin importar en qué moneda se
+      // escribió: por eso se suman todos.
+      .select("tipo, monto")
+      .gte("fecha", rango.desde)
+      .lte("fecha", rango.hasta),
+    supabase
+      .from("cotizaciones")
+      .select("mep")
       .order("fecha", { ascending: false })
-      .limit(80),
-    supabase.from("pagos").select("*, lotes(nombre)").gte("fecha", inicioAnio).order("fecha", { ascending: false }).limit(80),
-    supabase.from("v_cuenta_clientes").select("*").order("saldo", { ascending: false }),
+      .limit(1)
+      .maybeSingle(),
   ]);
 
-  const cobradoMes = (cobros ?? [])
-    .filter((c: any) => c.fecha >= inicioMes)
-    .reduce((a: number, c: any) => a + Number(c.monto ?? 0), 0);
-  const pagadoMes = (pagos ?? [])
-    .filter((p: any) => p.fecha >= inicioMes)
-    .reduce((a: number, p: any) => a + Number(p.monto ?? 0), 0);
-  const cobradoAnio = (cobros ?? []).reduce((a: number, c: any) => a + Number(c.monto ?? 0), 0);
-  const pagadoAnio = (pagos ?? []).reduce((a: number, p: any) => a + Number(p.monto ?? 0), 0);
-  const porCobrar = (cuentas ?? []).reduce(
-    (a: number, c: any) => a + Math.max(0, Number(c.saldo ?? 0)),
-    0,
-  );
+  const mep = cotizacion?.mep ? Number(cotizacion.mep) : null;
 
-  const porCategoria = new Map<string, number>();
-  for (const p of pagos ?? []) {
-    const k = (p as any).categoria as string;
-    porCategoria.set(k, (porCategoria.get(k) ?? 0) + Number((p as any).monto ?? 0));
-  }
-  const serieCategorias = [...porCategoria.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([k, v]) => ({
-      label: CATEGORIAS.find((c) => c.value === k)?.label.slice(0, 12) ?? k,
-      valor: v,
+  const lista = (movs ?? []) as any[];
+  const todos = (totales ?? []) as any[];
+  const ingresos = todos.filter((m) => m.tipo === "I").reduce((a, m) => a + Number(m.monto), 0);
+  const egresos = todos.filter((m) => m.tipo === "E").reduce((a, m) => a + Number(m.monto), 0);
+
+  // El saldo en pesos y el de dólares se cuentan por separado: una misma
+  // cuenta puede tener movimientos en las dos monedas.
+
+
+  // Cada rubro con lo que le cuelga: el formulario los pide en dos pasos.
+  const rubros = (categorias ?? [])
+    .filter((c: any) => !c.padre_id)
+    .map((p: any) => ({
+      nombre: p.nombre as string,
+      tipo: (p.tipo ?? "ambos") as string,
+      hijos: (categorias ?? [])
+        .filter((c: any) => c.padre_id === p.id)
+        .map((h: any) => ({ nombre: h.nombre as string, tipo: (h.tipo ?? "ambos") as string })),
     }));
 
-  const deudores = (cuentas ?? []).filter((c: any) => Number(c.saldo ?? 0) > 0);
+  const opcionesCuenta = (cuentas ?? []).map((c: any) => ({
+    nombre: c.nombre as string,
+    moneda: (c.moneda ?? "ARS") as string,
+  }));
+  const nombresPersona = (personas ?? []).map((p: any) => p.nombre as string);
+  const opcionesLote = (lotes ?? []).map((l: any) => ({ value: l.id, label: l.nombre }));
 
   return (
     <>
       <PageHeader
-        titulo="Administración"
-        bajada="Cobros, pagos y saldo de cada cliente. La caja del campo."
+        titulo="Caja"
+        bajada={`Del ${fechaBreve(rango.desde)} al ${fechaBreve(rango.hasta)}`}
       />
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Stat label="Cobrado del mes" valor={pesos(cobradoMes)} tono="verde" />
-        <Stat label="Pagado del mes" valor={pesos(pagadoMes)} tono="ambar" />
-        <Stat
-          label={`Resultado de caja ${hoy.slice(0, 4)}`}
-          valor={pesos(cobradoAnio - pagadoAnio)}
-          detalle={`Cobros ${pesos(cobradoAnio)} · Pagos ${pesos(pagadoAnio)}`}
-        />
-        <Stat label="Por cobrar" valor={pesos(porCobrar)} detalle={`${deudores.length} clientes con saldo`} />
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+        <Stat label="Saldo" valor={pesos(ingresos - egresos)} destacado />
+        <Stat label="Entró" valor={pesos(ingresos)} tono="verde" />
+        <Stat label="Salió" valor={pesos(egresos)} tono="ambar" />
+        <Stat label="Movimientos" valor={String(todos.length)} />
       </div>
 
-      <div className="mt-4 grid gap-4 lg:grid-cols-2">
-        <Card titulo="Registrar cobro">
-          <form action={crearCobro} className="grid grid-cols-2 gap-3">
-            <Selector
-              label="Cliente"
-              name="cliente_id"
-              required
-              vacio="Elegí un cliente"
-              opciones={(clientes ?? []).map((c: any) => ({ value: c.id, label: c.nombre }))}
-              className="col-span-2"
-            />
-            <Selector
-              label="Venta (opcional)"
-              name="venta_id"
-              vacio="Sin imputar"
-              opciones={(ventasAbiertas ?? []).map((v: any) => ({
-                value: v.id,
-                label: `${fechaLarga(v.fecha)} · ${v.clientes?.nombre} · ${pesos(Number(v.total))}`,
-              }))}
-              className="col-span-2"
-            />
-            <Campo label="Fecha" name="fecha" type="date" required defaultValue={hoy} />
-            <Campo label="Monto" name="monto" type="number" required placeholder="0" />
-            <Selector label="Medio" name="medio" defaultValue="transferencia" opciones={MEDIOS} />
-            <Nota className="col-span-2" />
-            <div className="col-span-2">
-              <button className="btn">Guardar cobro</button>
-            </div>
-          </form>
-        </Card>
+      <div className="mt-3 space-y-3">
+        <FiltroFechas base="/administracion" activo={sp.p} rango={rango} />
 
-        <Card titulo="Registrar pago">
-          <form action={crearPago} className="grid grid-cols-2 gap-3">
-            <Campo label="Proveedor / concepto" name="proveedor" className="col-span-2" />
-            <Selector label="Categoría" name="categoria" defaultValue="insumos" opciones={CATEGORIAS} />
+        <Card titulo="Cargar un movimiento">
+          <form action={crearMovimiento} className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {/* Qué pasó */}
+            <QuePaso rubros={rubros} />
+
+            {/* Cuánto */}
+            <CuentaYMonto cuentas={opcionesCuenta} mep={mep} />
+            <Campo
+              label="Fecha"
+              name="fecha"
+              type="date"
+              required
+              defaultValue={hoy}
+              className="col-span-2 sm:col-span-1"
+            />
+
+            {/* Con quién y dónde */}
+            <Elegir
+              label="Persona"
+              name="persona"
+              opciones={nombresPersona.map((n) => ({ value: n, label: n }))}
+              vacio="Sin especificar"
+              opcional
+              permiteNuevo
+              className="col-span-2 sm:col-span-1"
+            />
             <Selector
-              label="Lote (opcional)"
+              label="Lote"
               name="lote_id"
               vacio="General"
-              opciones={(lotes ?? []).map((l: any) => ({ value: l.id, label: l.nombre }))}
+              opciones={opcionesLote}
+              className="col-span-2 sm:col-span-1"
             />
-            <Campo label="Fecha" name="fecha" type="date" required defaultValue={hoy} />
-            <Campo label="Monto" name="monto" type="number" required placeholder="0" />
-            <Selector label="Medio" name="medio" defaultValue="transferencia" opciones={MEDIOS} />
-            <Nota className="col-span-2" />
-            <div className="col-span-2">
-              <button className="btn">Guardar pago</button>
+            <Campo
+              label="Detalle"
+              name="detalle"
+              placeholder="Qué se compró o por qué se cobró"
+              className="col-span-2 sm:col-span-1"
+            />
+
+            <div className="col-span-2 sm:col-span-3">
+              <button className="btn btn-alto sm:w-auto">Guardar movimiento</button>
             </div>
           </form>
         </Card>
-      </div>
 
-      <div className="mt-4 space-y-4">
-        <Card titulo="Saldos por cliente">
-          <Tabla cabeceras={["Cliente", "Vendido", "Cobrado", "Saldo"]} vacio="Sin movimientos.">
-            {(cuentas ?? [])
-              .filter((c: any) => Number(c.total_vendido ?? 0) !== 0 || Number(c.total_cobrado ?? 0) !== 0)
-              .map((c: any) => {
-                const saldo = Number(c.saldo ?? 0);
-                return (
-                  <tr key={c.cliente_id}>
-                    <td className="td font-medium">{c.nombre}</td>
-                    <td className="td tabular-nums">{pesos(Number(c.total_vendido ?? 0))}</td>
-                    <td className="td tabular-nums">{pesos(Number(c.total_cobrado ?? 0))}</td>
-                    <td
-                      className={
-                        "td tabular-nums font-semibold " +
-                        (saldo > 0 ? "text-amber-700" : saldo < 0 ? "text-blue-700" : "")
-                      }
-                    >
-                      {pesos(saldo)}
-                    </td>
-                  </tr>
-                );
-              })}
-          </Tabla>
-        </Card>
-
-        <Card titulo={`Pagos por categoría ${hoy.slice(0, 4)}`}>
-          <Barras datos={serieCategorias} formato={(n) => pesos(n)} />
-        </Card>
-
-        <Card titulo="Cobros">
-          <Tabla cabeceras={["Fecha", "Cliente", "Monto", "Medio", "Imputado a", ""]} vacio="Sin cobros cargados.">
-            {(cobros ?? []).map((c: any) => (
-              <tr key={c.id}>
-                <td className="td whitespace-nowrap">{fechaLarga(c.fecha)}</td>
-                <td className="td font-medium">{c.clientes?.nombre}</td>
-                <td className="td tabular-nums font-semibold text-hoja-700">{pesos(Number(c.monto))}</td>
+        <Card titulo="Movimientos">
+          {todos.length > lista.length && (
+            <p className="mb-3 text-sm text-tinta-2">
+              Mostrando los {lista.length} más recientes de {todos.length} del período. Achicá el
+              rango de fechas para ver el resto.
+            </p>
+          )}
+          <Tabla
+            cabeceras={["Fecha", "Categoría", "Persona", "Detalle", "Cuenta", "Monto", ""]}
+            soloEnCompu={[3, 4]}
+            vacio="No hay movimientos en este período."
+          >
+            {lista.map((m) => (
+              <tr key={m.id}>
+                <td className="td whitespace-nowrap">{fechaBreve(m.fecha)}</td>
                 <td className="td">
-                  <Chip>{c.medio}</Chip>
+                  <span className="font-semibold">{m.categoria ?? "—"}</span>
+                  {m.subcategoria && (
+                    <span className="block text-xs text-tinta-3">{m.subcategoria}</span>
+                  )}
                 </td>
-                <td className="td text-xs text-tierra-600">
-                  {c.ventas ? `Venta ${fechaLarga(c.ventas.fecha)} · ${numero(c.ventas.m2)} m²` : "—"}
+                <td className="td">
+                  {m.persona ?? "—"}
+                  {m.metros ? (
+                    <span className="block text-xs text-tinta-3">{numero(m.metros)} m²</span>
+                  ) : null}
+                </td>
+                <td className="td hidden text-tinta-2 sm:table-cell">{m.detalle ?? "—"}</td>
+                <td className="td hidden text-tinta-2 sm:table-cell">{m.cuenta ?? "—"}</td>
+                <td
+                  className={
+                    "td whitespace-nowrap tabular-nums font-semibold " +
+                    (m.tipo === "I" ? "text-pasto" : "text-atencion-tx")
+                  }
+                >
+                  {m.tipo === "I" ? "+" : "−"} {pesos(Number(m.monto))}
                 </td>
                 <td className="td text-right">
-                  <form action={borrarCobro}>
-                    <input type="hidden" name="id" value={c.id} />
-                    <button className="text-xs font-semibold text-tierra-400 hover:text-red-600">
-                      Borrar
-                    </button>
-                  </form>
+                  <Confirmar
+                    action={borrarMovimiento}
+                    campos={{ id: m.id }}
+                    etiqueta="×"
+                    pregunta="¿Borrar este movimiento?"
+                    compacto
+                  />
                 </td>
               </tr>
             ))}
           </Tabla>
         </Card>
 
-        <Card titulo="Pagos">
-          <Tabla cabeceras={["Fecha", "Proveedor", "Categoría", "Lote", "Monto", "Medio", ""]} vacio="Sin pagos cargados.">
-            {(pagos ?? []).map((p: any) => (
-              <tr key={p.id}>
-                <td className="td whitespace-nowrap">{fechaLarga(p.fecha)}</td>
-                <td className="td font-medium">{p.proveedor ?? "—"}</td>
-                <td className="td">
-                  <Chip tono="ambar">
-                    {CATEGORIAS.find((c) => c.value === p.categoria)?.label ?? p.categoria}
-                  </Chip>
-                </td>
-                <td className="td text-xs text-tierra-600">{p.lotes?.nombre ?? "General"}</td>
-                <td className="td tabular-nums font-semibold">{pesos(Number(p.monto))}</td>
-                <td className="td text-xs text-tierra-600">{p.medio}</td>
-                <td className="td text-right">
-                  <form action={borrarPago}>
-                    <input type="hidden" name="id" value={p.id} />
-                    <button className="text-xs font-semibold text-tierra-400 hover:text-red-600">
-                      Borrar
-                    </button>
-                  </form>
-                </td>
-              </tr>
-            ))}
-          </Tabla>
+        <Card titulo="Agregar una persona">
+          <form action={crearPersona} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Campo label="Nombre" name="nombre" required className="col-span-2" />
+            <Selector label="Qué es" name="tipo_persona" defaultValue="proveedor" opciones={TIPOS_PERSONA} />
+            <Campo label="Teléfono" name="telefono" />
+            <Nota className="col-span-2 sm:col-span-4" />
+            <div className="col-span-2 sm:col-span-4">
+              <button className="btn-ghost">Agregar</button>
+            </div>
+          </form>
+          <p className="mt-3 text-sm text-tinta-2">
+            Son los proveedores, empleados, compradores y socios con los que operás. Sirve para
+            saber cuánto le pagaste a cada uno sin buscar en el detalle.
+          </p>
         </Card>
       </div>
     </>

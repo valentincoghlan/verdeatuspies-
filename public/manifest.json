@@ -1,0 +1,13 @@
+{
+  "name": "Verde A Tus Pies",
+  "short_name": "Verde",
+  "description": "La gestión del campo: mantenimiento, ventas y plata.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fbf8f1",
+  "theme_color": "#1e5631",
+  "icons": [
+    { "src": "/icono-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icono-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

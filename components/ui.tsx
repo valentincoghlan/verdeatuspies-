@@ -11,44 +11,119 @@ export function PageHeader({
   accion?: ReactNode;
 }) {
   return (
-    <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">{titulo}</h1>
-        {bajada && <p className="mt-1 text-sm text-tierra-600">{bajada}</p>}
+        <h1 className="text-2xl font-semibold leading-tight tracking-[-.015em] text-pasto-oscuro">
+          {titulo}
+        </h1>
+        {bajada && <p className="mt-1 text-sm text-tinta-2">{bajada}</p>}
       </div>
       {accion}
     </div>
   );
 }
 
+/**
+ * Número grande.
+ *
+ * `destacado` lo pinta sobre verde oscuro: va uno solo por pantalla, el dato
+ * del día. Si hay dos, dejan de destacarse entre sí.
+ */
 export function Stat({
   label,
   valor,
   detalle,
   tono = "neutro",
+  destacado,
 }: {
   label: string;
   valor: ReactNode;
   detalle?: ReactNode;
   tono?: "neutro" | "verde" | "ambar" | "rojo";
+  destacado?: boolean;
 }) {
   const tonos = {
-    neutro: "text-tierra-900",
-    verde: "text-hoja-700",
-    ambar: "text-amber-700",
-    rojo: "text-red-700",
+    neutro: "text-pasto-oscuro",
+    verde: "text-pasto",
+    ambar: "text-atencion-tx",
+    rojo: "text-urgente-tx",
   } as const;
 
+  // Los montos del histórico tienen muchos más dígitos que los del día a
+  // día: si no achicamos, "-$ 59.790.594" se corta contra el borde.
+  const largo = typeof valor === "string" ? valor.length : 0;
+  const tam =
+    largo > 13
+      ? "text-lg sm:text-xl"
+      : largo > 10
+        ? "text-xl sm:text-2xl"
+        : "text-2xl sm:text-[28px]";
+  const tamDestacado =
+    largo > 13
+      ? "text-lg sm:text-2xl"
+      : largo > 10
+        ? "text-xl sm:text-[28px]"
+        : "text-2xl sm:text-[32px]";
+
+  if (destacado) {
+    return (
+      <div className="rounded-2xl bg-pasto-oscuro p-3.5 sm:p-4">
+        <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[.08em] text-pasto-claro">
+          {label}
+        </p>
+        <p className={`font-bold leading-none tracking-[-.02em] tabular-nums text-crema ${tamDestacado}`}>
+          {valor}
+        </p>
+        {detalle && <p className="mt-1 text-xs text-pasto-claro">{detalle}</p>}
+      </div>
+    );
+  }
+
   return (
-    <div className="card">
-      <p className="text-xs font-medium uppercase tracking-wide text-tierra-600">
+    <div className="rounded-2xl border border-borde bg-white p-3.5 shadow-[0_1px_2px_rgba(26,29,24,.05)] sm:p-4">
+      <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[.08em] text-tinta-3">
         {label}
       </p>
-      <p className={`mt-1.5 text-2xl font-bold tabular-nums ${tonos[tono]}`}>
+      <p className={`font-bold leading-none tracking-[-.02em] tabular-nums ${tam} ${tonos[tono]}`}>
         {valor}
       </p>
-      {detalle && <p className="mt-1 text-xs text-tierra-600">{detalle}</p>}
+      {detalle && <p className="mt-1 text-xs text-tinta-2">{detalle}</p>}
     </div>
+  );
+}
+
+/**
+ * Tarjeta que arranca cerrada.
+ *
+ * Para lo que está siempre pero casi nunca se mira: historiales, listas
+ * largas, formularios de carga a mano. Deja la pantalla respirando sin
+ * esconder nada.
+ */
+export function Plegable({
+  titulo,
+  detalle,
+  abierta,
+  children,
+}: {
+  titulo: string;
+  detalle?: string;
+  abierta?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <details open={abierta} className="card group p-0">
+      <summary className="flex cursor-pointer list-none items-center gap-2 p-4">
+        <h2 className="text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">{titulo}</h2>
+        {detalle && <span className="text-xs text-tinta-3">{detalle}</span>}
+        <span
+          aria-hidden
+          className="ml-auto text-xs text-tinta-3 transition group-open:rotate-180"
+        >
+          ▾
+        </span>
+      </summary>
+      <div className="px-4 pb-4">{children}</div>
+    </details>
   );
 }
 
@@ -66,8 +141,12 @@ export function Card({
   return (
     <section id={id} className="card">
       {(titulo || accion) && (
-        <div className="mb-4 flex items-center justify-between gap-3">
-          {titulo && <h2 className="text-sm font-bold uppercase tracking-wide text-tierra-600">{titulo}</h2>}
+        <div className="mb-3 flex items-center justify-between gap-3">
+          {titulo && (
+            <h2 className="text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
+              {titulo}
+            </h2>
+          )}
           {accion}
         </div>
       )}
@@ -80,34 +159,37 @@ export function Tabla({
   cabeceras,
   children,
   vacio,
+  soloEnCompu = [],
 }: {
   cabeceras: string[];
   children: ReactNode;
   vacio?: string;
+  /** Índices de columnas que se esconden en el celular. */
+  soloEnCompu?: number[];
 }) {
   const sinFilas = !children || (Array.isArray(children) && children.length === 0);
 
   if (sinFilas) {
     return (
-      <p className="py-6 text-center text-sm text-tierra-400">
+      <p className="rounded-xl bg-crema py-6 text-center text-sm text-tinta-2">
         {vacio ?? "Todavía no hay registros."}
       </p>
     );
   }
 
   return (
-    <div className="-mx-5 overflow-x-auto px-5">
-      <table className="w-full min-w-[560px] border-collapse">
+    <div className="-mx-4 overflow-x-auto px-4">
+      <table className={"w-full border-collapse overflow-hidden rounded-xl " + (soloEnCompu.length ? "" : "min-w-[520px]")}>
         <thead>
-          <tr className="border-b border-tierra-200">
-            {cabeceras.map((c) => (
-              <th key={c} className="th">
+          <tr>
+            {cabeceras.map((c, i) => (
+              <th key={c} className={"th " + (soloEnCompu.includes(i) ? "hidden sm:table-cell" : "")}>
                 {c}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-tierra-100">{children}</tbody>
+        <tbody className="divide-y divide-beige">{children}</tbody>
       </table>
     </div>
   );
@@ -121,11 +203,11 @@ export function Chip({
   tono?: "neutro" | "verde" | "ambar" | "rojo" | "azul";
 }) {
   const tonos = {
-    neutro: "bg-tierra-100 text-tierra-800",
-    verde: "bg-hoja-100 text-hoja-800",
-    ambar: "bg-amber-100 text-amber-800",
-    rojo: "bg-red-100 text-red-800",
-    azul: "bg-blue-100 text-blue-800",
+    neutro: "bg-neutro-bg text-neutro-tx",
+    verde: "bg-hecho-bg text-hecho-tx",
+    ambar: "bg-atencion-bg text-atencion-tx",
+    rojo: "bg-urgente-bg text-urgente-tx",
+    azul: "bg-info-bg text-info-tx",
   } as const;
   return <span className={`chip ${tonos[tono]}`}>{children}</span>;
 }

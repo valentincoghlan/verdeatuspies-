@@ -33,13 +33,13 @@ export default async function ClientesPage() {
     <>
       <PageHeader titulo="Clientes" bajada="Quién compró, cuántos m² y cuánto debe." />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-3">
         <Stat label="Clientes" valor={numero((clientes ?? []).length)} />
         <Stat label="m² vendidos (histórico)" valor={m2(totalM2)} tono="verde" />
         <Stat label="Saldo por cobrar" valor={pesos(totalSaldo)} tono={totalSaldo > 0 ? "ambar" : "neutro"} />
       </div>
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-3 space-y-3">
         <Card titulo="Nuevo cliente">
           <form action={crearCliente} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Campo label="Nombre" name="nombre" required className="col-span-2" />

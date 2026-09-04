@@ -70,8 +70,17 @@ middleware.ts                    protege todas las rutas menos /login, /auth y /
   de cliente solo donde hay estado real (hoy: `components/nav-links.tsx` y
   `app/login/login-form.tsx`).
 - **Estilos**: usá las utilidades propias definidas en `app/globals.css` — `.card`,
-  `.input`, `.label`, `.btn`, `.btn-ghost`, `.chip`, `.th`, `.td`. Paleta `hoja-*`
-  (verdes) y `tierra-*` (neutros). Tipografía Inter, nada de serifs ni monoespaciadas.
+  `.input`, `.label`, `.btn`, `.btn-ghost`, `.btn-alto`, `.chip`, `.th`, `.td`.
+  Tipografía **Figtree**, nada de serifs ni monoespaciadas. Paleta:
+  `pasto` / `pasto-oscuro` / `pasto-medio` (verdes), `crema` / `beige` / `borde`
+  (fondos cálidos), `tinta` / `tinta-2` / `tinta-3` (texto), y el semáforo
+  `urgente-*` / `atencion-*` / `info-*` / `hecho-*` / `neutro-*` en pares
+  texto+fondo. Los nombres viejos (`hoja-*`, `tierra-*`) siguen existiendo
+  apuntando a los colores nuevos: no los uses en código nuevo.
+- **Piso de toque**: 48px de alto en todo lo tocable (botones, campos, tabs).
+  Se usa parada en el campo, con el celular en una mano. Los chips de estado no
+  son tocables y quedan afuera de la regla.
+- **Contraste**: mínimo 4,5:1 en todo texto, también en 12px. Se lee con sol.
 - **Gráficos**: sin librerías. `components/barras.tsx` (divs + Tailwind), una sola serie
   y un solo tono. Si hace falta algo más complejo, preguntá antes de sumar una dependencia.
 - **Fechas**: se guardan y comparan como texto ISO `yyyy-mm-dd`. Usá los helpers de

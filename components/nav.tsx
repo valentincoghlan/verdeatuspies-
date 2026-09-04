@@ -1,6 +1,13 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import NavLinks from "./nav-links";
+import BarraLateral from "./barra-lateral";
+import MenuCompleto from "./menu-completo";
+import BarraInferior from "./barra-inferior";
+
+/** "Valentín Coghlan" -> "Valentín". El saludo va con el nombre de pila. */
+function nombrePila(nombre: string) {
+  return nombre.trim().split(/\s+/)[0];
+}
 
 export default async function Nav() {
   const supabase = await createClient();
@@ -18,38 +25,35 @@ export default async function Nav() {
       .eq("resuelta", false),
   ]);
 
+  const nombre = nombrePila(perfil?.nombre ?? user.email ?? "");
+  const email = user.email ?? "";
+  const abiertas = pendientes ?? 0;
+
   return (
-    <header className="sticky top-0 z-20 border-b border-tierra-200 bg-white/90 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3">
-        <Link href="/" className="flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-xl bg-hoja-600 text-sm font-bold text-white">
-            V
-          </span>
-          <span className="text-sm font-bold leading-tight">
-            Verde A Tus Pies
-          </span>
-        </Link>
-        <div className="flex items-center gap-3">
-          {(pendientes ?? 0) > 0 && (
-            <Link
-              href="/#alertas"
-              className="chip bg-amber-100 text-amber-800"
-              title="Alertas pendientes"
-            >
-              {pendientes} pendiente{(pendientes ?? 0) === 1 ? "" : "s"}
+    <>
+      {/* Compu: menú fijo a la izquierda */}
+      <BarraLateral nombre={nombre} email={email} pendientes={abiertas} />
+
+      {/* Celular: barra arriba con el saludo, y accesos abajo */}
+      <header className="sticky top-0 z-20 bg-pasto-oscuro sm:hidden">
+        <div className="flex items-center justify-between gap-4 px-4 py-3.5">
+          <Link href="/" className="flex items-center gap-2.5">
+            <span className="grid h-9 w-9 place-items-center rounded-full bg-pasto-medio text-sm font-bold text-brote">
+              V
+            </span>
+            <span className="text-[17px] font-bold leading-tight text-crema">Hola {nombre},</span>
+          </Link>
+          {abiertas > 0 && (
+            <Link href="/#alertas" className="chip bg-atencion-bg text-atencion-tx">
+              {abiertas} pendiente{abiertas === 1 ? "" : "s"}
             </Link>
           )}
-          <span className="hidden text-xs text-tierra-600 sm:inline">
-            {perfil?.nombre ?? user.email}
-          </span>
-          <form action="/auth/signout" method="post">
-            <button className="text-xs font-semibold text-tierra-600 hover:text-tierra-900">
-              Salir
-            </button>
-          </form>
         </div>
-      </div>
-      <NavLinks />
-    </header>
+      </header>
+
+      <BarraInferior>
+        <MenuCompleto nombre={nombre} email={email} variante="barra" />
+      </BarraInferior>
+    </>
   );
 }

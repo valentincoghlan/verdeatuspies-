@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
+import { Card, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota, Selector } from "@/components/campos";
 import { borrarCorte, crearCorte } from "@/lib/actions";
-import { diasDesde, fechaLarga, hoyISO, numero, sumarDiasISO } from "@/lib/format";
+import { diasDesde, fechaBreve, fechaLarga, hoyISO, numero } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export default async function CortesPage() {
   const supabase = await createClient();
   const hoy = hoyISO();
 
-  const [{ data: lotes }, { data: estado }, { data: cortes }, { data: ultimos30 }] =
+  const [{ data: lotes }, { data: estado }, { data: cortes }] =
     await Promise.all([
       supabase.from("lotes").select("id, nombre").eq("activo", true).order("nombre"),
       supabase.from("v_estado_lotes").select("*").order("nombre"),
@@ -19,10 +19,7 @@ export default async function CortesPage() {
         .select("*, lotes(nombre)")
         .order("fecha", { ascending: false })
         .limit(60),
-      supabase.from("cortes").select("horas_maquina").gte("fecha", sumarDiasISO(hoy, -30)),
     ]);
-
-  const horas30 = (ultimos30 ?? []).reduce((a, c: any) => a + Number(c.horas_maquina ?? 0), 0);
 
   return (
     <>
@@ -31,7 +28,7 @@ export default async function CortesPage() {
         bajada="Cada corte por lote, con altura y horas de máquina. La app avisa cuando se pasa el objetivo de días."
       />
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-3">
         {(estado ?? []).map((l: any) => {
           const d = diasDesde(l.ultimo_corte);
           const objetivo = Number(l.dias_objetivo_corte ?? 14);
@@ -46,10 +43,9 @@ export default async function CortesPage() {
             />
           );
         })}
-        <Stat label="Horas de máquina (30 días)" valor={numero(horas30, 1)} />
       </div>
 
-      <div className="mt-4 space-y-4">
+      <div className="mt-3 space-y-3">
         <Card titulo="Cargar un corte">
           <form action={crearCorte} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Selector
@@ -78,7 +74,7 @@ export default async function CortesPage() {
           >
             {(cortes ?? []).map((c: any) => (
               <tr key={c.id}>
-                <td className="td whitespace-nowrap">{fechaLarga(c.fecha)}</td>
+                <td className="td whitespace-nowrap">{fechaBreve(c.fecha)}</td>
                 <td className="td font-medium">{c.lotes?.nombre ?? "—"}</td>
                 <td className="td tabular-nums">{c.altura_mm ? `${c.altura_mm} mm` : "—"}</td>
                 <td className="td tabular-nums">{numero(c.superficie_m2)}</td>

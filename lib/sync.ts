@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/server";
 import { traerClima } from "@/lib/clima";
+import { traerMep } from "@/lib/dolar";
 import { enviarMail, plantilla, type NotiMail } from "@/lib/mail";
 import {
   estadoControlador,
@@ -7,6 +8,7 @@ import {
   horaArgentina,
   listarControladores,
   parsearUltimoRiego,
+  SIN_PROGRAMAR,
 } from "@/lib/hydrawise";
 
 type Sb = ReturnType<typeof createAdminClient>;
@@ -21,6 +23,11 @@ function sumarDias(iso: string, dias: number) {
   const d = new Date(`${iso}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + dias);
   return d.toISOString().slice(0, 10);
+}
+
+/** mm con coma decimal, como el resto de la app. */
+function mmTxt(n: number) {
+  return n.toFixed(1).replace(".", ",");
 }
 
 function diasEntre(a: string, b: string) {
@@ -67,6 +74,64 @@ async function noti(
   return (data?.length ?? 0) > 0;
 }
 
+/**
+ * Alta o puesta al día de un aviso de entrega.
+ *
+ * A diferencia de noti(), si el aviso ya existe y sigue abierto le
+ * actualiza el texto: el pronóstico de ese día cambia de una corrida a
+ * otra, y un aviso que quedó congelado con el pronóstico viejo miente.
+ * Si además el clima empeoró hasta ponerse urgente, limpia la marca de
+ * mail enviado para que el digest lo avise de nuevo — una sola vez.
+ *
+ * Un aviso que ya resolviste no se toca.
+ */
+async function avisoEntrega(
+  sb: Sb,
+  n: {
+    tipo: string;
+    titulo: string;
+    mensaje: string;
+    severidad: "info" | "aviso" | "urgente";
+    entidad_id: string;
+    fecha_referencia: string;
+    requiere_accion: boolean;
+    clave_unica: string;
+  },
+) {
+  const fila = {
+    ...n,
+    entidad_tipo: "pedido",
+    accion_url: "/ventas/pedidos",
+  };
+
+  const { data: existente } = await sb
+    .from("notificaciones")
+    .select("id, severidad, resuelta, mail_enviado_at")
+    .eq("clave_unica", n.clave_unica)
+    .maybeSingle();
+
+  if (!existente) {
+    await sb.from("notificaciones").insert(fila);
+    return true;
+  }
+
+  if (existente.resuelta) return false;
+
+  const empeoro = n.severidad === "urgente" && existente.severidad !== "urgente";
+
+  await sb
+    .from("notificaciones")
+    .update({
+      titulo: n.titulo,
+      mensaje: n.mensaje,
+      severidad: n.severidad,
+      ...(empeoro ? { mail_enviado_at: null } : {}),
+    })
+    .eq("id", existente.id);
+
+  return false;
+}
+
 /* =================================================================== */
 /* 1. Hydrawise                                                        */
 /* =================================================================== */
@@ -101,7 +166,22 @@ export async function syncHydrawise() {
         const relayId = String(relay.relay_id ?? relay.relay ?? "");
         if (!relayId) continue;
 
-        // Catálogo de zonas
+        // Catálogo de zonas + lo que tiene programado
+        //
+        // `time` son los segundos que faltan para el próximo riego. Si es
+        // un número enorme, esa zona no tiene nada programado. `run` es
+        // cuánto va a durar ese riego, también en segundos.
+        const faltan = Number(relay.time ?? 0);
+        const programado = faltan > 0 && faltan < SIN_PROGRAMAR;
+        const duracion = Number(relay.run ?? 0);
+
+        // La cuenta se hace con el reloj del controlador, no con el
+        // nuestro: `estado.time` es la hora de Hunter en ese instante, y
+        // sumarle los segundos que faltan da la hora exacta del riego.
+        // Con Date.now() los milisegundos sueltos convertían las 6:00 en
+        // las 5:59.
+        const referencia = Number(estado.time) || Math.floor(ahora.getTime() / 1000);
+
         const { data: zona } = await sb
           .from("riego_zonas")
           .upsert(
@@ -109,6 +189,10 @@ export async function syncHydrawise() {
               nombre: relay.name ?? `Zona ${relay.relay ?? relayId}`,
               hydrawise_controller_id: String(c.controller_id),
               hydrawise_relay_id: relayId,
+              proximo_riego_at: programado
+                ? new Date((referencia + faltan) * 1000).toISOString()
+                : null,
+              proximo_minutos: programado && duracion ? Math.round(duracion / 60) : null,
             },
             { onConflict: "hydrawise_controller_id,hydrawise_relay_id" },
           )
@@ -189,6 +273,29 @@ export async function syncClima() {
 }
 
 /* =================================================================== */
+/* 2b. Dólar MEP                                                       */
+/* =================================================================== */
+
+/** Guarda el MEP del día. Si la API no contesta, no rompe la corrida. */
+export async function syncDolar() {
+  const sb = createAdminClient();
+  const mep = await traerMep();
+  if (!mep) return { ok: false, motivo: "no se pudo leer el dólar MEP" };
+
+  await sb.from("cotizaciones").upsert(
+    {
+      fecha: hoyAR(),
+      mep: mep.valor,
+      fuente: "dolarapi.com",
+      actualizado_at: mep.actualizado,
+    },
+    { onConflict: "fecha" },
+  );
+
+  return { ok: true, mep: mep.valor };
+}
+
+/* =================================================================== */
 /* 3. Alertas                                                          */
 /* =================================================================== */
 
@@ -220,12 +327,12 @@ export async function generarAlertas() {
     const creada = await noti(sb, {
       tipo: "confirmar_lluvia",
       titulo: `¿Llovió en ${ubicacion.nombre} el ${d.fecha.slice(8, 10)}/${d.fecha.slice(5, 7)}?`,
-      mensaje: `El pronóstico marcó ${mmPron.toFixed(1)} mm. Confirmá si llovió y cargá los mm reales del pluviómetro.`,
+      mensaje: `El pronóstico marcó ${mmTxt(mmPron)} mm. Confirmá si llovió y cargá los mm reales del pluviómetro.`,
       severidad: "aviso",
       entidad_tipo: "lluvia",
       fecha_referencia: d.fecha,
       requiere_accion: true,
-      accion_url: "/mantenimiento/lluvias",
+      accion_url: "/mantenimiento/riego",
       clave_unica: `confirmar_lluvia:${d.fecha}`,
     });
     if (creada) nuevas.push("lluvia");
@@ -246,10 +353,10 @@ export async function generarAlertas() {
     const creada = await noti(sb, {
       tipo: "pronostico_lluvia",
       titulo: `Lluvia pronosticada para el ${d.fecha.slice(8, 10)}/${d.fecha.slice(5, 7)}`,
-      mensaje: `${mmPron.toFixed(1)} mm estimados (${d.prob_precipitacion ?? "?"}% de probabilidad). Conviene revisar riego y fertilizaciones agendadas.`,
+      mensaje: `${mmTxt(mmPron)} mm estimados (${d.prob_precipitacion ?? "?"}% de probabilidad). Conviene revisar riego y fertilizaciones agendadas.`,
       severidad: "info",
       fecha_referencia: d.fecha,
-      accion_url: "/mantenimiento/lluvias",
+      accion_url: "/mantenimiento/riego",
       clave_unica: `pronostico_lluvia:${d.fecha}`,
     });
     if (creada) nuevas.push("pronostico");
@@ -336,6 +443,80 @@ export async function generarAlertas() {
     if (creada) nuevas.push("sin_agua");
   }
 
+  /* --- 3f. Entregas de pedidos -------------------------------------- */
+  // Aviso 2 días antes y el día de la entrega. Si el pronóstico marca
+  // lluvia sobre el umbral, el aviso sugiere reprogramar.
+  const { data: pedidos } = await sb
+    .from("ventas")
+    .select("id, fecha_entrega, m2, total, cliente_final, clientes!cliente_id(nombre), lotes(nombre)")
+    .eq("estado", "pedido")
+    .not("fecha_entrega", "is", null)
+    .lte("fecha_entrega", sumarDias(hoy, 2))
+    .order("fecha_entrega");
+
+  const fechasEntrega = [...new Set((pedidos ?? []).map((p: any) => p.fecha_entrega))];
+  const climaEntregas = fechasEntrega.length
+    ? (
+        await sb
+          .from("clima_dias")
+          .select("fecha, precipitacion_mm, prob_precipitacion")
+          .in("fecha", fechasEntrega)
+      ).data
+    : [];
+  const climaPorFecha = new Map(
+    (climaEntregas ?? []).map((c: any) => [c.fecha, c]),
+  );
+
+  for (const p of (pedidos ?? []) as any[]) {
+    const dias = diasEntre(hoy, p.fecha_entrega);
+    const dm = `${p.fecha_entrega.slice(8, 10)}/${p.fecha_entrega.slice(5, 7)}`;
+    const comprador = p.clientes?.nombre ?? "un comprador";
+    const cl = climaPorFecha.get(p.fecha_entrega);
+    const mmPron = Number(cl?.precipitacion_mm ?? 0);
+    const llueve = cl != null && mmPron >= umbralLluvia;
+
+    const clima = !cl
+      ? " Todavía no hay pronóstico para ese día."
+      : llueve
+        ? ` El pronóstico marca ${mmTxt(mmPron)} mm (${cl.prob_precipitacion ?? "?"}%): conviene reprogramar.`
+        : ` Pronóstico: ${mmTxt(mmPron)} mm, sin lluvia importante.`;
+
+    const detalle = `${Number(p.m2).toLocaleString("es-AR")} m² para ${comprador}${
+      p.lotes?.nombre ? ` desde ${p.lotes.nombre}` : ""
+    }.`;
+
+    if (dias > 0) {
+      const creada = await avisoEntrega(sb, {
+        tipo: "entrega_proxima",
+        titulo: llueve
+          ? `Entrega del ${dm} en riesgo por lluvia`
+          : `Entrega el ${dm}: ${comprador}`,
+        mensaje: `${detalle}${clima}`,
+        severidad: llueve ? "urgente" : "aviso",
+        entidad_id: p.id,
+        fecha_referencia: p.fecha_entrega,
+        requiere_accion: false,
+        clave_unica: `entrega_proxima:${p.id}:${p.fecha_entrega}`,
+      });
+      if (creada) nuevas.push("entrega_proxima");
+    } else {
+      const atrasada = dias < 0;
+      const creada = await avisoEntrega(sb, {
+        tipo: "confirmar_entrega",
+        titulo: atrasada
+          ? `¿Se entregó el pedido de ${comprador}? (era el ${dm})`
+          : `¿Se entregó el pedido de ${comprador}?`,
+        mensaje: `${detalle}${clima}`,
+        severidad: atrasada || llueve ? "urgente" : "aviso",
+        entidad_id: p.id,
+        fecha_referencia: p.fecha_entrega,
+        requiere_accion: true,
+        clave_unica: `confirmar_entrega:${p.id}:${p.fecha_entrega}`,
+      });
+      if (creada) nuevas.push("confirmar_entrega");
+    }
+  }
+
   return { ok: true, nuevas: nuevas.length, detalle: nuevas };
 }
 
@@ -391,8 +572,9 @@ export async function enviarDigest() {
 
 export async function correrTodo() {
   const clima = await syncClima();
+  const dolar = await syncDolar();
   const hydrawise = await syncHydrawise();
   const alertas = await generarAlertas();
   const mail = await enviarDigest();
-  return { clima, hydrawise, alertas, mail, at: new Date().toISOString() };
+  return { clima, dolar, hydrawise, alertas, mail, at: new Date().toISOString() };
 }
