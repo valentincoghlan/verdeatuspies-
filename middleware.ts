@@ -3,7 +3,21 @@ import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLICAS = ["/login", "/auth", "/api/cron"];
 
+/**
+ * Los archivos que el navegador pide ANTES de que haya sesión.
+ *
+ * El manifiesto y el archivo de avisos son lo que hace que la app se
+ * pueda agregar a la pantalla de inicio del celular y reciba
+ * notificaciones. El navegador los busca por su cuenta, sin cookies: si
+ * los mandamos al login, el celular entiende que la app no existe.
+ */
+const ARCHIVOS_PUBLICOS = ["/manifest.json", "/sw.js"];
+
 export async function middleware(request: NextRequest) {
+  if (ARCHIVOS_PUBLICOS.includes(request.nextUrl.pathname)) {
+    return NextResponse.next();
+  }
+
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
