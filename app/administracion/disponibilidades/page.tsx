@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Selector } from "@/components/campos";
-import { crearCuenta } from "@/lib/actions";
+import { crearCuenta, ajustarSaldo } from "@/lib/actions";
+import { AjustarSaldo } from "@/components/ajustar-saldo";
 import { fechaBreve, fechaLarga, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -15,15 +16,26 @@ const TIPOS_CUENTA = [
   { value: "otro", label: "Otro" },
 ];
 
-export default async function DisponibilidadesPage() {
+export default async function DisponibilidadesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ aviso?: string }>;
+}) {
+  const { aviso } = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: saldos }, { data: cuentasCli }, { data: aportes }, { data: prestamos }] =
+  const [{ data: saldos }, { data: cuentasCli }, { data: aportes }, { data: prestamos }, { data: yo }] =
     await Promise.all([
     supabase.from("v_saldos_cuentas").select("*").order("orden"),
     supabase.from("v_cuenta_clientes").select("*").order("saldo", { ascending: false }),
     supabase.from("v_aportes").select("*"),
     supabase.from("v_prestamos").select("*"),
+    // Los ajustes de saldo son solo para el dueño.
+    supabase.auth.getUser().then(async ({ data }) =>
+      data.user
+        ? supabase.from("perfiles").select("rol").eq("id", data.user.id).maybeSingle()
+        : { data: null },
+    ),
   ]);
 
   // Las cuentas de los socios no son plata disponible: son aportes, y van
@@ -37,6 +49,8 @@ export default async function DisponibilidadesPage() {
   const totalUsd = lista
     .filter((c) => c.moneda === "USD")
     .reduce((a, c) => a + Number(c.saldo_usd ?? 0), 0);
+
+  const esAdmin = (yo as any)?.rol === "admin";
 
   const socios = (aportes ?? []) as any[];
   const sinCotizacion = socios.reduce((a, s) => a + Number(s.sin_cotizacion ?? 0), 0);
@@ -56,6 +70,12 @@ export default async function DisponibilidadesPage() {
         titulo="Disponibilidades"
         bajada="Cuánta plata hay en cada cuenta y cuánto te deben."
       />
+
+      {aviso && (
+        <div className="mb-3 rounded-2xl border border-borde bg-hecho-bg p-3 text-sm text-pasto-oscuro">
+          {aviso}
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat
@@ -86,7 +106,8 @@ export default async function DisponibilidadesPage() {
       <div className="mt-3 space-y-3">
         <Card titulo="Saldo por cuenta">
           <Tabla
-            cabeceras={["Cuenta", "Tipo", "Movimientos", "Último", "Saldo"]}
+            cabeceras={["Cuenta", "Tipo", "Movimientos", "Último", "Saldo", ""]}
+            soloEnCompu={[1, 2, 3]}
             vacio="Sin cuentas cargadas."
           >
             {lista.map((c) => {
@@ -114,6 +135,14 @@ export default async function DisponibilidadesPage() {
                       : enDolares
                         ? `US$ ${Math.round(saldo).toLocaleString("es-AR")}`
                         : pesos(saldo)}
+                  </td>
+                  <td className="td text-right">
+                    {esAdmin && !enDolares && (
+                      <AjustarSaldo
+                        cuenta={{ id: c.cuenta_id, nombre: c.nombre, saldo }}
+                        accion={ajustarSaldo}
+                      />
+                    )}
                   </td>
                 </tr>
               );

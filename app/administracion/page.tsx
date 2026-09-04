@@ -98,18 +98,11 @@ export default async function CajaPage({
   return (
     <>
       <PageHeader
-        titulo="Caja"
-        bajada={`Del ${fechaBreve(rango.desde)} al ${fechaBreve(rango.hasta)}`}
+        titulo="Movimientos"
+        bajada="Todo lo que entra y sale. Los saldos están en Disponibilidades y el análisis en Reportes."
       />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
-        <Stat label="Saldo" valor={pesos(ingresos - egresos)} destacado />
-        <Stat label="Entró" valor={pesos(ingresos)} tono="verde" />
-        <Stat label="Salió" valor={pesos(egresos)} tono="ambar" />
-        <Stat label="Movimientos" valor={String(todos.length)} />
-      </div>
-
-      <div className="mt-3 space-y-3">
+      <div className="space-y-3">
         <FiltroFechas base="/administracion" activo={sp.p} rango={rango} />
 
         <Card titulo="Cargar un movimiento">
@@ -158,7 +151,13 @@ export default async function CajaPage({
           </form>
         </Card>
 
-        <Card titulo="Movimientos">
+        <Card titulo={`Del ${fechaBreve(rango.desde)} al ${fechaBreve(rango.hasta)}`}>
+          <p className="mb-3 text-sm text-tinta-2">
+            {todos.length} movimientos · entró{" "}
+            <strong className="text-pasto">{pesos(ingresos)}</strong> · salió{" "}
+            <strong className="text-atencion-tx">{pesos(egresos)}</strong> · diferencia{" "}
+            <strong className="text-tinta">{pesos(ingresos - egresos)}</strong>
+          </p>
           {todos.length > lista.length && (
             <p className="mb-3 text-sm text-tinta-2">
               Mostrando los {lista.length} más recientes de {todos.length} del período. Achicá el
@@ -209,21 +208,6 @@ export default async function CajaPage({
           </Tabla>
         </Card>
 
-        <Card titulo="Agregar una persona">
-          <form action={crearPersona} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Campo label="Nombre" name="nombre" required className="col-span-2" />
-            <Selector label="Qué es" name="tipo_persona" defaultValue="proveedor" opciones={TIPOS_PERSONA} />
-            <Campo label="Teléfono" name="telefono" />
-            <Nota className="col-span-2 sm:col-span-4" />
-            <div className="col-span-2 sm:col-span-4">
-              <button className="btn-ghost">Agregar</button>
-            </div>
-          </form>
-          <p className="mt-3 text-sm text-tinta-2">
-            Son los proveedores, empleados, compradores y socios con los que operás. Sirve para
-            saber cuánto le pagaste a cada uno sin buscar en el detalle.
-          </p>
-        </Card>
       </div>
     </>
   );

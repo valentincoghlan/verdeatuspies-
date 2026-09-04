@@ -9,6 +9,10 @@ export type DiaAgua = {
   lluviaMm: number;
   riegoMin: number;
   riegoMm: number;
+  /** Lo que el controlador tiene agendado para ese día, todavía sin regar. */
+  planMin: number;
+  planMm: number;
+  planZonas: number;
   et0: number;
 };
 
@@ -19,6 +23,10 @@ export type DiaAgua = {
  * después lo que pusimos nosotros, y recién ahí el total contra lo que el
  * campo perdió. Las dos mitades van con fondo distinto para que se vea de
  * un vistazo de dónde vino cada milímetro.
+ *
+ * Los días que todavía no pasaron muestran lo previsto en gris: el
+ * pronóstico de lluvia y el riego que el controlador tiene agendado. Así
+ * el balance de mañana se lee hoy, que es cuando sirve para decidir.
  */
 export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
   if (dias.length === 0) {
@@ -62,8 +70,13 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
 
         <tbody className="divide-y divide-beige">
           {dias.map((d) => {
-            const total = d.lluviaMm + d.riegoMm;
+            // En los días que ya pasaron manda lo que ocurrió; en los que
+            // vienen, lo previsto.
+            const lluviaCuenta = d.lluviaMm || (d.esPronostico ? d.pronosticoMm : 0);
+            const riegoCuenta = d.riegoMm || d.planMm;
+            const total = lluviaCuenta + riegoCuenta;
             const balance = total - d.et0;
+            const previsto = !d.lluviaMm && !d.riegoMm && (d.pronosticoMm > 0 || d.planMin > 0);
             const hayDatos = total > 0 || d.et0 > 0;
 
             return (
@@ -96,12 +109,20 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
 
                 {/* Lo que pusimos nosotros */}
                 <td className={`td hidden text-right tabular-nums text-tinta-3 sm:table-cell ${riego}`}>
-                  {d.riegoMin ? `${numero(d.riegoMin)} min` : "—"}
+                  {d.riegoMin ? (
+                    `${numero(d.riegoMin)} min`
+                  ) : d.planMin ? (
+                    <span title={`${d.planZonas} zonas agendadas`}>{numero(d.planMin)} min</span>
+                  ) : (
+                    "—"
+                  )}
                 </td>
                 <td className={`td text-right tabular-nums ${riego}`}>
                   {d.riegoMm ? (
                     <span className="font-semibold">{mm(d.riegoMm)}</span>
-                  ) : d.riegoMin ? (
+                  ) : d.planMm ? (
+                    <span className="text-tinta-3">{mm(d.planMm)}</span>
+                  ) : d.riegoMin || d.planMin ? (
                     <span className="text-xs text-atencion-tx">sin mm</span>
                   ) : (
                     "—"
@@ -109,7 +130,12 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
                 </td>
 
                 {/* La cuenta */}
-                <td className="td text-right font-semibold tabular-nums">
+                <td
+                  className={
+                    "td text-right tabular-nums " +
+                    (previsto ? "text-tinta-3" : "font-semibold")
+                  }
+                >
                   {total ? mm(total) : "—"}
                 </td>
                 <td className="td text-right tabular-nums text-tinta-2">
@@ -117,8 +143,16 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
                 </td>
                 <td
                   className={
-                    "td text-right font-bold tabular-nums " +
-                    (!hayDatos ? "text-tinta-3" : balance < 0 ? "text-atencion-tx" : "text-pasto")
+                    "td text-right tabular-nums " +
+                    (!hayDatos
+                      ? "text-tinta-3"
+                      : previsto
+                        ? balance < 0
+                          ? "font-semibold text-atencion-tx/70"
+                          : "font-semibold text-pasto/70"
+                        : balance < 0
+                          ? "font-bold text-atencion-tx"
+                          : "font-bold text-pasto")
                   }
                 >
                   {hayDatos ? `${balance > 0 ? "+" : ""}${mm(balance)}` : "—"}

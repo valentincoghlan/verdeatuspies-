@@ -23,6 +23,9 @@ function fechaHoraArgentina(fecha: string | null, hora: string | null) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+const numeroCorto = (n: number) => Math.round(n).toLocaleString("es-AR");
+const pesosCortos = (n: number) => "$" + Math.round(n).toLocaleString("es-AR");
+
 async function sesion() {
   const supabase = await createClient();
   const {
@@ -277,6 +280,25 @@ async function intentarSuspender(fd: FormData): Promise<string | null> {
   }
 
   if (fallaron.length === porControlador.size) return fallaron[0];
+
+  const cuando = hasta.toLocaleString("es-AR", {
+    timeZone: "America/Argentina/Buenos_Aires",
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  await enviarPush({
+    titulo: reanudar ? "Riegos reanudados" : "Riegos cancelados",
+    mensaje: reanudar
+      ? `${zonas.length} zonas vuelven a regar con su programa.`
+      : `${zonas.length} zonas no riegan hasta el ${cuando}.`,
+    url: "/mantenimiento/riego",
+    tag: "riego-suspension",
+  });
+
   if (fallaron.length > 0) {
     return `Se frenó una parte. El resto quedó sin frenar: ${fallaron[0]}`;
   }
@@ -516,17 +538,16 @@ export async function borrarLluvia(fd: FormData) {
 
 export async function crearCliente(fd: FormData) {
   const { supabase } = await sesion();
-  await supabase.from("clientes").insert({
+  const canal = txt(fd, "canal") === "distribuidor" ? "distribuidor" : "directa";
+  const { error } = await supabase.from("clientes").insert({
     nombre: txt(fd, "nombre"),
-    tipo: txt(fd, "tipo") ?? "particular",
     telefono: txt(fd, "telefono"),
-    email: txt(fd, "email"),
-    direccion: txt(fd, "direccion"),
-    localidad: txt(fd, "localidad"),
-    cuit: txt(fd, "cuit"),
-    notas: txt(fd, "notas"),
+    canal,
+    // `tipo` es del esquema viejo y todavía es obligatorio: se deduce.
+    tipo: canal === "distribuidor" ? "empresa" : "particular",
   });
-  bump("/ventas/clientes", "/ventas");
+  if (error) throw new Error(`No se pudo guardar el cliente: ${error.message}`);
+  bump("/ventas/clientes", "/ventas", "/ventas/pedidos");
 }
 
 export async function editarCliente(fd: FormData) {
@@ -551,19 +572,15 @@ export async function crearVenta(fd: FormData) {
   const { supabase, user } = await sesion();
   const metros = dec(fd, "m2");
 
-  // Los campos mandan el nombre: si el comprador no existe, se crea.
+  // El campo manda el nombre: si el comprador no existe, se crea.
   const clienteId =
     txt(fd, "cliente_id") ??
     (await idPorNombreOCrear(supabase, "clientes", txt(fd, "cliente")));
-  const vinculanteId =
-    txt(fd, "vinculante_id") ??
-    (await idPorNombreOCrear(supabase, "clientes", txt(fd, "vinculante")));
 
   await supabase.from("ventas").insert({
     cliente_id: clienteId,
-    canal: vinculanteId ? "distribuidor" : (txt(fd, "canal") ?? "directa"),
-    vinculante_id: vinculanteId,
-    cliente_final: txt(fd, "cliente_final"),
+    // El canal dice qué es el comprador: si revende o si usa el pasto.
+    canal: txt(fd, "canal") ?? "directa",
     lote_id: txt(fd, "lote_id"),
     fecha: txt(fd, "fecha") ?? hoyISO(),
     fecha_entrega: txt(fd, "fecha_entrega"),
@@ -627,19 +644,15 @@ export async function crearPedido(fd: FormData) {
   const { supabase, user } = await sesion();
   const metros = dec(fd, "m2");
 
-  // Los campos mandan el nombre: si el comprador no existe, se crea.
+  // El campo manda el nombre: si el comprador no existe, se crea.
   const clienteId =
     txt(fd, "cliente_id") ??
     (await idPorNombreOCrear(supabase, "clientes", txt(fd, "cliente")));
-  const vinculanteId =
-    txt(fd, "vinculante_id") ??
-    (await idPorNombreOCrear(supabase, "clientes", txt(fd, "vinculante")));
 
   await supabase.from("ventas").insert({
     cliente_id: clienteId,
-    canal: vinculanteId ? "distribuidor" : (txt(fd, "canal") ?? "directa"),
-    vinculante_id: vinculanteId,
-    cliente_final: txt(fd, "cliente_final"),
+    // El canal dice qué es el comprador: si revende o si usa el pasto.
+    canal: txt(fd, "canal") ?? "directa",
     lote_id: txt(fd, "lote_id"),
     fecha: txt(fd, "fecha") ?? hoyISO(),
     fecha_entrega: txt(fd, "fecha_entrega"),
@@ -651,6 +664,24 @@ export async function crearPedido(fd: FormData) {
     notas: txt(fd, "notas"),
     created_by: user.id,
   });
+
+  // El aviso al equipo: lo que hay que cosechar y para cuándo.
+  const entrega = txt(fd, "fecha_entrega");
+  const { data: cliente } = await supabase
+    .from("clientes")
+    .select("nombre")
+    .eq("id", clienteId!)
+    .maybeSingle();
+
+  await enviarPush({
+    titulo: "Pedido nuevo",
+    mensaje:
+      `${cliente?.nombre ?? "Cliente"} · ${numeroCorto(metros ?? 0)} m²` +
+      (entrega ? ` · cosechar para el ${entrega.slice(8, 10)}/${entrega.slice(5, 7)}` : ""),
+    url: "/ventas/pedidos",
+    tag: `pedido-${entrega ?? hoyISO()}`,
+  });
+
   bump("/ventas/pedidos", "/ventas", "/administracion");
 }
 
@@ -678,6 +709,27 @@ export async function confirmarEntrega(fd: FormData) {
 
   await supabase.from("ventas").update(patch).eq("id", id);
   await cerrarAvisoEntrega(supabase, user.id, id, "Entrega confirmada.");
+
+  // El aviso al celular lleva la operación cerrada: es lo que el resto
+  // del equipo necesita saber sin entrar a mirar.
+  const { data: venta } = await supabase
+    .from("ventas")
+    .select("m2, m2_cortesia, total, clientes!cliente_id(nombre)")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (venta) {
+    const regalados = Number(venta.m2_cortesia ?? 0);
+    await enviarPush({
+      titulo: "Entrega confirmada",
+      mensaje:
+        `${(venta.clientes as any)?.nombre ?? "Cliente"} · ` +
+        `${numeroCorto(Number(venta.m2))} m² por ${pesosCortos(Number(venta.total))}` +
+        (regalados > 0 ? ` · ${numeroCorto(regalados)} m² de regalo` : ""),
+      url: "/ventas/pedidos",
+      tag: `entrega-${id}`,
+    });
+  }
 
   bump("/ventas/pedidos", "/ventas", "/administracion");
 }
@@ -877,6 +929,137 @@ export async function crearMovimiento(fd: FormData) {
   });
 
   bump("/administracion", "/reportes", "/ventas/pedidos");
+}
+
+/**
+ * Solo para el dueño.
+ *
+ * Los ajustes mueven la plata de los libros sin que haya pasado nada en
+ * el campo, así que no los puede correr cualquiera.
+ */
+async function soloAdmin() {
+  const { supabase, user } = await sesion();
+  const { data: perfil } = await supabase
+    .from("perfiles")
+    .select("rol")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (perfil?.rol !== "admin") {
+    throw new Error("Solo el dueño puede ajustar saldos.");
+  }
+  return { supabase, user };
+}
+
+/**
+ * Pone una cuenta en su saldo real de hoy.
+ *
+ * No corrige la historia: asienta la diferencia como un movimiento con
+ * fecha de hoy, en la categoría Ajustes. Así queda a la vista de dónde
+ * salió, y de acá en adelante la cuenta arranca de la realidad.
+ */
+export async function ajustarSaldo(fd: FormData) {
+  const { supabase, user } = await soloAdmin();
+
+  const cuentaId = txt(fd, "cuenta_id");
+  const real = dec(fd, "saldo_real");
+  if (!cuentaId || real === null) throw new Error("Falta la cuenta o el saldo real.");
+
+  const { data: cuenta } = await supabase
+    .from("v_saldos_cuentas")
+    .select("nombre, saldo_ars, moneda")
+    .eq("cuenta_id", cuentaId)
+    .maybeSingle();
+  if (!cuenta) throw new Error("No encontré esa cuenta.");
+
+  const actual = Number(cuenta.saldo_ars ?? 0);
+  const diferencia = Number((real - actual).toFixed(2));
+  if (Math.abs(diferencia) < 1) {
+    redirect("/administracion/disponibilidades?aviso=" + encodeURIComponent("Esa cuenta ya está en su saldo real."));
+  }
+
+  const mep = await mepActual(supabase);
+  const categoriaId = await idCategoria(supabase, "Ajustes · Ajuste de saldo");
+
+  const { error } = await supabase.from("movimientos").insert({
+    fecha: hoyISO(),
+    cuenta_id: cuentaId,
+    categoria_id: categoriaId,
+    tipo: diferencia > 0 ? "I" : "E",
+    monto: Math.abs(diferencia),
+    moneda: "ARS",
+    cotizacion: mep,
+    monto_usd: mep ? Number((Math.abs(diferencia) / mep).toFixed(2)) : null,
+    detalle: `Ajuste al saldo real de ${cuenta.nombre}`,
+    notas: `La app traía ${actual.toFixed(2)} y el saldo real era ${real.toFixed(2)}.`,
+    origen: "ajuste",
+    created_by: user.id,
+  });
+  if (error) throw new Error(`No se pudo asentar el ajuste: ${error.message}`);
+
+  bump("/administracion", "/administracion/disponibilidades", "/reportes");
+  redirect(
+    "/administracion/disponibilidades?aviso=" +
+      encodeURIComponent(
+        `${cuenta.nombre}: se asentó ${diferencia > 0 ? "un ingreso" : "un egreso"} de ${Math.abs(diferencia).toLocaleString("es-AR")} pesos.`,
+      ),
+  );
+}
+
+/**
+ * Da por cobrado lo que un cliente tiene pendiente.
+ *
+ * Sirve para las ventas viejas cuyo cobro nunca se anotó. El asiento va
+ * SIN cuenta a propósito: esa plata no está hoy en ninguna caja ni en
+ * ningún banco —si estuviera, el movimiento existiría—, así que meterla
+ * en una cuenta real inflaría un saldo que no existe.
+ *
+ * Queda como un movimiento visible, en la categoría Ajustes y con la
+ * cuenta en blanco: cierra la cuenta corriente del cliente y no toca las
+ * disponibilidades.
+ */
+export async function saldarCliente(fd: FormData) {
+  const { supabase, user } = await soloAdmin();
+
+  const clienteId = txt(fd, "cliente_id");
+  if (!clienteId) throw new Error("Falta el cliente.");
+
+  const { data: cta } = await supabase
+    .from("v_cuenta_clientes")
+    .select("nombre, saldo")
+    .eq("cliente_id", clienteId)
+    .maybeSingle();
+
+  const pendiente = Number(cta?.saldo ?? 0);
+  if (pendiente <= 0) {
+    redirect("/ventas/clientes?aviso=" + encodeURIComponent("Ese cliente ya está al día."));
+  }
+
+  const mep = await mepActual(supabase);
+  const categoriaId = await idCategoria(supabase, "Ajustes · Cobro sin registrar");
+
+  const { error } = await supabase.from("movimientos").insert({
+    fecha: hoyISO(),
+    cuenta_id: null,
+    categoria_id: categoriaId,
+    cliente_id: clienteId,
+    tipo: "I",
+    monto: pendiente,
+    moneda: "ARS",
+    cotizacion: mep,
+    monto_usd: mep ? Number((pendiente / mep).toFixed(2)) : null,
+    detalle: `Cobro no registrado de ${cta?.nombre ?? "cliente"}`,
+    notas: "Sin cuenta: la plata se cobró pero nunca quedó anotada en dónde entró.",
+    origen: "ajuste",
+    created_by: user.id,
+  });
+  if (error) throw new Error(`No se pudo saldar: ${error.message}`);
+
+  bump("/ventas/clientes", "/administracion", "/reportes");
+  redirect(
+    "/ventas/clientes?aviso=" +
+      encodeURIComponent(`${cta?.nombre}: se asentaron ${pendiente.toLocaleString("es-AR")} pesos cobrados.`),
+  );
 }
 
 export async function borrarMovimiento(fd: FormData) {

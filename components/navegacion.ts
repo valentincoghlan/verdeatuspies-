@@ -32,7 +32,7 @@ export const SECCIONES: Seccion[] = [
   {
     label: "Administración",
     items: [
-      { href: "/administracion", label: "Caja" },
+      { href: "/administracion", label: "Movimientos" },
       { href: "/administracion/disponibilidades", label: "Disponibilidades" },
       { href: "/reportes", label: "Reportes" },
     ],

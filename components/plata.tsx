@@ -64,22 +64,17 @@ export function CuentaYMonto({
             {enDolares ? "en dólares" : "en pesos"}
           </span>
         </label>
-        <div className="relative">
-          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-base text-tinta-3 sm:text-sm">
-            {enDolares ? "US$" : "$"}
-          </span>
-          <input
-            id="monto"
-            name="monto"
-            type="text"
-            inputMode="decimal"
-            required
-            value={monto}
-            onChange={(e) => setMonto(e.target.value)}
-            placeholder="0"
-            className="input pl-10 sm:pl-9"
-          />
-        </div>
+        <input
+          id="monto"
+          name="monto"
+          type="text"
+          inputMode="decimal"
+          required
+          value={monto}
+          onChange={(e) => setMonto(e.target.value)}
+          placeholder={enDolares ? "US$ 0" : "$ 0"}
+          className="input"
+        />
         <p className="mt-1 text-xs text-tinta-3">
           {equivalente
             ? `Son ${equivalente} al MEP de hoy`

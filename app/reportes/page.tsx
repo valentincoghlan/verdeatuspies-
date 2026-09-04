@@ -84,6 +84,19 @@ export default async function ReportesPage({
     .sort((a, b) => b[1] - a[1])
     .map(([k, v]) => ({ label: k.slice(0, 14), valor: v }));
 
+  const facturado = entregadas.reduce((a, v: any) => a + Number(v.facturado ?? 0), 0);
+  const gastado = (pagos ?? []).reduce((a, p: any) => a + Number(p.monto ?? 0), 0);
+  const precioProm = vendidos > 0 ? facturado / vendidos : 0;
+  const costoPorM2 = cosechados > 0 ? gastado / cosechados : 0;
+
+  // El margen de verdad es lo facturado menos TODO lo que se gastó en el
+  // período. El que trae v_margen_ventas solo descuenta los gastos
+  // imputados a cada venta, y casi ninguno lo está: daba 80% cuando el
+  // metro cuesta más de lo que se vende.
+  const resultado = facturado - gastado;
+  const pctMargen = facturado > 0 ? (resultado / facturado) * 100 : 0;
+  const ticket = entregadas.length > 0 ? facturado / entregadas.length : 0;
+
   const mejores = entregadas
     .slice()
     .sort((a: any, b: any) => Number(b.margen ?? 0) - Number(a.margen ?? 0))
@@ -100,16 +113,15 @@ export default async function ReportesPage({
         <FiltroFechas base="/reportes" activo={sp.p} rango={rango} />
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat label="m² vendidos" valor={m2(vendidos)} destacado />
-        <Stat label="m² cosechados" valor={m2(cosechados)} detalle="Todo lo que salió del campo" />
+        <Stat label="Facturado" valor={pesos(facturado)} tono="verde" detalle={`${entregadas.length} operaciones`} />
         <Stat
-          label="m² regalados"
-          valor={m2(regalados)}
-          tono={pctRegalado > 5 ? "ambar" : "neutro"}
-          detalle={`${numero(pctRegalado, 1)}% de lo cosechado`}
+          label="Resultado"
+          valor={pesos(resultado)}
+          tono={resultado < 0 ? "ambar" : "verde"}
+          detalle={`Facturado menos gastos · ${numero(pctMargen, 1)}%`}
         />
-        <Stat label="Margen" valor={pesos(margenTotal)} detalle="Vendido menos gastos" />
         <Stat
           label="Por cobrar"
           valor={pesos(porCobrar)}
@@ -118,33 +130,58 @@ export default async function ReportesPage({
         />
       </div>
 
-      <div className="mt-3 space-y-3">
-        <Card titulo="Vendido vs. cosechado, por mes">
-          <p className="mb-4 text-[15px] leading-relaxed text-tinta-2">
-            <strong>Vendido</strong> son los m² que cobraste. <strong>Cosechado</strong> es todo el
-            pasto que salió del campo, incluyendo lo que regalaste. La diferencia entre las dos
-            barras del mismo mes es lo que entregaste sin cobrar.
+      <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+        <Stat
+          label="Precio promedio"
+          valor={`${pesos(precioProm)} / m²`}
+          detalle="Lo que sale el metro"
+        />
+        <Stat
+          label="Costo por m² cosechado"
+          valor={`${pesos(costoPorM2)} / m²`}
+          tono={costoPorM2 > precioProm ? "ambar" : "neutro"}
+          detalle={
+            costoPorM2 > precioProm
+              ? "Más caro de lo que se vende"
+              : "Todos los gastos del período"
+          }
+        />
+        <Stat label="Gastado" valor={pesos(gastado)} detalle="Todo lo que salió" />
+        <Stat
+          label="m² regalados"
+          valor={m2(regalados)}
+          tono={pctRegalado > 5 ? "ambar" : "neutro"}
+          detalle={`${numero(pctRegalado, 1)}% de lo cosechado`}
+        />
+      </div>
+
+      <div className="mt-3 grid gap-3 lg:grid-cols-2">
+        <Card titulo="m² vendidos por mes">
+          <Barras datos={serie("m2_vendidos")} formato={(n) => m2(n)} compacto />
+        </Card>
+
+        <Card titulo="m² cosechados por mes">
+          <Barras datos={serie("m2_cosechados")} formato={(n) => m2(n)} compacto />
+          <p className="mt-3 text-xs text-tinta-3">
+            Es todo el pasto que salió del campo, incluyendo lo regalado. La diferencia con el
+            gráfico de al lado es lo que entregaste sin cobrar.
           </p>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div>
-              <p className="mb-3 text-[12.5px] font-bold uppercase tracking-[.10em] text-tinta-3">
-                Vendidos
-              </p>
-              <Barras datos={serie("m2_vendidos")} formato={(n) => m2(n)} />
-            </div>
-            <div>
-              <p className="mb-3 text-[12.5px] font-bold uppercase tracking-[.10em] text-tinta-3">
-                Cosechados
-              </p>
-              <Barras datos={serie("m2_cosechados")} formato={(n) => m2(n)} />
-            </div>
-          </div>
         </Card>
 
-        <Card titulo="Vendido por mes, en pesos">
-          <Barras datos={serie("vendido")} formato={(n) => pesos(n)} />
+        <Card titulo="Facturado por mes">
+          <Barras datos={serie("vendido")} formato={(n) => pesos(n)} compacto />
         </Card>
 
+        <Card titulo="Gastos por categoría">
+          <Barras
+            datos={serieCategorias}
+            formato={(n) => pesos(n)}
+            destacarUltimo={false}
+            compacto
+          />
+        </Card>
+
+        <div className="lg:col-span-2">
         <Card titulo="Por canal de venta">
           <Tabla
             cabeceras={["Canal", "Operaciones", "m² vendidos", "Vendido", "Margen"]}
@@ -172,16 +209,10 @@ export default async function ReportesPage({
           </p>
         </Card>
 
-        <Card titulo="Pagos por categoría">
-          <Barras
-            datos={serieCategorias}
-            formato={(n) => pesos(n)}
-            destacarUltimo={false}
-            vacio="No hay pagos cargados en este período."
-          />
-        </Card>
+        </div>
 
-        <Card titulo="Las operaciones que más dejaron">
+        <div className="lg:col-span-2">
+        <Card titulo="Las operaciones que más dejaron" id="mejores">
           <Tabla
             cabeceras={["Entrega", "Comprador", "Canal", "m²", "Vendido", "Gastos", "Margen"]}
             vacio="No hay entregas confirmadas en este período."
@@ -213,6 +244,7 @@ export default async function ReportesPage({
             })}
           </Tabla>
         </Card>
+        </div>
       </div>
     </>
   );

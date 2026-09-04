@@ -1,102 +1,188 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Card, PageHeader, Stat, Tabla } from "@/components/ui";
-import { Campo, Nota, Selector } from "@/components/campos";
-import { crearCliente } from "@/lib/actions";
-import { fechaLarga, m2, numero, pesos } from "@/lib/format";
+import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
+import { Campo, Selector } from "@/components/campos";
+import { crearCliente, saldarCliente } from "@/lib/actions";
+import { SaldarCliente } from "@/components/saldar-cliente";
+import { fechaBreve, m2, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
-const TIPOS = [
-  { value: "particular", label: "Particular" },
-  { value: "empresa", label: "Empresa" },
-  { value: "paisajista", label: "Paisajista" },
-  { value: "vivero", label: "Vivero" },
-  { value: "otro", label: "Otro" },
+const CANALES = [
+  { value: "directa", label: "Particular" },
+  { value: "distribuidor", label: "Distribuidor" },
 ];
 
-export default async function ClientesPage() {
+const VISTAS = [
+  { v: "cuenta", label: "Cuenta corriente" },
+  { v: "todos", label: "Todos los clientes" },
+];
+
+export default async function ClientesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ ver?: string; aviso?: string }>;
+}) {
+  const { ver, aviso } = await searchParams;
+  const vista = ver === "todos" ? "todos" : "cuenta";
   const supabase = await createClient();
 
-  const [{ data: clientes }, { data: cuentas }] = await Promise.all([
-    supabase.from("clientes").select("*").order("nombre"),
+  const [
+    { data: clientes },
+    { data: cuentas },
+    { data: ventasMov },
+    { data: yo },
+  ] = await Promise.all([
+    supabase.from("clientes").select("*").eq("activo", true).order("nombre"),
     supabase.from("v_cuenta_clientes").select("*"),
+    // Los m² de cada canal salen de las ventas, que traen el detalle
+    // completo de la planilla.
+    supabase.from("ventas").select("canal, m2, total").neq("estado", "anulada"),
+    // Saldar una cuenta corriente es solo para el dueño.
+    supabase.auth.getUser().then(async ({ data }) =>
+      data.user
+        ? supabase.from("perfiles").select("rol").eq("id", data.user.id).maybeSingle()
+        : { data: null },
+    ),
   ]);
 
+  const lista = (clientes ?? []) as any[];
   const porId = new Map((cuentas ?? []).map((c: any) => [c.cliente_id, c]));
-  const totalM2 = (cuentas ?? []).reduce((a, c: any) => a + Number(c.m2_vendidos ?? 0), 0);
+
+  const movs = (ventasMov ?? []) as any[];
+  const sumar = (canal: string) =>
+    movs.filter((v) => v.canal === canal).reduce((a, v) => a + Number(v.m2 ?? 0), 0);
+
+  const m2Particulares = sumar("directa");
+  const m2Distribuidores = sumar("distribuidor");
+  const sinMetros = movs.filter((v) => !v.m2).length;
+
   const totalSaldo = (cuentas ?? []).reduce(
     (a, c: any) => a + Math.max(0, Number(c.saldo ?? 0)),
     0,
   );
 
+  const esAdmin = (yo as any)?.rol === "admin";
+
+  const distribuidores = lista.filter((c) => c.canal === "distribuidor");
+  const enVista = vista === "cuenta" ? distribuidores : lista;
+
   return (
     <>
       <PageHeader titulo="Clientes" bajada="Quién compró, cuántos m² y cuánto debe." />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 sm:grid-cols-3">
-        <Stat label="Clientes" valor={numero((clientes ?? []).length)} />
-        <Stat label="m² vendidos (histórico)" valor={m2(totalM2)} tono="verde" />
-        <Stat label="Saldo por cobrar" valor={pesos(totalSaldo)} tono={totalSaldo > 0 ? "ambar" : "neutro"} />
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+        <Stat label="m² a particulares" valor={m2(m2Particulares)} destacado />
+        <Stat label="m² a distribuidores" valor={m2(m2Distribuidores)} tono="verde" />
+        <Stat
+          label="Clientes"
+          valor={numero(lista.length)}
+          detalle={`${distribuidores.length} distribuidor${distribuidores.length === 1 ? "" : "es"}`}
+        />
+        <Stat
+          label="Por cobrar"
+          valor={pesos(totalSaldo)}
+          tono={totalSaldo > 0 ? "ambar" : "neutro"}
+        />
       </div>
+
+      {aviso && (
+        <div className="mt-3 rounded-2xl border border-borde bg-hecho-bg p-3 text-sm text-pasto-oscuro">
+          {aviso}
+        </div>
+      )}
+
+      {sinMetros > 0 && (
+        <p className="mt-3 rounded-2xl border border-atencion-tx/30 bg-atencion-bg p-3 text-sm text-atencion-tx">
+          Hay {sinMetros} ventas cargadas sin los m².
+        </p>
+      )}
 
       <div className="mt-3 space-y-3">
         <Card titulo="Nuevo cliente">
           <form action={crearCliente} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Campo label="Nombre" name="nombre" required className="col-span-2" />
-            <Selector label="Tipo" name="tipo" defaultValue="particular" opciones={TIPOS} />
             <Campo label="Teléfono" name="telefono" />
-            <Campo label="Mail" name="email" type="email" />
-            <Campo label="Dirección" name="direccion" className="col-span-2" />
-            <Campo label="Localidad" name="localidad" />
-            <Campo label="CUIT / DNI" name="cuit" />
-            <Nota className="col-span-2 sm:col-span-3" />
-            <div className="col-span-2 flex items-end sm:col-span-4">
-              <button className="btn">Guardar cliente</button>
+            <Selector label="Canal" name="canal" defaultValue="directa" opciones={CANALES} />
+            <div className="col-span-2 sm:col-span-4">
+              <button className="btn btn-alto">Guardar cliente</button>
             </div>
           </form>
         </Card>
 
-        <Card titulo="Listado">
+        <Card
+          titulo={vista === "cuenta" ? "Cuenta corriente con distribuidores" : "Todos los clientes"}
+          accion={
+            <div className="flex gap-1.5">
+              {VISTAS.map((x) => (
+                <Link
+                  key={x.v}
+                  href={`/ventas/clientes?ver=${x.v}`}
+                  className={
+                    "inline-flex min-h-9 items-center rounded-full px-3 text-xs font-bold transition " +
+                    (vista === x.v
+                      ? "bg-pasto text-crema"
+                      : "bg-beige text-tinta-2 hover:bg-borde")
+                  }
+                >
+                  {x.label}
+                </Link>
+              ))}
+            </div>
+          }
+        >
           <Tabla
-            cabeceras={["Cliente", "Contacto", "m² comprados", "Vendido", "Cobrado", "Saldo", "Última compra"]}
-            vacio="Todavía no cargaste clientes."
+            cabeceras={["Cliente", "Teléfono", "m² comprados", "Vendido", "Cobrado", "Saldo", "Última compra", ""]}
+            soloEnCompu={[1, 2, 4, 6]}
+            vacio={
+              vista === "cuenta"
+                ? "Todavía no hay distribuidores cargados."
+                : "Todavía no cargaste clientes."
+            }
           >
-            {(clientes ?? []).map((c: any) => {
+            {enVista.map((c) => {
               const cta: any = porId.get(c.id) ?? {};
               const saldo = Number(cta.saldo ?? 0);
               return (
                 <tr key={c.id}>
                   <td className="td">
-                    <div className="font-semibold">{c.nombre}</div>
-                    <div className="text-xs text-tierra-400">
-                      {c.tipo}
-                      {c.localidad ? ` · ${c.localidad}` : ""}
-                    </div>
+                    <span className="font-semibold">{c.nombre}</span>
+                    {vista === "todos" && c.canal === "distribuidor" && (
+                      <span className="ml-2">
+                        <Chip tono="verde">distribuidor</Chip>
+                      </span>
+                    )}
                   </td>
-                  <td className="td text-xs text-tierra-600">
-                    {c.telefono ?? "—"}
-                    {c.email && <div>{c.email}</div>}
-                  </td>
+                  <td className="td text-xs text-tinta-2">{c.telefono ?? "—"}</td>
                   <td className="td tabular-nums">{numero(cta.m2_vendidos)}</td>
                   <td className="td tabular-nums">{pesos(Number(cta.total_vendido ?? 0))}</td>
                   <td className="td tabular-nums">{pesos(Number(cta.total_cobrado ?? 0))}</td>
                   <td
                     className={
                       "td tabular-nums font-semibold " +
-                      (saldo > 0 ? "text-amber-700" : saldo < 0 ? "text-blue-700" : "")
+                      (saldo > 0 ? "text-atencion-tx" : saldo < 0 ? "text-info-tx" : "text-tinta-3")
                     }
                   >
                     {pesos(saldo)}
                   </td>
-                  <td className="td whitespace-nowrap text-xs text-tierra-600">
-                    {fechaLarga(cta.ultima_venta)}
+                  <td className="td whitespace-nowrap text-xs text-tinta-2">
+                    {cta.ultima_venta ? fechaBreve(cta.ultima_venta) : "—"}
+                  </td>
+                  <td className="td text-right">
+                    {esAdmin && saldo > 0 && (
+                      <SaldarCliente
+                        cliente={{ id: c.id, nombre: c.nombre, saldo }}
+                        accion={saldarCliente}
+                      />
+                    )}
                   </td>
                 </tr>
               );
             })}
           </Tabla>
-          <p className="mt-3 text-xs text-tierra-400">
-            Saldo positivo = te debe. Negativo = pagó de más o hay un anticipo.
+          <p className="mt-3 text-xs text-tinta-3">
+            Saldo positivo = te debe. Negativo = pagó de más o hay un anticipo, y cero quiere decir
+            que está al día.
           </p>
         </Card>
       </div>

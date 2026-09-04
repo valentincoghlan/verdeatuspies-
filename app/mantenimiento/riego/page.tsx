@@ -130,6 +130,12 @@ export default async function AguaPage({
     suspendidaHasta: (z.suspendida_hasta ?? null) as string | null,
   }));
   const conRiegoProgramado = programadas.filter((z) => z.proximo).length;
+  // El encabezado habla de lo mismo que muestra la lista: 24 horas.
+  const proximas24 = programadas.filter((z) => {
+    if (!z.proximo || z.suspendidaHasta) return false;
+    const falta = new Date(z.proximo).getTime() - Date.now();
+    return falta > -3600_000 && falta < 24 * 3600_000;
+  }).length;
 
   // Los programas los cambiás en Hydrawise, no acá: si el dato quedó
   // viejo, la agenda que ves no es la que va a correr.
@@ -143,9 +149,27 @@ export default async function AguaPage({
     nombre: l.nombre as string,
   }));
 
+  // Qué día cae cada riego programado, para poder mostrarlo en la tabla
+  // del agua. Solo conocemos el PRÓXIMO de cada zona: la API no dice si
+  // el programa se repite martes y viernes.
+  const fechaAR = (iso: string) =>
+    new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Argentina/Buenos_Aires" });
+
+  const planPorDia = new Map<string, { minutos: number; mm: number; zonas: number }>();
+  for (const z of programadas) {
+    if (!z.proximo || z.suspendidaHasta) continue;
+    const dia = fechaAR(z.proximo);
+    const acum = planPorDia.get(dia) ?? { minutos: 0, mm: 0, zonas: 0 };
+    acum.minutos += z.minutos ?? 0;
+    acum.mm += z.minutos && z.mmPorHora ? (z.minutos / 60) * Number(z.mmPorHora) : 0;
+    acum.zonas += 1;
+    planPorDia.set(dia, acum);
+  }
+
   const diasAgua = (clima ?? []).map((d: any) => {
     const delDia = <T extends { fecha: string }>(xs: T[]) => xs.filter((x) => x.fecha === d.fecha);
     const riegosDia = delDia(listaRiegos);
+    const plan = planPorDia.get(d.fecha);
     return {
       fecha: d.fecha as string,
       esPronostico: Boolean(d.es_pronostico),
@@ -154,6 +178,9 @@ export default async function AguaPage({
       lluviaMm: delDia(listaLluvias).reduce((a, l) => a + Number(l.mm ?? 0), 0),
       riegoMin: riegosDia.reduce((a, r) => a + Number(r.minutos ?? 0), 0),
       riegoMm: riegosDia.reduce((a, r) => a + Number(r.mm ?? 0), 0),
+      planMin: plan?.minutos ?? 0,
+      planMm: plan?.mm ?? 0,
+      planZonas: plan?.zonas ?? 0,
       et0: Number(d.et0_mm ?? 0),
     };
   });
@@ -256,17 +283,17 @@ export default async function AguaPage({
           titulo="Riegos programados"
           detalle={
             frenadas
-              ? `${frenadas} cancelada${frenadas === 1 ? "" : "s"}`
-              : conRiegoProgramado
-                ? `${conRiegoProgramado} zonas con riego agendado`
-                : "el controlador no tiene nada agendado"
+              ? `${frenadas} frenada${frenadas === 1 ? "" : "s"}`
+              : proximas24
+                ? `${proximas24} zonas en las próximas 24 h`
+                : "nada en las próximas 24 h"
           }
-          abierta={frenadas > 0 || conRiegoProgramado > 0}
+          abierta={frenadas > 0 || proximas24 > 0}
         >
           <p className="mb-2 text-sm text-tinta-2">
             Los programas se cargan en la app de Hydrawise, que es hardware y no depende de nada
-            para funcionar. Acá los ves, con los milímetros que va a dar cada riego, y podés
-            frenarlos hasta el día y la hora que quieras.
+            para funcionar. Acá ves <strong>las próximas 24 horas</strong>, con los milímetros que
+            va a dar cada riego, y podés frenarlos hasta el día y la hora que quieras.
           </p>
           <p
             className={

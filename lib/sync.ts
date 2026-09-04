@@ -2,6 +2,7 @@ import { createAdminClient } from "@/lib/supabase/server";
 import { traerClima } from "@/lib/clima";
 import { traerMep } from "@/lib/dolar";
 import { enviarMail, plantilla, type NotiMail } from "@/lib/mail";
+import { enviarPush } from "@/lib/push";
 import {
   estadoControlador,
   fechaArgentina,
@@ -51,7 +52,13 @@ async function leerConfig(sb: Sb) {
   };
 }
 
-/** Alta idempotente de notificación (clave_unica evita duplicados). */
+/**
+ * Alta idempotente de notificación (clave_unica evita duplicados).
+ *
+ * Cuando la alerta es nueva —y solo entonces— sale también el aviso al
+ * celular. La clave única garantiza que una misma cosa no te suene dos
+ * veces aunque la corrida pase varias veces por día.
+ */
 async function noti(
   sb: Sb,
   n: {
@@ -71,7 +78,17 @@ async function noti(
     .from("notificaciones")
     .upsert({ severidad: "info", requiere_accion: false, ...n }, { onConflict: "clave_unica", ignoreDuplicates: true })
     .select("id");
-  return (data?.length ?? 0) > 0;
+
+  const esNueva = (data?.length ?? 0) > 0;
+  if (esNueva) {
+    await enviarPush({
+      titulo: n.titulo,
+      mensaje: n.mensaje ?? "",
+      url: n.accion_url ?? "/",
+      tag: n.clave_unica,
+    });
+  }
+  return esNueva;
 }
 
 /**
@@ -112,6 +129,12 @@ async function avisoEntrega(
 
   if (!existente) {
     await sb.from("notificaciones").insert(fila);
+    await enviarPush({
+      titulo: n.titulo,
+      mensaje: n.mensaje,
+      url: "/ventas/pedidos",
+      tag: n.clave_unica,
+    });
     return true;
   }
 
@@ -235,6 +258,14 @@ export async function syncHydrawise() {
         if (creado?.length) riegosCreados++;
       }
     }
+
+    // Las suspensiones vencidas se borran solas. Hunter no avisa cuando
+    // se levantan: el próximo riego que informa ya las tiene en cuenta,
+    // así que la marca solo sirve mientras está vigente.
+    await sb
+      .from("riego_zonas")
+      .update({ suspendida_hasta: null })
+      .lt("suspendida_hasta", new Date().toISOString());
 
     await sb
       .from("hydrawise_snapshots")

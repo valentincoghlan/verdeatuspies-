@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota, Opciones, Selector } from "@/components/campos";
-import { Elegir } from "@/components/elegir";
+import { CanalYComprador } from "@/components/comprador";
 import {
   anularPedido,
   confirmarEntrega,
@@ -70,6 +70,10 @@ export default async function PedidosPage() {
 
   const entregadas = (margenes ?? []).filter((v: any) => v.estado === "entregada");
   const clientesOpc = (clientes ?? []).map((c: any) => ({ value: c.id, label: c.nombre }));
+  const clientesPorCanal = (clientes ?? []).map((c: any) => ({
+    nombre: c.nombre as string,
+    canal: (c.canal ?? "directa") as string,
+  }));
   const lotesOpc = (lotes ?? []).map((l: any) => ({ value: l.id, label: l.nombre }));
   const cuentasOpc = (cuentas ?? []).map((c: any) => ({ value: c.id, label: c.nombre }));
   const personasOpc = (personas ?? []).map((p: any) => ({ value: p.id, label: p.nombre }));
@@ -118,48 +122,16 @@ export default async function PedidosPage() {
       <div className="mt-3 space-y-3">
         <Card titulo="Nuevo pedido">
           <form action={crearPedido} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Elegir
-              label="Comprador"
-              name="cliente"
-              required
-              opciones={clientesOpc.map((c) => ({ value: c.label, label: c.label }))}
-              vacio="Elegí el comprador"
-              permiteNuevo
-              className="col-span-2"
-            />
-            <Opciones
-              label="Canal de venta"
-              name="canal"
-              defaultValue="directa"
-              opciones={[
-                { value: "directa", label: "Directa" },
-                { value: "distribuidor", label: "Distribuidores" },
-              ]}
-              className="col-span-2"
-            />
-            <Elegir
-              label="Distribuidor"
-              name="vinculante"
-              opciones={clientesOpc.map((c) => ({ value: c.label, label: c.label }))}
-              vacio="Sin distribuidor"
-              opcional
-              permiteNuevo
-              className="col-span-2"
-            />
-            <Campo
-              label="Cliente final"
-              name="cliente_final"
-              placeholder="Nombre de quien recibe"
-              className="col-span-2"
-            />
-            <Campo label="Fecha de entrega" name="fecha_entrega" type="date" required />
-            <Opciones
-              label="Lote de origen"
+            {/* Primero cuándo se entrega, que es lo que define todo lo demás. */}
+            <Campo label="Entrega" name="fecha_entrega" type="date" required />
+            <CanalYComprador clientes={clientesPorCanal} />
+            <Selector
+              label="Lote"
               name="lote_id"
-              defaultValue=""
-              opciones={[{ value: "", label: "Sin definir" }, ...lotesOpc]}
-              className="col-span-2"
+              vacio="Sin definir"
+              opciones={lotesOpc}
             />
+
             <Campo label="m²" name="m2" type="number" step="0.5" required placeholder="200" />
             <Campo
               label="Precio por m²"
@@ -169,10 +141,15 @@ export default async function PedidosPage() {
               defaultValue={precioDefault}
             />
             <Campo label="Flete" name="flete" type="number" defaultValue={0} />
-            <Campo label="Fecha del pedido" name="fecha" type="date" defaultValue={hoy} />
-            <Nota className="col-span-2 sm:col-span-4" />
+            <Campo
+              label="Notas"
+              name="notas"
+              placeholder="Opcional"
+              className="col-span-2 sm:col-span-1"
+            />
+
             <div className="col-span-2 sm:col-span-4">
-              <button className="btn">Guardar pedido</button>
+              <button className="btn btn-alto">Guardar pedido</button>
             </div>
           </form>
           {clientesOpc.length === 0 && (
@@ -409,49 +386,6 @@ export default async function PedidosPage() {
           </Tabla>
         </Card>
 
-        <Card titulo="Imputar un gasto a una venta">
-          <form action={crearGastoVenta} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Selector
-              label="Venta"
-              name="venta_id"
-              required
-              vacio="Elegí la operación"
-              opciones={(margenes ?? []).map((v: any) => ({
-                value: v.venta_id,
-                label: `${fechaLarga(v.fecha)} · ${v.comprador} · ${numero(Number(v.m2))} m²`,
-              }))}
-              className="col-span-2 sm:col-span-4"
-            />
-            <Selector
-              label="Categoría"
-              name="categoria_id"
-              required
-              vacio="Elegí la categoría"
-              opciones={categoriasOpc}
-              className="col-span-2"
-            />
-            <Selector
-              label="Persona o empresa"
-              name="persona_id"
-              vacio="Sin especificar"
-              opciones={personasOpc}
-              className="col-span-2"
-            />
-            <Campo label="Monto" name="monto" type="number" required placeholder="0" />
-            <Campo label="Fecha" name="fecha" type="date" required defaultValue={hoy} />
-            <Selector label="Cuenta" name="cuenta_id" required vacio="Elegí la cuenta" opciones={cuentasOpc} />
-            <Selector label="Lote (opcional)" name="lote_id" vacio="General" opciones={lotesOpc} />
-            <Campo label="Detalle" name="detalle" className="col-span-2 sm:col-span-4" />
-            <Nota className="col-span-2 sm:col-span-4" />
-            <div className="col-span-2 sm:col-span-4">
-              <button className="btn">Guardar gasto</button>
-            </div>
-          </form>
-          <p className="mt-3 text-xs text-tierra-600">
-            El gasto queda atado a esa operación y se descuenta del margen. También aparece en
-            Administración como cualquier otro pago.
-          </p>
-        </Card>
       </div>
     </>
   );
