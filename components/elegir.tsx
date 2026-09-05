@@ -50,6 +50,7 @@ export function Elegir({
   deshabilitado?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
+  const [teclado, setTeclado] = useState(0);
   const [busqueda, setBusqueda] = useState("");
   const [interno, setInterno] = useState(defaultValue);
   const valor = value !== undefined ? value : interno;
@@ -70,6 +71,28 @@ export function Elegir({
     busqueda.trim().length > 0 &&
     !opciones.some((o) => normalizar(o.label) === normalizar(busqueda));
 
+
+  /**
+   * El alto que le come el teclado a la pantalla.
+   *
+   * La hoja se apoya abajo, que es justo donde aparece el teclado: sin
+   * esto, al escribir quedaba tapada. `visualViewport` es lo único que
+   * dice cuánto se achicó la parte visible de verdad.
+   */
+  useEffect(() => {
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!abierto || !vv) return;
+
+    const medir = () => setTeclado(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+    medir();
+    vv.addEventListener("resize", medir);
+    vv.addEventListener("scroll", medir);
+    return () => {
+      vv.removeEventListener("resize", medir);
+      vv.removeEventListener("scroll", medir);
+      setTeclado(0);
+    };
+  }, [abierto]);
 
   useEffect(() => {
     if (!abierto) return;
@@ -141,9 +164,10 @@ export function Elegir({
           <div className="fixed inset-0 z-40 bg-tinta/30 sm:hidden" onClick={() => setAbierto(false)} />
 
           <div
+            style={teclado > 0 ? { bottom: `calc(${teclado}px + 0.75rem)` } : undefined}
             className={
               "z-50 overflow-hidden rounded-2xl border border-borde bg-white shadow-[0_18px_40px_-20px_rgba(20,60,34,.35)] " +
-              "fixed inset-x-3 bottom-3 max-h-[70vh] sm:absolute sm:inset-x-auto sm:bottom-auto sm:mt-1 sm:max-h-80 sm:w-full"
+              "fixed inset-x-3 bottom-3 max-h-[60vh] sm:absolute sm:inset-x-auto sm:bottom-auto sm:mt-1 sm:max-h-80 sm:w-full"
             }
           >
             <div className="border-b border-beige p-2">

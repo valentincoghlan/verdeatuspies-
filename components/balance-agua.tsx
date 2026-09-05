@@ -62,7 +62,7 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
             <th className={`th text-right ${lluvia}`}>Cayó</th>
             <th className={`th hidden text-right sm:table-cell ${riego}`}>Minutos</th>
             <th className={`th text-right ${riego}`}>Regamos</th>
-            <th className="th text-right">Total</th>
+            <th className="th hidden text-right sm:table-cell">Total</th>
             <th className="th hidden text-right sm:table-cell">Perdió (ET₀)</th>
             <th className="th hidden text-right sm:table-cell">Queda</th>
           </tr>
@@ -85,8 +85,11 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
                   <span className="hidden sm:inline">{fechaLarga(d.fecha)}</span>
                   <span className="sm:hidden">{d.fecha.slice(8, 10)}/{d.fecha.slice(5, 7)}</span>
                   {d.esPronostico && (
-                    <span className="ml-2">
-                      <Chip tono="azul">pronóstico</Chip>
+                    <span className="ml-1.5">
+                      <Chip tono="azul">
+                        <span className="sm:hidden">pr</span>
+                        <span className="hidden sm:inline">pronóstico</span>
+                      </Chip>
                     </span>
                   )}
                 </td>
@@ -124,7 +127,12 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
                   ) : d.planMm ? (
                     <span className="text-tinta-3">{mm(d.planMm)}</span>
                   ) : d.riegoMin || d.planMin ? (
-                    <span className="text-xs text-atencion-tx">sin mm</span>
+                    <span
+                      className="text-tinta-3"
+                      title="Se regó, pero falta cargar el caudal de la zona para saber cuántos mm"
+                    >
+                      {numero(d.riegoMin || d.planMin)} min
+                    </span>
                   ) : (
                     "—"
                   )}
@@ -133,7 +141,7 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
                 {/* La cuenta */}
                 <td
                   className={
-                    "td text-right tabular-nums " +
+                    "td hidden text-right tabular-nums sm:table-cell " +
                     (previsto ? "text-tinta-3" : "font-semibold")
                   }
                 >

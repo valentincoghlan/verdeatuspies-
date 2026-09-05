@@ -158,6 +158,13 @@ export function Card({
   );
 }
 
+/**
+ * Tabla que nunca obliga a scrollear de costado en el celular.
+ *
+ * `soloEnCompu` esconde columnas en pantallas chicas; las que quedan se
+ * reparten el ancho disponible y el texto largo se corta en vez de
+ * empujar la fila.
+ */
 export function Tabla({
   cabeceras,
   children,
@@ -181,12 +188,14 @@ export function Tabla({
   }
 
   return (
-    // En el celular la tabla se recorta a las columnas que entran; el
-    // ancho mínimo recién aparece en la compu, donde hay lugar.
-    <div className="-mx-4 px-4 sm:overflow-x-auto">
+    // En el celular la tabla ocupa exactamente el ancho disponible y se
+    // recorta a las columnas que entran. El margen negativo —que la hace
+    // sangrar hasta el borde de la tarjeta— y el ancho mínimo son solo
+    // de la compu, donde hay un overflow que los contiene.
+    <div className="w-full overflow-hidden sm:-mx-4 sm:w-auto sm:overflow-x-auto sm:px-4">
       <table
         className={
-          "w-full border-collapse overflow-hidden rounded-xl " +
+          "w-full table-fixed border-collapse overflow-hidden rounded-xl sm:table-auto " +
           (soloEnCompu.length ? "" : "sm:min-w-[520px]")
         }
       >

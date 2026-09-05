@@ -3,12 +3,17 @@
 export type Link = { href: string; label: string };
 export type Seccion = { label: string; items: Link[] };
 
-/** Lo que se toca todo el día desde el campo: va en la barra de abajo. */
+/**
+ * Lo que se toca todo el día desde el campo: va en la barra de abajo.
+ *
+ * Inicio va al medio y no primero: es el lugar que el pulgar alcanza sin
+ * estirarse, y es la pantalla a la que más se vuelve.
+ */
 export const ATAJOS: Link[] = [
-  { href: "/", label: "Inicio" },
   { href: "/ventas/pedidos", label: "Pedidos" },
   { href: "/mantenimiento/cosecha", label: "Cosecha" },
-  { href: "/mantenimiento/riego", label: "Riego y lluvias" },
+  { href: "/", label: "Inicio" },
+  { href: "/mantenimiento/riego", label: "Riego" },
 ];
 
 export const SECCIONES: Seccion[] = [

@@ -52,12 +52,41 @@ export default function BarraInferior({ children }: { children: ReactNode }) {
       <div className="flex items-stretch">
         {ATAJOS.map((a) => {
           const esta = a.href === activa;
+          const esInicio = a.href === "/";
+
+          // Inicio se destaca: círculo verde que sobresale de la barra.
+          // Es el ancla de la navegación y tiene que encontrarse sin
+          // leer.
+          if (esInicio) {
+            return (
+              <Link
+                key={a.href}
+                href={a.href}
+                aria-current={esta ? "page" : undefined}
+                className="flex min-h-14 flex-1 flex-col items-center justify-end gap-1 pb-1.5 text-[11px] font-bold text-pasto-oscuro"
+              >
+                <span
+                  className={
+                    "-mt-5 flex size-12 items-center justify-center rounded-full border-4 border-white shadow-[0_2px_8px_rgba(20,60,34,.25)] transition " +
+                    (esta ? "bg-pasto-oscuro text-crema" : "bg-pasto text-crema")
+                  }
+                >
+                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden>
+                    {ICONOS[a.href]}
+                  </svg>
+                </span>
+                {a.label}
+              </Link>
+            );
+          }
+
           return (
             <Link
               key={a.href}
               href={a.href}
+              aria-current={esta ? "page" : undefined}
               className={
-                "flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold transition " +
+                "flex min-h-14 flex-1 flex-col items-center justify-center gap-1 text-[11px] font-semibold transition active:bg-beige " +
                 (esta ? "text-pasto" : "text-tinta-2")
               }
             >
@@ -65,6 +94,7 @@ export default function BarraInferior({ children }: { children: ReactNode }) {
                 {ICONOS[a.href]}
               </svg>
               {a.label}
+              {esta && <span className="h-0.5 w-5 rounded-full bg-pasto" />}
             </Link>
           );
         })}

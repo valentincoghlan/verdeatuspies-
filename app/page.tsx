@@ -28,6 +28,7 @@ export default async function Dashboard() {
     { data: pagosMes },
     { data: fertProx },
     { data: pedidosPend },
+    { data: saldos },
     { data: dolar },
   ] = await Promise.all([
     supabase
@@ -58,6 +59,7 @@ export default async function Dashboard() {
       .order("fecha_programada")
       .limit(5),
     supabase.from("v_pedidos_pendientes").select("*").order("fecha_entrega"),
+    supabase.from("v_saldos_cuentas").select("*"),
     supabase
       .from("cotizaciones")
       .select("*")
@@ -81,6 +83,14 @@ export default async function Dashboard() {
 
   // Para prellenar el formulario de "se entregó" con los datos del pedido.
   const pedidoPorId = new Map((pedidosPend ?? []).map((p: any) => [p.id, p]));
+
+  // Las cuentas de los socios son aportes, no plata que puedas usar; y
+  // las de dólares se miden aparte, no se suman a los pesos.
+  const disponible = ((saldos ?? []) as any[])
+    .filter((c) => c.activa && c.tipo !== "socio" && c.moneda !== "USD")
+    .reduce((a, c) => a + Number(c.saldo_ars ?? 0), 0);
+
+  const proximos = ((pedidosPend ?? []) as any[]).slice(0, 3);
 
   // Alertas que se resuelven con su propio formulario, no con el botón "Listo".
   const CON_FORMULARIO = ["confirmar_lluvia", "confirmar_entrega"];
@@ -136,6 +146,58 @@ export default async function Dashboard() {
             ? `al ${fechaLarga(dolar.fecha)}${dolar.fecha === hoy ? "" : " · desactualizado"}`
             : "sin cotización todavía"}
         </span>
+      </div>
+
+      {/* Accesos rápidos, solo en el celular: con el menú detrás de la
+          hamburguesa, Inicio tiene que resolver lo de todos los días. */}
+      <div className="mt-3 space-y-2.5 sm:hidden">
+        <Link
+          href="/administracion/disponibilidades"
+          className="flex items-center gap-3 rounded-2xl border border-borde bg-white p-3.5 active:bg-beige"
+        >
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10.5px] font-bold uppercase tracking-[.08em] text-tinta-3">
+              Plata disponible
+            </span>
+            <span className="block text-2xl font-bold tabular-nums text-pasto-oscuro">
+              {pesos(disponible)}
+            </span>
+          </span>
+          <span aria-hidden className="shrink-0 text-tinta-3">
+            ›
+          </span>
+        </Link>
+
+        <div className="rounded-2xl border border-borde bg-white">
+          <div className="flex items-center gap-2 px-3.5 pt-3.5">
+            <h2 className="flex-1 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
+              Próximos pedidos
+            </h2>
+            <Link href="/ventas/pedidos" className="text-xs font-bold text-pasto">
+              Ver todos
+            </Link>
+          </div>
+
+          {proximos.length === 0 ? (
+            <p className="px-3.5 py-4 text-sm text-tinta-2">No hay pedidos pendientes.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-beige">
+              {proximos.map((p: any) => (
+                <li key={p.id} className="flex items-center gap-3 px-3.5 py-2.5">
+                  <span className="w-14 shrink-0 text-sm font-bold tabular-nums text-tinta">
+                    {p.fecha_entrega ? fechaCorta(p.fecha_entrega) : "—"}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-sm text-tinta">
+                    {p.comprador ?? "Sin comprador"}
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums text-tinta-2">
+                    {m2(Number(p.m2 ?? 0))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </div>
 
       <div className="mt-3 grid gap-4 lg:grid-cols-3">

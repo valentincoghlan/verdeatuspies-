@@ -184,10 +184,11 @@ textarea.input {
 
 /* --- 3 · Tabla ---------------------------------------------- */
 .th {
-  @apply bg-beige px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[.06em] text-tinta-2;
+  @apply overflow-hidden bg-beige px-3 py-2 text-left text-[11px] font-bold uppercase tracking-[.06em] text-tinta-2;
 }
 .td {
-  @apply px-3 py-2 text-sm text-tinta;
+  @apply overflow-hidden px-3 py-2 text-sm text-tinta;
+  overflow-wrap: anywhere;
 }
 
 /* --- Movimiento --------------------------------------------- */

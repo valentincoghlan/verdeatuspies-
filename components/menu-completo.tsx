@@ -107,34 +107,36 @@ export default function MenuCompleto({
             </button>
           </div>
 
-          <nav className="flex-1 overflow-y-auto px-3 py-3">
+          <nav className="flex-1 overflow-y-auto py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <div className="mx-auto w-full max-w-lg">
               <Link
                 href="/"
                 className={
-                  "flex h-12 items-center rounded-xl px-4 text-base font-medium transition " +
-                  (activa === "/" ? "bg-hecho-bg text-pasto-oscuro" : "text-tinta hover:bg-beige")
+                  "flex h-12 w-full items-center px-5 text-base font-medium transition active:bg-beige " +
+                  (activa === "/"
+                    ? "border-l-4 border-pasto bg-hecho-bg pl-4 font-semibold text-pasto-oscuro"
+                    : "text-tinta hover:bg-beige")
                 }
               >
                 Inicio
               </Link>
 
               {SECCIONES.map((s) => (
-                <div key={s.label} className="mt-6">
-                  {/* M2: 24px arriba del título y 8 abajo, contra 2px
-                      entre ítems. Así el ojo arma los grupos solo. */}
-                  <p className="mb-2 px-4 text-xs font-bold uppercase tracking-[.08em] text-tinta-3">
+                <div key={s.label} className="mt-4 border-t border-borde pt-3">
+                  {/* La línea separa los grupos; el aire solo no
+                      alcanzaba para que el ojo los armara. */}
+                  <p className="mb-1 px-5 text-xs font-bold uppercase tracking-[.08em] text-tinta-3">
                     {s.label}
                   </p>
-                  <ul className="space-y-0.5">
+                  <ul>
                     {s.items.map((i) => (
                       <li key={i.href}>
                         <Link
                           href={i.href}
                           className={
-                            "flex h-12 items-center rounded-xl px-4 text-base font-medium transition " +
+                            "flex h-12 w-full items-center px-5 text-base font-medium transition active:bg-beige " +
                             (i.href === activa
-                              ? "bg-hecho-bg text-pasto-oscuro"
+                              ? "border-l-4 border-pasto bg-hecho-bg pl-4 font-semibold text-pasto-oscuro"
                               : "text-tinta hover:bg-beige")
                           }
                         >
@@ -146,8 +148,8 @@ export default function MenuCompleto({
                 </div>
               ))}
 
-              <form action="/auth/signout" method="post" className="mt-6 border-t border-borde pt-3">
-                <button className="flex h-12 w-full items-center rounded-xl px-4 text-left text-base font-medium text-urgente-tx transition hover:bg-urgente-bg">
+              <form action="/auth/signout" method="post" className="mt-4 border-t border-borde pt-2">
+                <button className="flex h-12 w-full items-center px-5 text-left text-base font-medium text-urgente-tx transition hover:bg-urgente-bg active:bg-urgente-bg">
                   Cerrar sesión
                 </button>
               </form>
