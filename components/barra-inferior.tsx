@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
@@ -71,9 +72,13 @@ export default function BarraInferior({ children }: { children: ReactNode }) {
                     (esta ? "bg-pasto-oscuro text-crema" : "bg-pasto text-crema")
                   }
                 >
-                  <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden>
-                    {ICONOS[a.href]}
-                  </svg>
+                  <Image
+                    src="/logo-claro.png"
+                    alt=""
+                    width={256}
+                    height={256}
+                    className="size-8 object-contain"
+                  />
                 </span>
                 {a.label}
               </Link>

@@ -100,7 +100,11 @@ export default async function Dashboard() {
       <PageHeader
         titulo="Inicio"
         bajada="Todo el campo en una pantalla: pendientes, estado de los lotes y plata del mes."
-        accion={<Refrescar />}
+        accion={
+          <span className="hidden sm:block">
+            <Refrescar />
+          </span>
+        }
       />
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
@@ -132,34 +136,16 @@ export default async function Dashboard() {
         />
       </div>
 
-      {/* I2: una franja baja, no una tarjeta. Es un dato de contexto
-          para leer el resto, no un número del campo. */}
-      <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-borde bg-beige px-4 py-2.5">
-        <span className="text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
-          Dólar MEP
-        </span>
-        <span className="text-base font-bold tabular-nums text-tinta">
-          {dolar ? pesos(Number(dolar.mep), 2) : "—"}
-        </span>
-        <span className="text-xs text-tinta-3">
-          {dolar
-            ? `al ${fechaLarga(dolar.fecha)}${dolar.fecha === hoy ? "" : " · desactualizado"}`
-            : "sin cotización todavía"}
-        </span>
-      </div>
-
-      {/* Accesos rápidos, solo en el celular: con el menú detrás de la
-          hamburguesa, Inicio tiene que resolver lo de todos los días. */}
-      <div className="mt-3 space-y-2.5 sm:hidden">
+      <div className="mt-2.5 flex items-stretch gap-2.5">
         <Link
           href="/administracion/disponibilidades"
-          className="flex items-center gap-3 rounded-2xl border border-borde bg-white p-3.5 active:bg-beige"
+          className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-borde bg-white px-3.5 py-2.5 active:bg-beige"
         >
           <span className="min-w-0 flex-1">
-            <span className="block text-[10.5px] font-bold uppercase tracking-[.08em] text-tinta-3">
-              Plata disponible
+            <span className="block text-[10px] font-bold uppercase tracking-[.07em] text-tinta-3">
+              Disponible
             </span>
-            <span className="block text-2xl font-bold tabular-nums text-pasto-oscuro">
+            <span className="block truncate text-lg font-bold tabular-nums leading-tight text-pasto-oscuro">
               {pesos(disponible)}
             </span>
           </span>
@@ -168,6 +154,23 @@ export default async function Dashboard() {
           </span>
         </Link>
 
+        <div className="flex min-w-0 flex-1 flex-col justify-center rounded-2xl border border-borde bg-beige px-3.5 py-2.5">
+          <span className="block text-[10px] font-bold uppercase tracking-[.07em] text-tinta-3">
+            Dólar MEP
+          </span>
+          <span className="block truncate text-lg font-bold tabular-nums leading-tight text-tinta">
+            {dolar ? pesos(Number(dolar.mep), 2) : "—"}
+          </span>
+          <span className="block truncate text-[11px] text-tinta-3">
+            {dolar
+              ? `al ${fechaLarga(dolar.fecha)}${dolar.fecha === hoy ? "" : " · viejo"}`
+              : "sin cotización"}
+          </span>
+        </div>
+      </div>
+
+      {/* Lo que se mira todos los días, sin abrir el menú. */}
+      <div className="mt-2.5 sm:hidden">
         <div className="rounded-2xl border border-borde bg-white">
           <div className="flex items-center gap-2 px-3.5 pt-3.5">
             <h2 className="flex-1 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">

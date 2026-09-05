@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { Refrescar } from "@/components/refrescar";
 import { createClient } from "@/lib/supabase/server";
 import BarraLateral from "./barra-lateral";
 import MenuCompleto from "./menu-completo";
@@ -40,19 +41,22 @@ export default async function Nav() {
         <div className="flex items-center justify-between gap-4 px-4 py-3.5">
           <Link href="/" className="flex items-center gap-2.5">
             <Image
-              src="/icono-192.png"
+              src="/logo-circulo.png"
               alt=""
-              width={192}
-              height={192}
-              className="size-9 rounded-full bg-crema object-contain p-0.5"
+              width={256}
+              height={256}
+              className="size-9 rounded-full bg-crema object-cover"
             />
             <span className="text-[17px] font-bold leading-tight text-crema">Hola {nombre},</span>
           </Link>
-          {abiertas > 0 && (
-            <Link href="/#alertas" className="chip bg-atencion-bg text-atencion-tx">
-              {abiertas} pendiente{abiertas === 1 ? "" : "s"}
-            </Link>
-          )}
+          <div className="flex shrink-0 items-center gap-1">
+            {abiertas > 0 && (
+              <Link href="/#alertas" className="chip bg-atencion-bg text-atencion-tx">
+                {abiertas} pendiente{abiertas === 1 ? "" : "s"}
+              </Link>
+            )}
+            <Refrescar sobreVerde />
+          </div>
         </div>
       </header>
 
