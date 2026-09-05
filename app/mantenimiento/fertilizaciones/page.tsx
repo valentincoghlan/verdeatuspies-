@@ -74,7 +74,7 @@ export default async function FertilizacionesPage() {
               opciones={(fertilizantes ?? []).map((f: any) => ({ value: f.id, label: f.nombre }))}
             />
             <Campo label="Fecha programada" name="fecha_programada" type="date" required defaultValue={hoy} />
-            <Campo label="Dosis" name="dosis" type="number" step="0.5" placeholder="150" />
+            <Campo label="Dosis por lote" name="dosis" type="number" step="0.5" placeholder="150" />
             <Selector
               label="Unidad"
               name="unidad"
