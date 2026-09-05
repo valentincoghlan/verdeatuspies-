@@ -344,6 +344,7 @@ export default async function PedidosPage() {
               "Pendiente",
             ]}
             soloEnCompu={[3, 5, 6, 7]}
+            anchos={["w-[4.5rem] sm:w-auto", undefined, "w-10 sm:w-auto", undefined, "w-[5.6rem] sm:w-auto"]}
             vacio="Todavía no hay entregas confirmadas."
           >
             {entregadas.map((v: any) => {
@@ -352,8 +353,10 @@ export default async function PedidosPage() {
               const pct = facturado > 0 ? (margen / facturado) * 100 : 0;
               return (
                 <tr key={v.venta_id}>
-                  <td className="td whitespace-nowrap">{fechaBreve(v.fecha_entrega)}</td>
-                  <td className="td max-w-[9rem] font-medium sm:max-w-none">
+                  <td className="td whitespace-nowrap text-xs sm:text-sm">
+                    {fechaBreve(v.fecha_entrega)}
+                  </td>
+                  <td className="td font-medium">
                     <span className="block truncate">{v.comprador}</span>
                     {v.vinculante && (
                       <span className="block truncate text-xs font-normal text-tinta-3">
@@ -361,11 +364,15 @@ export default async function PedidosPage() {
                       </span>
                     )}
                   </td>
-                  <td className="td tabular-nums">{numero(Number(v.m2))}</td>
+                  <td className="td text-right tabular-nums text-xs sm:text-left sm:text-sm">
+                    {numero(Number(v.m2))}
+                  </td>
                   <td className="td hidden tabular-nums text-tinta-2 sm:table-cell">
                     {Number(v.m2_cortesia) > 0 ? numero(Number(v.m2_cortesia)) : "—"}
                   </td>
-                  <td className="td tabular-nums font-semibold">{pesos(facturado)}</td>
+                  <td className="td whitespace-nowrap text-right tabular-nums text-xs font-semibold sm:text-left sm:text-sm">
+                    {pesos(facturado)}
+                  </td>
                   <td className="td hidden tabular-nums text-atencion-tx sm:table-cell">
                     {Number(v.gastos) > 0 ? pesos(Number(v.gastos)) : "—"}
                   </td>

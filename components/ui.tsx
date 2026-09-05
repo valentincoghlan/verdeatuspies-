@@ -170,12 +170,18 @@ export function Tabla({
   children,
   vacio,
   soloEnCompu = [],
+  anchos,
 }: {
   cabeceras: string[];
   children: ReactNode;
   vacio?: string;
   /** Índices de columnas que se esconden en el celular. */
   soloEnCompu?: number[];
+  /**
+   * Ancho de cada columna en el celular, como clase de Tailwind.
+   * Lo que quede vacío se reparte el resto del espacio.
+   */
+  anchos?: (string | undefined)[];
 }) {
   const sinFilas = !children || (Array.isArray(children) && children.length === 0);
 
@@ -202,7 +208,14 @@ export function Tabla({
         <thead>
           <tr>
             {cabeceras.map((c, i) => (
-              <th key={c} className={"th " + (soloEnCompu.includes(i) ? "hidden sm:table-cell" : "")}>
+              <th
+                key={c}
+                className={
+                  "th " +
+                  (soloEnCompu.includes(i) ? "hidden sm:table-cell " : "") +
+                  (anchos?.[i] ?? "")
+                }
+              >
                 {c}
               </th>
             ))}
