@@ -41,11 +41,11 @@ export default async function Nav() {
         <div className="flex items-center justify-between gap-4 px-4 py-3.5">
           <Link href="/" className="flex items-center gap-2.5">
             <Image
-              src="/logo-circulo.png"
+              src="/logo-boton.png"
               alt=""
               width={256}
               height={256}
-              className="size-9 rounded-full bg-crema object-cover"
+              className="size-9 rounded-full object-cover"
             />
             <span className="text-[17px] font-bold leading-tight text-crema">Hola {nombre},</span>
           </Link>

@@ -89,11 +89,11 @@ export default function MenuCompleto({
           <div className="flex items-center justify-between gap-4 bg-pasto-oscuro px-4 py-4">
             <div className="flex min-w-0 items-center gap-2.5">
               <Image
-                src="/logo-circulo.png"
+                src="/logo-boton.png"
                 alt=""
                 width={256}
                 height={256}
-                className="size-9 shrink-0 rounded-full bg-crema object-cover"
+                className="size-9 shrink-0 rounded-full object-cover"
               />
               <span className="min-w-0">
                 <span className="block truncate text-base font-bold leading-tight text-crema">

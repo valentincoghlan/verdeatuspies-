@@ -37,11 +37,11 @@ export default function BarraLateral({
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col overflow-y-auto bg-pasto-oscuro px-3 py-5 sm:flex">
       <Link href="/" className="mb-1 flex items-center gap-2.5 px-2">
         <Image
-          src="/logo-circulo.png"
+          src="/logo-boton.png"
           alt=""
           width={256}
           height={256}
-          className="size-9 shrink-0 rounded-full bg-crema object-cover"
+          className="size-9 shrink-0 rounded-full object-cover"
         />
         <span className="min-w-0">
           <span className="block truncate text-[15px] font-bold leading-tight text-crema">
