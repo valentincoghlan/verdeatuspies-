@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import BarraLateral from "./barra-lateral";
@@ -38,9 +39,13 @@ export default async function Nav() {
       <header className="sticky top-0 z-20 bg-pasto-oscuro sm:hidden">
         <div className="flex items-center justify-between gap-4 px-4 py-3.5">
           <Link href="/" className="flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-pasto-medio text-sm font-bold text-brote">
-              V
-            </span>
+            <Image
+              src="/icono-192.png"
+              alt=""
+              width={192}
+              height={192}
+              className="size-9 rounded-full bg-crema object-contain p-0.5"
+            />
             <span className="text-[17px] font-bold leading-tight text-crema">Hola {nombre},</span>
           </Link>
           {abiertas > 0 && (

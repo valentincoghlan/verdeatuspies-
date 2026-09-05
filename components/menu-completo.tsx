@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -86,9 +87,20 @@ export default function MenuCompleto({
           {/* M5: era una portada de 360px de alto. Es un menú: el
               nombre y el mail alcanzan con un bloque de 88. */}
           <div className="flex items-center justify-between gap-4 bg-pasto-oscuro px-4 py-4">
-            <div className="min-w-0">
-              <p className="truncate text-base font-bold leading-tight text-crema">{nombre}</p>
-              <p className="truncate text-xs text-pasto-claro">{email}</p>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <Image
+                src="/icono-192.png"
+                alt=""
+                width={192}
+                height={192}
+                className="size-9 shrink-0 rounded-full bg-crema object-contain p-0.5"
+              />
+              <span className="min-w-0">
+                <span className="block truncate text-base font-bold leading-tight text-crema">
+                  {nombre}
+                </span>
+                <span className="block truncate text-xs text-pasto-claro">{email}</span>
+              </span>
             </div>
             <button
               type="button"

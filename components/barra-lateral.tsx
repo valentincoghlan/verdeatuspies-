@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -35,9 +36,13 @@ export default function BarraLateral({
   return (
     <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col overflow-y-auto bg-pasto-oscuro px-3 py-5 sm:flex">
       <Link href="/" className="mb-1 flex items-center gap-2.5 px-2">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-pasto-medio text-sm font-bold text-brote">
-          V
-        </span>
+        <Image
+          src="/icono-192.png"
+          alt=""
+          width={192}
+          height={192}
+          className="size-9 shrink-0 rounded-full bg-crema object-contain p-0.5"
+        />
         <span className="min-w-0">
           <span className="block truncate text-[15px] font-bold leading-tight text-crema">
             Hola {nombre},
