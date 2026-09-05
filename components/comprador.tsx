@@ -5,28 +5,31 @@ import { Elegir } from "@/components/elegir";
 
 export type ClienteOpcion = { nombre: string; canal: string };
 
+const ETIQUETA: Record<string, string> = {
+  directa: "Cliente final",
+  distribuidor: "Distribuidor",
+};
+
 /**
- * Canal y comprador, en ese orden y encadenados.
+ * Canal y comprador.
  *
- * El canal define qué es el comprador: si revende o si es el que pisa el
- * pasto. Por eso va primero y filtra la lista — eligiendo Distribuidor
- * solo aparecen los distribuidores, y no hay forma de cargar un pedido
- * con el canal cruzado.
+ * El buscador muestra TODOS los clientes, no solo los del canal
+ * elegido. Filtrarlos era peor que inútil: escribías "Fede" con el
+ * canal en Distribuidor, no aparecía nadie y la app ofrecía crear
+ * "Fede" — un cliente nuevo al lado de Federico Block, que ya existía.
  *
- * Lo que se escriba nuevo se da de alta con el canal que esté elegido.
+ * Al elegir un comprador, el canal se acomoda al que tiene cargado.
+ * Igual se puede cambiar a mano: una venta puntual a un distribuidor
+ * puede ser directa.
  */
 export function CanalYComprador({ clientes }: { clientes: ClienteOpcion[] }) {
   const [canal, setCanal] = useState("directa");
   const [comprador, setComprador] = useState("");
 
-  const delCanal = clientes.filter((c) => c.canal === canal);
-
-  const cambiarCanal = (v: string) => {
-    setCanal(v);
-    // El comprador elegido puede no pertenecer al canal nuevo.
-    if (comprador && !clientes.some((c) => c.nombre === comprador && c.canal === v)) {
-      setComprador("");
-    }
+  const elegirComprador = (v: string) => {
+    setComprador(v);
+    const c = clientes.find((x) => x.nombre === v);
+    if (c) setCanal(c.canal);
   };
 
   return (
@@ -41,7 +44,7 @@ export function CanalYComprador({ clientes }: { clientes: ClienteOpcion[] }) {
         ]}
         vacio="Elegí el canal"
         value={canal}
-        onChange={cambiarCanal}
+        onChange={setCanal}
       />
 
       <Elegir
@@ -49,16 +52,15 @@ export function CanalYComprador({ clientes }: { clientes: ClienteOpcion[] }) {
         name="cliente"
         required
         permiteNuevo
-        opciones={delCanal.map((c) => ({ value: c.nombre, label: c.nombre }))}
-        vacio={
-          delCanal.length === 0
-            ? canal === "distribuidor"
-              ? "Ningún distribuidor todavía"
-              : "Ningún cliente todavía"
-            : "Elegí el comprador"
-        }
+        opciones={clientes.map((c) => ({
+          value: c.nombre,
+          label: c.nombre,
+          detalle: ETIQUETA[c.canal] ?? undefined,
+        }))}
+        vacio={clientes.length === 0 ? "Todavía no hay clientes" : "Elegí el comprador"}
         value={comprador}
-        onChange={setComprador}
+        onChange={elegirComprador}
+        ayuda="Buscá antes de crear uno nuevo: si ya compró alguna vez, está en la lista."
         className="col-span-2 sm:col-span-1"
       />
     </>

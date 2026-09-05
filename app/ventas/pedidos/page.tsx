@@ -40,7 +40,9 @@ export default async function PedidosPage() {
     { data: categorias },
     { data: personas },
   ] = await Promise.all([
-      supabase.from("clientes").select("id, nombre").eq("activo", true).order("nombre"),
+      // El canal hace falta acá: sin él, el buscador no sabe quién es
+      // distribuidor y ofrece crear un cliente que ya existe.
+      supabase.from("clientes").select("id, nombre, canal").eq("activo", true).order("nombre"),
       supabase.from("lotes").select("id, nombre").eq("activo", true).order("nombre"),
       supabase
         .from("v_pedidos_pendientes")
@@ -334,13 +336,14 @@ export default async function PedidosPage() {
             cabeceras={[
               "Entrega",
               "Comprador",
-              "m² fact.",
+              "m²",
               "Cortesía",
               "Facturado",
               "Gastos",
               "Margen",
               "Pendiente",
             ]}
+            soloEnCompu={[3, 5, 6, 7]}
             vacio="Todavía no hay entregas confirmadas."
           >
             {entregadas.map((v: any) => {
@@ -350,32 +353,32 @@ export default async function PedidosPage() {
               return (
                 <tr key={v.venta_id}>
                   <td className="td whitespace-nowrap">{fechaBreve(v.fecha_entrega)}</td>
-                  <td className="td font-medium">
-                    {v.comprador}
+                  <td className="td max-w-[9rem] font-medium sm:max-w-none">
+                    <span className="block truncate">{v.comprador}</span>
                     {v.vinculante && (
-                      <span className="block text-xs font-normal text-tierra-400">
+                      <span className="block truncate text-xs font-normal text-tinta-3">
                         vía {v.vinculante}
                       </span>
                     )}
                   </td>
                   <td className="td tabular-nums">{numero(Number(v.m2))}</td>
-                  <td className="td tabular-nums text-tierra-600">
+                  <td className="td hidden tabular-nums text-tinta-2 sm:table-cell">
                     {Number(v.m2_cortesia) > 0 ? numero(Number(v.m2_cortesia)) : "—"}
                   </td>
                   <td className="td tabular-nums font-semibold">{pesos(facturado)}</td>
-                  <td className="td tabular-nums text-amber-700">
+                  <td className="td hidden tabular-nums text-atencion-tx sm:table-cell">
                     {Number(v.gastos) > 0 ? pesos(Number(v.gastos)) : "—"}
                   </td>
-                  <td className="td tabular-nums font-semibold text-hoja-700">
+                  <td className="td hidden tabular-nums font-semibold text-pasto sm:table-cell">
                     {pesos(margen)}
                     <span className="ml-1 text-xs font-normal text-tierra-400">{numero(pct)}%</span>
                   </td>
                   <td
                     className={
-                      "td tabular-nums " +
+                      "td hidden tabular-nums sm:table-cell " +
                       (Number(v.pendiente) > 0
-                        ? "font-semibold text-amber-700"
-                        : "text-tierra-400")
+                        ? "font-semibold text-atencion-tx"
+                        : "text-tinta-3")
                     }
                   >
                     {pesos(Number(v.pendiente))}

@@ -50,10 +50,17 @@ export function fechaBreve(iso: string | null | undefined) {
   return `${d}/${m}/${y.slice(2)}`;
 }
 
+/**
+ * dd/mm/aa, igual que fechaBreve.
+ *
+ * Se llamaba "larga" cuando mostraba el año entero. Toda la app usa dos
+ * dígitos, así que se dejaron iguales en vez de tener dos formatos
+ * conviviendo en la misma pantalla.
+ */
 export function fechaLarga(iso: string | null | undefined) {
   if (!iso) return "—";
   const [y, m, d] = iso.slice(0, 10).split("-");
-  return `${d}/${m}/${y}`;
+  return `${d}/${m}/${y.slice(2)}`;
 }
 
 /** Hoy en Argentina, como yyyy-mm-dd. */

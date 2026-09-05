@@ -34,9 +34,18 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="min-h-screen">
+      {/*
+        overflow-x-hidden es la red de contención de G1: si algo se
+        desborda igual, el celular no se va de costado.
+      */}
+      <body className="min-h-screen overflow-x-hidden">
         <Nav />
-        <main className="pb-24 pt-6 sm:pb-10 sm:pl-60">
+        {/*
+          Arriba, el alto del header verde; abajo, el de la barra de
+          navegación más el borde curvo del teléfono. Sin esto, la
+          primera tarjeta y la última quedan tapadas.
+        */}
+        <main className="pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4 sm:pb-10 sm:pl-60 sm:pt-6">
           <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">{children}</div>
         </main>
       </body>

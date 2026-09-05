@@ -8,6 +8,14 @@
    toman el diseño sin tocar una sola clase en cada archivo.
    ══════════════════════════════════════════════════════════════ */
 
+/*
+  El header verde del celular es sticky: cuando el navegador salta a un
+  campo con error o a un ancla, sin esto lo deja tapado debajo.
+*/
+html {
+  scroll-padding-top: 5rem;
+}
+
 @theme {
   --font-sans: Figtree, ui-sans-serif, system-ui, sans-serif;
 

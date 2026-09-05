@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fechaArgentina, horaArgentina, mandarZona } from "@/lib/hydrawise";
-import { enviarPush } from "@/lib/push";
+import { enviarAviso, enviarPush } from "@/lib/push";
 import { hoyISO } from "@/lib/format";
 
 /* ------------------------------------------------------------------ */
@@ -172,7 +172,7 @@ export async function regarZona(fd: FormData) {
       );
     }
 
-    await enviarPush({
+    await enviarAviso({
       tipo: "riego_empieza",
       titulo: "Empezó a regar",
       mensaje: `${zona.nombre} está regando ${minutos} minutos.`,
@@ -291,7 +291,7 @@ async function intentarSuspender(fd: FormData): Promise<string | null> {
     minute: "2-digit",
     hour12: false,
   });
-  await enviarPush({
+  await enviarAviso({
     tipo: "riego_cancelado",
     titulo: reanudar ? "Riegos reanudados" : "Riegos cancelados",
     mensaje: reanudar
@@ -708,7 +708,7 @@ export async function crearPedido(fd: FormData) {
     .eq("id", clienteId!)
     .maybeSingle();
 
-  await enviarPush({
+  await enviarAviso({
     tipo: "pedido_nuevo",
     titulo: "Pedido nuevo",
     mensaje:
@@ -756,7 +756,7 @@ export async function confirmarEntrega(fd: FormData) {
 
   if (venta) {
     const regalados = Number(venta.m2_cortesia ?? 0);
-    await enviarPush({
+    await enviarAviso({
       tipo: "entrega_confirmada",
       titulo: "Entrega confirmada",
       mensaje:

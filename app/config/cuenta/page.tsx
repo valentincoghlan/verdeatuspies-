@@ -82,53 +82,38 @@ export default async function ConfigCuentaPage({
           {AVISOS.map((a) => (
             <input key={a.tipo} type="hidden" name="todos" value={a.tipo} />
           ))}
-          {AVISOS.filter((a) => a.mail).map((a) => (
+          {AVISOS.map((a) => (
             <input key={a.tipo} type="hidden" name="con_mail" value={a.tipo} />
           ))}
 
-          <div className="overflow-hidden rounded-2xl border border-borde">
-            <div className="flex items-center gap-2 bg-beige px-3 py-2">
-              <span className="flex-1 text-[11px] font-bold uppercase tracking-[.06em] text-tinta-2">
-                Aviso
-              </span>
-              <span className="w-14 text-center text-[11px] font-bold uppercase tracking-[.06em] text-tinta-2">
-                Celular
-              </span>
-              <span className="w-14 text-center text-[11px] font-bold uppercase tracking-[.06em] text-tinta-2">
-                Mail
-              </span>
-            </div>
-
+          <div className="space-y-4">
             {GRUPOS.map((grupo) => (
               <div key={grupo}>
-                <p className="border-t border-borde bg-crema px-3 py-1.5 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
+                <p className="mb-2 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
                   {grupo}
                 </p>
-                {AVISOS.filter((a) => a.grupo === grupo).map((a) => (
-                  <div
-                    key={a.tipo}
-                    className="flex items-center gap-2 border-t border-beige px-3 py-2.5"
-                  >
-                    <span className="min-w-0 flex-1">
-                      <span className="block text-sm font-semibold text-tinta">{a.titulo}</span>
-                      <span className="block text-xs text-tinta-2">{a.detalle}</span>
-                    </span>
+                <ul className="space-y-1.5">
+                  {AVISOS.filter((a) => a.grupo === grupo).map((a) => (
+                    <li key={a.tipo} className="rounded-xl border border-borde bg-crema p-3">
+                      <p className="text-sm font-semibold text-tinta">{a.titulo}</p>
+                      <p className="mt-0.5 text-xs text-tinta-2">{a.detalle}</p>
 
-                    <label className="flex w-14 cursor-pointer justify-center py-2">
-                      <span className="sr-only">{a.titulo} en el celular</span>
-                      <input
-                        type="checkbox"
-                        name="push"
-                        value={a.tipo}
-                        defaultChecked={!pushApagados.includes(a.tipo)}
-                        className="size-5 accent-pasto"
-                      />
-                    </label>
+                      {/* Las dos casillas abajo y a lo ancho: en el
+                          celular, tres columnas dejaban el nombre del
+                          aviso en una tira finita. */}
+                      <div className="mt-2 flex gap-2">
+                        <label className="flex min-h-11 flex-1 cursor-pointer items-center gap-2 rounded-lg bg-white px-3">
+                          <input
+                            type="checkbox"
+                            name="push"
+                            value={a.tipo}
+                            defaultChecked={!pushApagados.includes(a.tipo)}
+                            className="size-5 accent-pasto"
+                          />
+                          <span className="text-sm font-semibold text-tinta-2">Celular</span>
+                        </label>
 
-                    <span className="flex w-14 justify-center py-2">
-                      {a.mail ? (
-                        <label className="flex cursor-pointer">
-                          <span className="sr-only">{a.titulo} por mail</span>
+                        <label className="flex min-h-11 flex-1 cursor-pointer items-center gap-2 rounded-lg bg-white px-3">
                           <input
                             type="checkbox"
                             name="mail"
@@ -136,23 +121,17 @@ export default async function ConfigCuentaPage({
                             defaultChecked={!mailApagados.includes(a.tipo)}
                             className="size-5 accent-pasto"
                           />
+                          <span className="text-sm font-semibold text-tinta-2">Mail</span>
                         </label>
-                      ) : (
-                        <span className="text-tinta-3" title="Este aviso no se manda por mail">
-                          —
-                        </span>
-                      )}
-                    </span>
-                  </div>
-                ))}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </div>
 
-          <p className="mt-2 text-xs text-tinta-3">
-            Los que tienen un guion en Mail son del momento —abrir un riego, cerrar una entrega— y
-            van solo al celular: por correo llegarían tarde.
-          </p>
+
 
           <div className="mt-4">
             <button className="btn btn-alto">Guardar avisos</button>

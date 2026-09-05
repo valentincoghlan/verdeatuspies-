@@ -8,13 +8,13 @@ import {
   descartarAlertaLluvia,
   regarZona,
   registrarLluvia,
-  sincronizarAhora,
   suspenderRiego,
 } from "@/lib/actions";
 import { ControlRiego } from "@/components/control-riego";
 import { BalanceAgua } from "@/components/balance-agua";
 import { RiegosProgramados } from "@/components/riegos-programados";
 import { CancelarRiegos } from "@/components/cancelar-riegos";
+import { Refrescar } from "@/components/refrescar";
 import { fechaBreve, fechaCorta, fechaLarga, hoyISO, mm, numero, sumarDiasISO } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -191,15 +191,13 @@ export default async function AguaPage({
         titulo="Riego y lluvias"
         bajada="Lo que cayó del cielo y lo que pusimos nosotros. Se miran juntos: cuánto regar depende de cuánto llovió."
         accion={
-          <div className="flex flex-wrap gap-2">
+          <div className="flex items-center gap-2">
             <CancelarRiegos
               lotes={opcionesLoteSimple}
               hayFrenadas={frenadas > 0}
               accion={suspenderRiego}
             />
-            <form action={sincronizarAhora}>
-              <button className="btn-ghost">Actualizar</button>
-            </form>
+            <Refrescar titulo="Traer los datos del controlador" />
           </div>
         }
       />

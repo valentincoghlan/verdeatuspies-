@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { Refrescar } from "@/components/refrescar";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { diasDesde, fechaCorta, fechaLarga, hoyISO, m2, mm, numero, pesos, sumarDiasISO } from "@/lib/format";
 import {
@@ -9,7 +10,6 @@ import {
   registrarLluvia,
   reprogramarPedido,
   resolverNotificacion,
-  sincronizarAhora,
 } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
@@ -90,11 +90,7 @@ export default async function Dashboard() {
       <PageHeader
         titulo="Inicio"
         bajada="Todo el campo en una pantalla: pendientes, estado de los lotes y plata del mes."
-        accion={
-          <form action={sincronizarAhora}>
-            <button className="btn-ghost">Sincronizar ahora</button>
-          </form>
-        }
+        accion={<Refrescar />}
       />
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
@@ -112,18 +108,34 @@ export default async function Dashboard() {
         />
       </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3">
+      <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:gap-3">
         <Stat
-          label="Dólar MEP"
-          valor={dolar ? pesos(Number(dolar.mep), 2) : "—"}
-          detalle={
-            dolar
-              ? `Al ${fechaLarga(dolar.fecha)}${dolar.fecha === hoy ? "" : " · sincronizá para actualizar"}`
-              : "Tocá Sincronizar ahora"
-          }
+          label="Vendido este mes"
+          valor={pesos(vendidoMes)}
+          tono="verde"
+          detalle="Facturado en el mes"
         />
-        <Stat label="Vendido este mes" valor={pesos(vendidoMes)} tono="verde" />
-        <Stat label="Cobrado este mes" valor={pesos(cobradoMes)} detalle={`Pagos: ${pesos(pagadoMes)}`} />
+        <Stat
+          label="Cobrado este mes"
+          valor={pesos(cobradoMes)}
+          detalle={`Pagos: ${pesos(pagadoMes)}`}
+        />
+      </div>
+
+      {/* I2: una franja baja, no una tarjeta. Es un dato de contexto
+          para leer el resto, no un número del campo. */}
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-borde bg-beige px-4 py-2.5">
+        <span className="text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
+          Dólar MEP
+        </span>
+        <span className="text-base font-bold tabular-nums text-tinta">
+          {dolar ? pesos(Number(dolar.mep), 2) : "—"}
+        </span>
+        <span className="text-xs text-tinta-3">
+          {dolar
+            ? `al ${fechaLarga(dolar.fecha)}${dolar.fecha === hoy ? "" : " · desactualizado"}`
+            : "sin cotización todavía"}
+        </span>
       </div>
 
       <div className="mt-3 grid gap-4 lg:grid-cols-3">
@@ -291,34 +303,49 @@ export default async function Dashboard() {
           </Card>
 
           <Card titulo="Estado de los lotes">
-            <Tabla cabeceras={["Lote", "Último corte", "Último riego", "Última fertilización", "Próxima fert."]}>
+            <Tabla
+              cabeceras={["Lote", "Corte", "Riego", "Fertiliz.", "Próxima fert."]}
+              soloEnCompu={[4]}
+            >
               {(lotes ?? []).map((l: any) => {
                 const d = diasDesde(l.ultimo_corte);
                 const atrasado = d !== null && d >= Number(l.dias_objetivo_corte ?? 14);
                 return (
                   <tr key={l.lote_id}>
                     <td className="td font-semibold">
-                      {l.nombre}
+                      <span className="block">{l.nombre}</span>
                       {l.superficie_m2 && (
-                        <span className="ml-2 text-xs font-normal text-tierra-400">
+                        <span className="block text-xs font-normal text-tinta-3">
                           {m2(Number(l.superficie_m2))}
                         </span>
                       )}
                     </td>
-                    <td className="td">
+                    <td className="td whitespace-nowrap">
                       {l.ultimo_corte ? (
-                        <span className={atrasado ? "font-semibold text-amber-700" : ""}>
-                          {fechaCorta(l.ultimo_corte)} · hace {d}d
-                        </span>
+                        <>
+                          <span className={atrasado ? "block font-semibold text-atencion-tx" : "block"}>
+                            {fechaCorta(l.ultimo_corte)}
+                          </span>
+                          <span className="block text-xs text-tinta-3">hace {d}d</span>
+                        </>
                       ) : (
                         "—"
                       )}
                     </td>
-                    <td className="td">
-                      {l.ultimo_riego ? `${fechaCorta(l.ultimo_riego)} · hace ${diasDesde(l.ultimo_riego)}d` : "—"}
+                    <td className="td whitespace-nowrap">
+                      {l.ultimo_riego ? (
+                        <>
+                          <span className="block">{fechaCorta(l.ultimo_riego)}</span>
+                          <span className="block text-xs text-tinta-3">
+                            hace {diasDesde(l.ultimo_riego)}d
+                          </span>
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </td>
-                    <td className="td">{fechaCorta(l.ultima_fertilizacion)}</td>
-                    <td className="td">
+                    <td className="td whitespace-nowrap">{fechaCorta(l.ultima_fertilizacion)}</td>
+                    <td className="td hidden sm:table-cell">
                       {l.proxima_fertilizacion ? (
                         <Chip tono="verde">{fechaCorta(l.proxima_fertilizacion)}</Chip>
                       ) : (

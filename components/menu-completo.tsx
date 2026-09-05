@@ -83,16 +83,18 @@ export default function MenuCompleto({
 
       {abierto && (
         <div className="fixed inset-0 z-50 flex flex-col bg-crema">
-          <div className="flex items-start justify-between gap-4 bg-pasto-oscuro px-4 py-5">
+          {/* M5: era una portada de 360px de alto. Es un menú: el
+              nombre y el mail alcanzan con un bloque de 88. */}
+          <div className="flex items-center justify-between gap-4 bg-pasto-oscuro px-4 py-4">
             <div className="min-w-0">
-              <p className="text-[24px] font-bold leading-tight text-crema">{nombre}</p>
-              <p className="mt-1 truncate text-[14px] text-pasto-claro">{email}</p>
+              <p className="truncate text-base font-bold leading-tight text-crema">{nombre}</p>
+              <p className="truncate text-xs text-pasto-claro">{email}</p>
             </div>
             <button
               type="button"
               aria-label="Cerrar"
               onClick={() => setAbierto(false)}
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full text-pasto-nav transition hover:bg-pasto-medio hover:text-crema"
+              className="flex size-11 shrink-0 items-center justify-center rounded-full text-pasto-nav transition hover:bg-pasto-medio hover:text-crema"
             >
               <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden>
                 <path
@@ -105,12 +107,12 @@ export default function MenuCompleto({
             </button>
           </div>
 
-          <nav className="flex-1 overflow-y-auto px-4 py-5">
-            <div className="mx-auto w-full max-w-lg space-y-6">
+          <nav className="flex-1 overflow-y-auto px-3 py-3">
+            <div className="mx-auto w-full max-w-lg">
               <Link
                 href="/"
                 className={
-                  "flex min-h-14 items-center rounded-[16px] px-4 text-[17px] font-semibold transition " +
+                  "flex h-12 items-center rounded-xl px-4 text-base font-medium transition " +
                   (activa === "/" ? "bg-hecho-bg text-pasto-oscuro" : "text-tinta hover:bg-beige")
                 }
               >
@@ -118,17 +120,19 @@ export default function MenuCompleto({
               </Link>
 
               {SECCIONES.map((s) => (
-                <div key={s.label}>
-                  <p className="mb-2 px-4 text-[12.5px] font-bold uppercase tracking-[.10em] text-tinta-3">
+                <div key={s.label} className="mt-6">
+                  {/* M2: 24px arriba del título y 8 abajo, contra 2px
+                      entre ítems. Así el ojo arma los grupos solo. */}
+                  <p className="mb-2 px-4 text-xs font-bold uppercase tracking-[.08em] text-tinta-3">
                     {s.label}
                   </p>
-                  <ul className="space-y-1">
+                  <ul className="space-y-0.5">
                     {s.items.map((i) => (
                       <li key={i.href}>
                         <Link
                           href={i.href}
                           className={
-                            "flex min-h-14 items-center rounded-[16px] px-4 text-[17px] font-semibold transition " +
+                            "flex h-12 items-center rounded-xl px-4 text-base font-medium transition " +
                             (i.href === activa
                               ? "bg-hecho-bg text-pasto-oscuro"
                               : "text-tinta hover:bg-beige")
@@ -142,8 +146,8 @@ export default function MenuCompleto({
                 </div>
               ))}
 
-              <form action="/auth/signout" method="post" className="pt-2">
-                <button className="flex min-h-14 w-full items-center rounded-[16px] px-4 text-left text-[17px] font-semibold text-urgente-tx transition hover:bg-urgente-bg">
+              <form action="/auth/signout" method="post" className="mt-6 border-t border-borde pt-3">
+                <button className="flex h-12 w-full items-center rounded-xl px-4 text-left text-base font-medium text-urgente-tx transition hover:bg-urgente-bg">
                   Cerrar sesión
                 </button>
               </form>

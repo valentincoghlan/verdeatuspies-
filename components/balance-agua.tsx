@@ -44,7 +44,7 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
     <div className="-mx-4 overflow-x-auto px-4">
       <table className="w-full border-collapse overflow-hidden rounded-xl sm:min-w-[620px]">
         <thead>
-          <tr>
+          <tr className="hidden sm:table-row">
             <th className="th" />
             <th className={`th text-center ${lluvia}`} colSpan={2}>
               Lluvia
@@ -53,8 +53,7 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
               Riego
             </th>
             <th className="th text-right" colSpan={3}>
-              <span className="hidden sm:inline">Balance del día</span>
-              <span className="sm:hidden">Total</span>
+              Balance del día
             </th>
           </tr>
           <tr>

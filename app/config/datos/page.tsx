@@ -29,6 +29,11 @@ export default async function ConfigDatosPage() {
 
   return (
     <>
+      <p className="mb-3 rounded-2xl border border-borde bg-beige p-3 text-sm text-tinta-2 sm:hidden">
+        Esta sección se maneja mejor desde la computadora: son listas largas con muchos campos
+        chicos. Desde el celular se ve, pero cuesta.
+      </p>
+
       <Card titulo="Categorías">
         <p className="mb-4 text-sm text-tinta-2">
           Cada categoría dice para qué lado sirve. Al cargar un movimiento, el desplegable trae

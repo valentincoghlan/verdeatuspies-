@@ -67,15 +67,13 @@ export default async function ConfigGeneralPage() {
           <Campo
             label="Largo (m)"
             name="pan_largo_m"
-            type="number"
-            step="0.01"
+            decimal
             defaultValue={Number(c.get("pan_largo_m") ?? 0.62)}
           />
           <Campo
             label="Ancho (m)"
             name="pan_ancho_m"
-            type="number"
-            step="0.01"
+            decimal
             defaultValue={Number(c.get("pan_ancho_m") ?? 0.4)}
           />
           <Campo

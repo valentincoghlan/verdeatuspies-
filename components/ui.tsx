@@ -67,27 +67,30 @@ export function Stat({
 
   if (destacado) {
     return (
-      <div className="rounded-2xl bg-pasto-oscuro p-3.5 sm:p-4">
-        <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[.08em] text-pasto-claro">
+      <div className="flex flex-col rounded-2xl bg-pasto-oscuro p-3.5 sm:p-4">
+        <p className="mb-1.5 min-h-[2.1em] text-[10.5px] font-bold uppercase leading-[1.05] tracking-[.08em] text-pasto-claro">
           {label}
         </p>
         <p className={`font-bold leading-none tracking-[-.02em] tabular-nums text-crema ${tamDestacado}`}>
           {valor}
         </p>
-        {detalle && <p className="mt-1 text-xs text-pasto-claro">{detalle}</p>}
+        <p className="mt-1 min-h-[1.2em] text-xs text-pasto-claro">{detalle}</p>
       </div>
     );
   }
 
   return (
-    <div className="rounded-2xl border border-borde bg-white p-3.5 shadow-[0_1px_2px_rgba(26,29,24,.05)] sm:p-4">
-      <p className="mb-1.5 text-[10.5px] font-bold uppercase tracking-[.08em] text-tinta-3">
+    // El label ocupa siempre dos renglones y el detalle deja su lugar
+    // aunque esté vacío: sin eso, una tarjeta con título largo empuja su
+    // número y toda la fila queda despareja.
+    <div className="flex flex-col rounded-2xl border border-borde bg-white p-3.5 shadow-[0_1px_2px_rgba(26,29,24,.05)] sm:p-4">
+      <p className="mb-1.5 min-h-[2.1em] text-[10.5px] font-bold uppercase leading-[1.05] tracking-[.08em] text-tinta-3">
         {label}
       </p>
       <p className={`font-bold leading-none tracking-[-.02em] tabular-nums ${tam} ${tonos[tono]}`}>
         {valor}
       </p>
-      {detalle && <p className="mt-1 text-xs text-tinta-2">{detalle}</p>}
+      <p className="mt-1 min-h-[1.2em] text-xs text-tinta-2">{detalle}</p>
     </div>
   );
 }
@@ -178,8 +181,15 @@ export function Tabla({
   }
 
   return (
-    <div className="-mx-4 overflow-x-auto px-4">
-      <table className={"w-full border-collapse overflow-hidden rounded-xl " + (soloEnCompu.length ? "" : "min-w-[520px]")}>
+    // En el celular la tabla se recorta a las columnas que entran; el
+    // ancho mínimo recién aparece en la compu, donde hay lugar.
+    <div className="-mx-4 px-4 sm:overflow-x-auto">
+      <table
+        className={
+          "w-full border-collapse overflow-hidden rounded-xl " +
+          (soloEnCompu.length ? "" : "sm:min-w-[520px]")
+        }
+      >
         <thead>
           <tr>
             {cabeceras.map((c, i) => (

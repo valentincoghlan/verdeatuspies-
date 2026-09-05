@@ -9,6 +9,7 @@ export function Campo({
   defaultValue,
   placeholder,
   step,
+  decimal,
   className,
 }: {
   label: string;
@@ -18,8 +19,18 @@ export function Campo({
   defaultValue?: string | number | null;
   placeholder?: string;
   step?: string;
+  /** Números con coma, como se escriben acá. */
+  decimal?: boolean;
   className?: string;
 }) {
+  // Un input de tipo número obliga al punto decimal y muestra "0.62"
+  // donde el resto de la app dice "0,62". Para esos casos va como texto
+  // con teclado numérico: `dec()` en el server entiende las dos formas.
+  const valor =
+    decimal && (typeof defaultValue === "number" || typeof defaultValue === "string")
+      ? String(defaultValue).replace(".", ",")
+      : (defaultValue ?? undefined);
+
   return (
     <div className={className}>
       <label className="label" htmlFor={name}>
@@ -28,10 +39,11 @@ export function Campo({
       <input
         id={name}
         name={name}
-        type={type}
-        step={step}
+        type={decimal ? "text" : type}
+        inputMode={decimal ? "decimal" : undefined}
+        step={decimal ? undefined : step}
         required={required}
-        defaultValue={defaultValue ?? undefined}
+        defaultValue={valor}
         placeholder={placeholder}
         className="input"
       />

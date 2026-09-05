@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import { createAdminClient } from "@/lib/supabase/server";
+import { enviarMail, plantilla } from "@/lib/mail";
 
 /**
  * Avisos al celular.
@@ -36,6 +37,48 @@ export type Aviso = {
   /** De qué se trata. Sirve para respetar quién apagó qué. */
   tipo?: string;
 };
+
+/**
+ * Manda un aviso por los dos lados: al celular y por mail.
+ *
+ * Cada persona elige qué recibe y por dónde, así que el mismo aviso le
+ * puede llegar a uno al teléfono, a otro al correo y a un tercero por
+ * los dos. Los avisos del momento —abrir un riego, cerrar una entrega—
+ * salen por acá; los de la corrida diaria van juntos en el resumen.
+ */
+export async function enviarAviso(aviso: Aviso) {
+  const push = await enviarPush(aviso);
+  const mail = await enviarAvisoPorMail(aviso);
+  return { push, mail };
+}
+
+async function enviarAvisoPorMail(aviso: Aviso) {
+  if (!aviso.tipo) return { enviados: 0, motivo: "sin tipo" };
+
+  const sb = createAdminClient();
+  const { data: perfiles } = await sb
+    .from("perfiles")
+    .select("email, mails_apagados")
+    .eq("activo", true)
+    .eq("notificar_mail", true);
+
+  const to = (perfiles ?? [])
+    .filter((p: any) => p.email && !(p.mails_apagados ?? []).includes(aviso.tipo))
+    .map((p: any) => p.email as string);
+
+  if (!to.length) return { enviados: 0, motivo: "nadie lo quiere por mail" };
+
+  const res = await enviarMail({
+    to,
+    asunto: aviso.titulo,
+    html: plantilla(
+      [{ titulo: aviso.titulo, mensaje: aviso.mensaje, accion_url: aviso.url ?? "/" }],
+      process.env.NEXT_PUBLIC_APP_URL ?? "",
+    ),
+  });
+
+  return { enviados: res.enviado ? to.length : 0, motivo: res.motivo };
+}
 
 export async function enviarPush(aviso: Aviso) {
   if (!preparar()) return { enviados: 0, motivo: "faltan las claves VAPID" };

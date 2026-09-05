@@ -31,7 +31,10 @@ export function CancelarRiegos({
         type="button"
         onClick={() => dialogo.current?.showModal()}
         className={
-          "btn-ghost " + (hayFrenadas ? "border-atencion-tx/40 bg-atencion-bg text-atencion-tx" : "")
+          "inline-flex min-h-11 flex-1 items-center justify-center whitespace-nowrap rounded-full border-[1.5px] px-4 text-sm font-bold transition sm:min-h-10 sm:flex-none " +
+          (hayFrenadas
+            ? "border-atencion-tx/40 bg-atencion-bg text-atencion-tx"
+            : "border-borde-boton bg-white text-pasto hover:bg-hecho-bg")
         }
       >
         {hayFrenadas ? "Riegos frenados" : "Cancelar riego"}
