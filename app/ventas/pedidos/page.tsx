@@ -299,21 +299,29 @@ export default async function PedidosPage() {
                       </summary>
                       <form
                         action={crearCobro}
-                        className="mt-2 flex flex-wrap items-end gap-2 rounded-lg bg-white p-3"
+                        className="mt-2 grid grid-cols-2 gap-2 rounded-xl bg-white p-3"
                       >
                         <input type="hidden" name="cliente_id" value={p.cliente_id} />
                         <input type="hidden" name="venta_id" value={p.id} />
-                        <div>
+
+                        <div className="min-w-0">
                           <label className="label">Monto</label>
-                          <input name="monto" type="number" required className="input w-32" placeholder="0" />
+                          <input
+                            name="monto"
+                            type="number"
+                            required
+                            className="input"
+                            placeholder="0"
+                          />
                         </div>
-                        <div>
+                        <div className="min-w-0">
                           <label className="label">Fecha</label>
-                          <input name="fecha" type="date" defaultValue={hoy} className="input w-40" />
+                          <input name="fecha" type="date" defaultValue={hoy} className="input" />
                         </div>
-                        <div>
+
+                        <div className="min-w-0">
                           <label className="label">Cuenta</label>
-                          <select name="cuenta_id" required className="input w-40">
+                          <select name="cuenta_id" required className="input">
                             {cuentasOpc.map((c) => (
                               <option key={c.value} value={c.value}>
                                 {c.label}
@@ -321,7 +329,9 @@ export default async function PedidosPage() {
                             ))}
                           </select>
                         </div>
-                        <button className="btn-ghost">Guardar seña</button>
+                        <div className="flex items-end">
+                          <button className="btn-ghost w-full">Guardar seña</button>
+                        </div>
                       </form>
                     </details>
                   </li>
@@ -344,7 +354,7 @@ export default async function PedidosPage() {
               "Pendiente",
             ]}
             soloEnCompu={[3, 5, 6, 7]}
-            anchos={["w-[4.5rem] sm:w-auto", undefined, "w-10 sm:w-auto", undefined, "w-[5.6rem] sm:w-auto"]}
+            anchos={["w-[4.3rem] sm:w-auto", undefined, "w-[3.2rem] sm:w-auto", undefined, "w-[5.4rem] sm:w-auto"]}
             vacio="Todavía no hay entregas confirmadas."
           >
             {entregadas.map((v: any) => {
@@ -353,7 +363,7 @@ export default async function PedidosPage() {
               const pct = facturado > 0 ? (margen / facturado) * 100 : 0;
               return (
                 <tr key={v.venta_id}>
-                  <td className="td whitespace-nowrap text-xs sm:text-sm">
+                  <td className="td whitespace-nowrap text-[11px] sm:text-sm">
                     {fechaBreve(v.fecha_entrega)}
                   </td>
                   <td className="td font-medium">
@@ -364,13 +374,13 @@ export default async function PedidosPage() {
                       </span>
                     )}
                   </td>
-                  <td className="td text-right tabular-nums text-xs sm:text-left sm:text-sm">
+                  <td className="td whitespace-nowrap text-right tabular-nums text-[11px] sm:text-left sm:text-sm">
                     {numero(Number(v.m2))}
                   </td>
                   <td className="td hidden tabular-nums text-tinta-2 sm:table-cell">
                     {Number(v.m2_cortesia) > 0 ? numero(Number(v.m2_cortesia)) : "—"}
                   </td>
-                  <td className="td whitespace-nowrap text-right tabular-nums text-xs font-semibold sm:text-left sm:text-sm">
+                  <td className="td whitespace-nowrap text-right tabular-nums text-[11px] font-semibold sm:text-left sm:text-sm">
                     {pesos(facturado)}
                   </td>
                   <td className="td hidden tabular-nums text-atencion-tx sm:table-cell">

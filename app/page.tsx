@@ -9,7 +9,6 @@ import {
   descartarAlertaLluvia,
   registrarLluvia,
   reprogramarPedido,
-  resolverNotificacion,
 } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
@@ -91,9 +90,6 @@ export default async function Dashboard() {
     .reduce((a, c) => a + Number(c.saldo_ars ?? 0), 0);
 
   const proximos = ((pedidosPend ?? []) as any[]).slice(0, 3);
-
-  // Alertas que se resuelven con su propio formulario, no con el botón "Listo".
-  const CON_FORMULARIO = ["confirmar_lluvia", "confirmar_entrega"];
 
   return (
     <>
@@ -246,24 +242,7 @@ export default async function Dashboard() {
                             </p>
                           )}
                         </div>
-                        <div className="flex items-center gap-3">
-                          {n.accion_url && (
-                            <Link
-                              href={n.accion_url}
-                              className="text-sm font-semibold text-pasto hover:underline"
-                            >
-                              Ir
-                            </Link>
-                          )}
-                          {!CON_FORMULARIO.includes(n.tipo) && (
-                            <form action={resolverNotificacion}>
-                              <input type="hidden" name="id" value={n.id} />
-                              <button className="text-sm font-semibold text-tinta-3 hover:text-tinta">
-                                Listo
-                              </button>
-                            </form>
-                          )}
-                        </div>
+
                       </div>
 
                     {n.tipo === "confirmar_lluvia" && (
