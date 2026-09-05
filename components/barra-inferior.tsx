@@ -68,16 +68,16 @@ export default function BarraInferior({ children }: { children: ReactNode }) {
               >
                 <span
                   className={
-                    "-mt-5 flex size-12 items-center justify-center rounded-full border-4 border-white shadow-[0_2px_8px_rgba(20,60,34,.25)] transition " +
-                    (esta ? "bg-pasto-oscuro text-crema" : "bg-pasto text-crema")
+                    "-mt-5 block size-14 overflow-hidden rounded-full border-4 shadow-[0_2px_8px_rgba(20,60,34,.25)] transition " +
+                    (esta ? "border-pasto-oscuro" : "border-white")
                   }
                 >
                   <Image
-                    src="/logo-claro.png"
+                    src="/logo-boton.png"
                     alt=""
                     width={256}
                     height={256}
-                    className="size-8 object-contain"
+                    className="size-full object-cover"
                   />
                 </span>
                 {a.label}
