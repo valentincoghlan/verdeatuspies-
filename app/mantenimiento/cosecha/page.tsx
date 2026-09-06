@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Checks } from "@/components/checks";
+import { Dato } from "@/components/dato";
+import { PedidoYObjetivo } from "@/components/pedido-objetivo";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
-import { Campo, Nota, Selector } from "@/components/campos";
+import { Campo, Nota } from "@/components/campos";
 import { crearCosecha } from "@/lib/actions";
 import { fechaBreve, fechaLarga, hoyISO, m2, numero } from "@/lib/format";
 
@@ -70,23 +72,13 @@ export default async function CosechaPage() {
       <div className="mt-3 space-y-3">
         <Card titulo="Nueva cosecha">
           <form action={crearCosecha} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Selector
-              label="Pedido a cubrir"
-              name="venta_id"
-              vacio="Sin pedido, cosecha suelta"
-              opciones={(pedidos ?? []).map((p: any) => ({
-                value: p.id,
+            {/* C3 - el objetivo sale del pedido, no se vuelve a preguntar. */}
+            <PedidoYObjetivo
+              pedidos={(pedidos ?? []).map((p: any) => ({
+                id: p.id,
+                m2: Number(p.m2 ?? 0),
                 label: `${p.comprador} · ${numero(p.m2)} m² · ${fechaLarga(p.fecha_entrega)}`,
               }))}
-              className="col-span-2 sm:col-span-4"
-            />
-            <Campo
-              label="Objetivo en m²"
-              name="objetivo_m2"
-              type="number"
-              step="0.5"
-              placeholder="600"
-              className="col-span-2"
             />
             <Checks
               label="Lote"
@@ -115,6 +107,8 @@ export default async function CosechaPage() {
         <Card titulo="Cosechas">
           <Tabla
             cabeceras={["Fecha", "Lote", "Objetivo", "Cortado", "Falta", "Pilas", "Líneas", "Estado", ""]}
+            soloEnCompu={[0, 2, 4, 5, 6]}
+            anchos={[undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, "w-16 sm:w-auto"]}
             vacio="Todavía no empezaste ninguna cosecha."
           >
             {lista.map((c) => {
@@ -125,18 +119,22 @@ export default async function CosechaPage() {
               return (
                 <tr key={c.id}>
                   <td className="td whitespace-nowrap">{fechaBreve(c.fecha)}</td>
-                  <td className="td">
-                    {c.lote ?? "—"}
-                    {c.comprador && (
-                      <span className="block text-xs text-tinta-3">para {c.comprador}</span>
-                    )}
+                  <td className="td max-w-0">
+                    <span className="block truncate">{c.lote ?? "—"}</span>
+                    <span className="block truncate text-xs text-tinta-3">
+                      {c.comprador ? `para ${c.comprador}` : null}
+                      <span className="sm:hidden">
+                        {c.comprador ? " · " : ""}
+                        {fechaBreve(c.fecha)}
+                      </span>
+                    </span>
                   </td>
                   <td className="td tabular-nums">{numero(objetivo)}</td>
                   <td className="td tabular-nums font-semibold text-pasto">
-                    {numero(cortado)}
-                    <span className="ml-1 text-xs font-normal text-tinta-3">
-                      {numero(pct)}%
-                    </span>
+                    <Dato
+                      principal={`${numero(cortado)} de ${numero(objetivo)}`}
+                      secundario={`${numero(pct)}%`}
+                    />
                   </td>
                   <td className="td tabular-nums">{falta > 0 ? numero(falta) : "—"}</td>
                   <td className="td tabular-nums text-tinta-2">

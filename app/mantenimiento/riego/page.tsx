@@ -249,7 +249,7 @@ export default async function AguaPage({
                           step="0.5"
                           min="0"
                           required
-                          className="input w-32"
+                          className="input w-full min-w-0 sm:w-32"
                           placeholder="12,5"
                         />
                       </div>
@@ -380,7 +380,7 @@ export default async function AguaPage({
         <Plegable titulo="Últimos riegos" detalle={`${listaRiegos.length} registros`}>
           <Tabla
             cabeceras={["Fecha", "Lote", "Zona", "Minutos", "mm", "Origen", ""]}
-            soloEnCompu={[2]}
+            soloEnCompu={[2, 3, 5]}
             vacio="Todavía no hay riegos cargados."
           >
             {listaRiegos.map((r) => (
@@ -414,6 +414,7 @@ export default async function AguaPage({
         <Plegable titulo="Historial de lluvias" detalle={`${listaLluvias.length} registros`}>
           <Tabla
             cabeceras={["Fecha", "mm", "Lote", "Origen", ""]}
+            soloEnCompu={[3]}
             vacio="Todavía no cargaste lluvias."
           >
             {listaLluvias.map((l) => (

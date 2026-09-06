@@ -21,6 +21,10 @@ export function ConfirmarEntrega({
   confirmar,
   reprogramar,
   anular,
+  m2Facturados,
+  m2Cortesia,
+  etiqueta = "¿Se entregó?",
+  nota,
 }: {
   pedidoId: string;
   comprador: string;
@@ -29,6 +33,12 @@ export function ConfirmarEntrega({
   confirmar: (fd: FormData) => Promise<void>;
   reprogramar: (fd: FormData) => Promise<void>;
   anular: (fd: FormData) => Promise<void>;
+  /** Prellenado desde la cosecha. Si no va, se usan los m² del pedido. */
+  m2Facturados?: number;
+  m2Cortesia?: number;
+  etiqueta?: string;
+  /** Una línea de contexto arriba de los campos. */
+  nota?: string;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
 
@@ -39,7 +49,7 @@ export function ConfirmarEntrega({
         onClick={() => dialogo.current?.showModal()}
         className="flex min-h-11 w-full items-center justify-center rounded-full bg-pasto px-4 text-sm font-bold text-crema transition active:scale-[.98] sm:min-h-10 sm:w-auto"
       >
-        ¿Se entregó?
+        {etiqueta}
       </button>
 
       <dialog
@@ -52,8 +62,8 @@ export function ConfirmarEntrega({
         <div className="p-5">
           <p className="text-base font-bold">{comprador}</p>
           <p className="mt-0.5 text-sm text-tinta-2">
-            {m2.toLocaleString("es-AR")} m² agendados para el {fecha.slice(8, 10)}/
-            {fecha.slice(5, 7)}.
+            {nota ??
+              `${m2.toLocaleString("es-AR")} m² agendados para el ${fecha.slice(8, 10)}/${fecha.slice(5, 7)}.`}
           </p>
 
           <form action={confirmar} className="mt-4" onSubmit={() => dialogo.current?.close()}>
@@ -71,7 +81,7 @@ export function ConfirmarEntrega({
                   step="0.5"
                   min="0"
                   required
-                  defaultValue={m2}
+                  defaultValue={m2Facturados ?? m2}
                   className="input"
                 />
               </div>
@@ -85,7 +95,7 @@ export function ConfirmarEntrega({
                   type="number"
                   step="0.5"
                   min="0"
-                  defaultValue={0}
+                  defaultValue={m2Cortesia ?? 0}
                   className="input"
                 />
               </div>

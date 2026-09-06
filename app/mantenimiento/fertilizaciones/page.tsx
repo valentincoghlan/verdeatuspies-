@@ -104,6 +104,7 @@ export default async function FertilizacionesPage() {
         <Card titulo="Agendadas">
           <Tabla
             cabeceras={["Fecha", "Lote", "Producto", "Dosis", "Costo", "Acciones", ""]}
+            soloEnCompu={[3, 4]}
             vacio="No hay fertilizaciones agendadas."
           >
             {(programadas ?? []).map((f: any) => (
@@ -130,7 +131,7 @@ export default async function FertilizacionesPage() {
                         name="fecha_aplicada"
                         type="date"
                         defaultValue={hoy}
-                        className="input w-36 py-1"
+                        className="input w-full min-w-0 sm:w-36"
                       />
                       <button className="btn px-3 py-1.5">Aplicada</button>
                     </form>
@@ -158,6 +159,7 @@ export default async function FertilizacionesPage() {
         <Card titulo="Historial">
           <Tabla
             cabeceras={["Aplicada", "Lote", "Producto", "Dosis", "Costo", "Estado"]}
+            soloEnCompu={[3, 4]}
             vacio="Todavía no hay fertilizaciones aplicadas."
           >
             {(historial ?? []).map((f: any) => (
@@ -187,7 +189,7 @@ export default async function FertilizacionesPage() {
               <button className="btn-ghost">Agregar producto</button>
             </div>
           </form>
-          <Tabla cabeceras={["Producto", "Tipo", "Dosis/ha", "Unidad"]}>
+          <Tabla cabeceras={["Producto", "Tipo", "Dosis/ha", "Unidad"]} soloEnCompu={[1]}>
             {(fertilizantes ?? []).map((f: any) => (
               <tr key={f.id}>
                 <td className="td font-medium">{f.nombre}</td>

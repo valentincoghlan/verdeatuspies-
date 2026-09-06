@@ -43,8 +43,8 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
   const riego = "bg-hecho-bg/60";
 
   return (
-    <div className="-mx-4 overflow-x-auto px-4">
-      <table className="w-full border-collapse overflow-hidden rounded-xl sm:min-w-[620px]">
+    <div className="w-full overflow-hidden sm:-mx-4 sm:w-auto sm:overflow-x-auto sm:px-4">
+      <table className="w-full table-fixed border-collapse overflow-hidden rounded-xl sm:table-auto sm:min-w-[620px]">
         <thead>
           <tr className="hidden sm:table-row">
             <th className="th" />

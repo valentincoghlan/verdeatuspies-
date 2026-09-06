@@ -798,7 +798,7 @@ export async function confirmarEntrega(fd: FormData) {
     });
   }
 
-  bump("/ventas/pedidos", "/ventas", "/administracion");
+  bump("/ventas/pedidos", "/ventas", "/administracion", "/mantenimiento/cosecha");
 }
 
 /** Se pasa a una fecha nueva y sigue siendo pedido. */

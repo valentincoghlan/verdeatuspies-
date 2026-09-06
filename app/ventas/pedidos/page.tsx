@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota, Opciones, Selector } from "@/components/campos";
 import { CanalYComprador } from "@/components/comprador";
+import { ConfirmarEntrega } from "@/components/confirmar-entrega";
 import {
   anularPedido,
   confirmarEntrega,
@@ -172,10 +173,10 @@ export default async function PedidosPage() {
                     className={
                       "rounded-xl border p-3 " +
                       (lluvia
-                        ? "border-red-200 bg-red-50/50"
+                        ? "border-urgente-tx/30 bg-urgente-bg"
                         : dias !== null && dias <= 0
-                          ? "border-hoja-200 bg-hoja-50/50"
-                          : "border-tierra-200")
+                          ? "border-pasto/30 bg-hecho-bg"
+                          : "border-borde")
                     }
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
@@ -202,90 +203,44 @@ export default async function PedidosPage() {
                           <span className="font-semibold">{p.comprador}</span>
                           {p.lote ? ` · desde ${p.lote}` : ""}
                         </p>
-                        <p className="mt-0.5 text-xs text-tierra-600">
+                        <p className="mt-0.5 text-xs text-tinta-2">
                           {p.canal === "distribuidor" ? "Venta por distribuidor" : "Venta directa"}
                           {p.vinculante ? ` · ${p.vinculante}` : ""}
                           {p.cliente_final ? ` · entrega a ${p.cliente_final}` : ""}
                         </p>
-                        {p.notas && <p className="mt-1 text-xs italic text-tierra-600">{p.notas}</p>}
+                        {p.notas && <p className="mt-1 text-xs italic text-tinta-2">{p.notas}</p>}
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-bold tabular-nums">{pesos(Number(p.total))}</p>
-                        <p className="text-xs text-tierra-600">
+                        <p className="text-xs text-tinta-2">
                           {pesos(Number(p.precio_m2))}/m²
                           {Number(p.flete) > 0 ? ` + flete ${pesos(Number(p.flete))}` : ""}
                         </p>
                         {sena > 0 && (
-                          <p className="mt-1 text-xs font-semibold text-blue-700">
+                          <p className="mt-1 text-xs font-semibold text-info-tx">
                             Seña: {pesos(sena)}
                           </p>
                         )}
                       </div>
                     </div>
 
-                    <details className="mt-3">
-                      <summary className="cursor-pointer text-xs font-semibold text-hoja-700">
-                        Resolver la entrega
-                      </summary>
-                      <div className="mt-2 space-y-2 rounded-lg bg-white p-3">
-                        <form action={confirmarEntrega} className="flex flex-wrap items-end gap-2">
-                          <input type="hidden" name="id" value={p.id} />
-                          <div>
-                            <label className="label">m² facturados</label>
-                            <input
-                              name="m2"
-                              type="number"
-                              step="0.5"
-                              min="0"
-                              required
-                              defaultValue={Number(p.m2)}
-                              className="input w-28"
-                            />
-                          </div>
-                          <div>
-                            <label className="label">m² de cortesía</label>
-                            <input
-                              name="m2_cortesia"
-                              type="number"
-                              step="0.5"
-                              min="0"
-                              defaultValue={0}
-                              className="input w-28"
-                            />
-                          </div>
-                          <div>
-                            <label className="label">Fecha</label>
-                            <input
-                              name="fecha_entrega"
-                              type="date"
-                              defaultValue={p.fecha_entrega ?? hoy}
-                              className="input w-40"
-                            />
-                          </div>
-                          <button className="btn">Se entregó</button>
-                        </form>
-
-                        <div className="flex flex-wrap items-end gap-2 border-t border-tierra-100 pt-2">
-                          <form action={reprogramarPedido} className="flex flex-wrap items-end gap-2">
-                            <input type="hidden" name="id" value={p.id} />
-                            <div>
-                              <label className="label">Fecha nueva</label>
-                              <input name="fecha_entrega" type="date" required className="input w-40" />
-                            </div>
-                            <button className="btn-ghost">Reprogramar</button>
-                          </form>
-                          <form action={anularPedido}>
-                            <input type="hidden" name="id" value={p.id} />
-                            <button className="text-xs font-semibold text-tierra-400 hover:text-red-600">
-                              Se cayó
-                            </button>
-                          </form>
-                        </div>
-                      </div>
-                    </details>
+                    {/* El mismo modal que en Inicio y en Cosecha: la
+                        entrega se resuelve igual desde donde estés. */}
+                    <div className="mt-3">
+                      <ConfirmarEntrega
+                        pedidoId={p.id}
+                        comprador={p.comprador ?? "Sin comprador"}
+                        m2={Number(p.m2 ?? 0)}
+                        fecha={p.fecha_entrega ?? hoy}
+                        etiqueta="Resolver la entrega"
+                        confirmar={confirmarEntrega}
+                        reprogramar={reprogramarPedido}
+                        anular={anularPedido}
+                      />
+                    </div>
 
                     <details className="mt-1">
-                      <summary className="cursor-pointer text-xs font-semibold text-tierra-600">
+                      <summary className="cursor-pointer text-xs font-semibold text-tinta-2">
                         Registrar seña
                       </summary>
                       <form

@@ -332,7 +332,7 @@ export default async function Dashboard() {
                               step="0.5"
                               min="0"
                               required
-                              className="input w-36"
+                              className="input w-full min-w-0 sm:w-36"
                               placeholder="12,5"
                             />
                           </div>

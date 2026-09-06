@@ -3,7 +3,16 @@ import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { Card, PageHeader, Stat } from "@/components/ui";
 import { Confirmar } from "@/components/confirmar";
-import { borrarCarga, borrarCosecha, cambiarEstadoCosecha, guardarCarga } from "@/lib/actions";
+import {
+  anularPedido,
+  borrarCarga,
+  borrarCosecha,
+  cambiarEstadoCosecha,
+  confirmarEntrega,
+  guardarCarga,
+  reprogramarPedido,
+} from "@/lib/actions";
+import { ConfirmarEntrega } from "@/components/confirmar-entrega";
 import { fechaLarga, m2, numero } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -23,6 +32,17 @@ export default async function ContarCosechaPage({
 
   if (!c) notFound();
 
+  // C4 a C6 - si la cosecha cubre un pedido, cuando ya cortaste algo la
+  // app te ofrece cerrar la entrega ahi mismo, en vez de mandarte a
+  // Inicio a buscar la alerta.
+  const { data: pedido } = c.venta_id
+    ? await supabase
+        .from("ventas")
+        .select("id, m2, fecha_entrega, estado, clientes!cliente_id(nombre)")
+        .eq("id", c.venta_id)
+        .maybeSingle()
+    : { data: null };
+
   const objetivo = Number(c.objetivo_m2 ?? 0);
   const cortado = Number(c.m2_cosechados ?? 0);
   const falta = Math.max(0, objetivo - cortado);
@@ -36,6 +56,18 @@ export default async function ContarCosechaPage({
   const filas = (cargas ?? []) as any[];
   const proxima = Number(c.ultima_linea ?? 0) + 1;
   const cerrada = c.estado === "cerrada";
+
+  // El excedente va a cortesia: si cosechaste 31 sobre un pedido de 30,
+  // se facturan 30 y uno se regala. Si cosechaste menos, se factura lo
+  // cortado y no hay cortesia.
+  const m2Pedido = Number((pedido as any)?.m2 ?? 0);
+  const compradorPedido = (pedido as any)?.clientes?.nombre ?? "el comprador";
+  const sugerido = {
+    facturados: Math.min(cortado, m2Pedido) || cortado,
+    cortesia: Math.max(0, cortado - m2Pedido),
+  };
+  const pedidoAbierto =
+    !!pedido && cortado > 0 && ["pedido", "confirmada", "presupuesto"].includes((pedido as any).estado);
 
   const tramo = (f: any) =>
     f.linea_desde === f.linea_hasta ? `L${f.linea_desde}` : `L${f.linea_desde}–${f.linea_hasta}`;
@@ -55,6 +87,42 @@ export default async function ContarCosechaPage({
           </Link>
         }
       />
+
+      {pedidoAbierto && (
+        <div className="mb-3 rounded-2xl border border-pasto/30 bg-hecho-bg p-3.5">
+          <p className="text-sm font-bold text-pasto-oscuro">
+            Cortaste {m2(cortado)} para el pedido de {compradorPedido}
+          </p>
+          <p className="mt-0.5 text-sm text-tinta-2">
+            {sugerido.cortesia > 0
+              ? `El pedido era de ${m2(m2Pedido)}: se facturan ${m2(sugerido.facturados)} y ${m2(sugerido.cortesia)} van de cortesía.`
+              : sugerido.facturados < m2Pedido
+                ? `El pedido era de ${m2(m2Pedido)}, así que la entrega queda por ${m2(sugerido.facturados)}.`
+                : `Justo lo que pedía: ${m2(m2Pedido)}.`}
+          </p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <ConfirmarEntrega
+              pedidoId={pedido!.id}
+              comprador={compradorPedido}
+              m2={m2Pedido}
+              m2Facturados={sugerido.facturados}
+              m2Cortesia={sugerido.cortesia}
+              fecha={pedido!.fecha_entrega ?? c.fecha}
+              etiqueta="Confirmar la entrega"
+              nota={`Cosechaste ${m2(cortado)} sobre un pedido de ${m2(m2Pedido)}.`}
+              confirmar={confirmarEntrega}
+              reprogramar={reprogramarPedido}
+              anular={anularPedido}
+            />
+            {/* C5 - si el cliente pasa a retirar despues, la cosecha se
+                guarda igual y el pedido queda esperando. */}
+            <span className="text-xs text-tinta-2">
+              O dejalo para después: el pedido queda pendiente en Inicio.
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat
