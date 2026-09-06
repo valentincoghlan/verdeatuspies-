@@ -86,12 +86,28 @@ export default async function ReportesPage({
     .map(([k, v]) => ({ label: k.slice(0, 14), valor: v }));
 
   const facturado = entregadas.reduce((a, v: any) => a + Number(v.facturado ?? 0), 0);
-  const gastado = (pagos ?? []).reduce((a, p: any) => a + Number(p.monto ?? 0), 0);
+
+  // Tres cosas salen de la caja pero no son costo de producir un metro:
+  // los dividendos son reparto de la ganancia, la plata prestada vuelve,
+  // y un ajuste de saldo corrige un arrastre viejo. Si entran en la
+  // cuenta, el metro parece más caro de lo que es.
+  const NO_ES_COSTO = ["Cobros", "Préstamos", "Ajustes"];
+  const egresos = (pagos ?? []) as any[];
+  const gastado = egresos
+    .filter((p) => !NO_ES_COSTO.includes(p.categoria))
+    .reduce((a, p) => a + Number(p.monto ?? 0), 0);
+  const fueraDeCosto = egresos
+    .filter((p) => NO_ES_COSTO.includes(p.categoria))
+    .reduce((a, p) => a + Number(p.monto ?? 0), 0);
+
   const precioProm = vendidos > 0 ? facturado / vendidos : 0;
+  // Ojo con el nombre: `m2_cosechados` de la vista son los m² entregados
+  // de cada venta, no lo que salió del campo. Mientras la cosecha real se
+  // empiece a cargar en serio, el número que sirve es por metro vendido.
   const costoPorM2 = cosechados > 0 ? gastado / cosechados : 0;
 
-  // El margen de verdad es lo facturado menos TODO lo que se gastó en el
-  // período. El que trae v_margen_ventas solo descuenta los gastos
+  // El margen de verdad es lo facturado menos lo que se gastó de verdad
+  // en el período. El que trae v_margen_ventas solo descuenta los gastos
   // imputados a cada venta, y casi ninguno lo está: daba 80% cuando el
   // metro cuesta más de lo que se vende.
   const resultado = facturado - gastado;
@@ -138,7 +154,7 @@ export default async function ReportesPage({
           detalle="Lo que sale el metro"
         />
         <Stat
-          label="Costo por m² cosechado"
+          label="Costo por m² vendido"
           valor={`${pesos(costoPorM2)} / m²`}
           tono={costoPorM2 > precioProm ? "ambar" : "neutro"}
           detalle={
@@ -173,13 +189,20 @@ export default async function ReportesPage({
           <Barras datos={serie("vendido")} formato={(n) => pesos(n)} compacto />
         </Card>
 
-        <Card titulo="Gastos por categoría">
+        <Card titulo="Salidas por categoría">
           <Barras
             datos={serieCategorias}
             formato={(n) => pesos(n)}
             destacarUltimo={false}
             compacto
           />
+          {fueraDeCosto > 0 && (
+            <p className="mt-3 text-xs text-tinta-3">
+              Acá está todo lo que salió de la caja. {pesos(fueraDeCosto)} de eso no es costo de
+              producir —dividendos, préstamos y ajustes de saldo— así que no entra en el resultado
+              ni en el costo por m².
+            </p>
+          )}
         </Card>
 
         <div className="lg:col-span-2">
