@@ -40,6 +40,7 @@ export default async function ConfigEquipoPage() {
         <Tabla
           cabeceras={["Mail habilitado", "Nombre", "Rol", "Estado", ""]}
           soloEnCompu={[1, 3]}
+          anchos={[undefined, undefined, undefined, undefined, "w-14 sm:w-auto"]}
         >
           {(miembros ?? []).map((m: any) => {
             const p = (perfiles ?? []).find(
@@ -58,18 +59,18 @@ export default async function ConfigEquipoPage() {
                   {admin ? (
                     // El rol se cambia acá mismo: antes había que sacar a
                     // la persona y volver a cargarla para moverla de lugar.
-                    <form action={cambiarRol} className="flex items-center gap-1.5">
+                    <form action={cambiarRol} className="flex items-center gap-2">
                       <input type="hidden" name="email" value={m.email} />
                       <select
                         name="rol"
                         defaultValue={m.rol}
                         aria-label={`Rol de ${m.email}`}
-                        className="input w-28 sm:w-32"
+                        className="input w-full min-w-0 sm:w-32"
                       >
                         <option value="operador">Operador</option>
                         <option value="admin">Dueño</option>
                       </select>
-                      <button className="text-xs font-bold text-pasto hover:underline">
+                      <button className="shrink-0 whitespace-nowrap text-xs font-bold text-pasto hover:underline">
                         Cambiar
                       </button>
                     </form>
@@ -90,7 +91,7 @@ export default async function ConfigEquipoPage() {
                   {admin && (
                     <form action={quitarMiembro}>
                       <input type="hidden" name="email" value={m.email} />
-                      <button className="flex min-h-11 items-center px-1 text-xs font-semibold text-tinta-3 hover:text-urgente-tx sm:min-h-8">
+                      <button className="flex min-h-11 items-center whitespace-nowrap px-1 text-xs font-semibold text-tinta-3 hover:text-urgente-tx sm:min-h-8">
                         Quitar
                       </button>
                     </form>
