@@ -80,6 +80,22 @@ export default async function Dashboard() {
         ? "bg-atencion-bg text-atencion-tx"
         : "bg-info-bg text-info-tx";
 
+  // Una fertilización del mismo día con el mismo producto en los dos lotes
+  // son dos registros, pero para el que la lee es una sola tarea: va en una
+  // línea con los dos nombres juntos.
+  const fertAgenda: { clave: string; fecha: string; producto: string; lotes: string[] }[] = [];
+  for (const f of (fertProx ?? []) as any[]) {
+    const producto = f.fertilizantes?.nombre ?? "Fertilizante";
+    const clave = `${f.fecha_programada}|${producto}`;
+    const ya = fertAgenda.find((x) => x.clave === clave);
+    const lote = f.lotes?.nombre;
+    if (ya) {
+      if (lote && !ya.lotes.includes(lote)) ya.lotes.push(lote);
+    } else {
+      fertAgenda.push({ clave, fecha: f.fecha_programada, producto, lotes: lote ? [lote] : [] });
+    }
+  }
+
   // Para prellenar el formulario de "se entregó" con los datos del pedido.
   const pedidoPorId = new Map((pedidosPend ?? []).map((p: any) => [p.id, p]));
 
@@ -90,6 +106,7 @@ export default async function Dashboard() {
     .reduce((a, c) => a + Number(c.saldo_ars ?? 0), 0);
 
   const proximos = ((pedidosPend ?? []) as any[]).slice(0, 3);
+  const tresDias = ((clima ?? []) as any[]).slice(0, 3);
 
   return (
     <>
@@ -103,7 +120,7 @@ export default async function Dashboard() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat
           label="m² vendidos este mes"
           valor={m2(m2Mes)}
@@ -116,9 +133,6 @@ export default async function Dashboard() {
           tono={m2Comprometidos > 0 ? "ambar" : "neutro"}
           detalle={`${(pedidosPend ?? []).length} pedidos pendientes`}
         />
-      </div>
-
-      <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:gap-3">
         <Stat
           label="Vendido este mes"
           valor={pesos(vendidoMes)}
@@ -132,7 +146,7 @@ export default async function Dashboard() {
         />
       </div>
 
-      <div className="mt-2.5 flex items-stretch gap-2.5">
+      <div className="mt-2.5 flex items-stretch gap-2.5 sm:gap-3">
         <Link
           href="/administracion/disponibilidades"
           className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-borde bg-white px-3.5 py-2.5 active:bg-beige"
@@ -197,6 +211,47 @@ export default async function Dashboard() {
             </ul>
           )}
         </div>
+
+        {/* I14 - Los tres dias que vienen, que es lo que define si hay que
+            regar. El detalle completo esta en Riego y lluvias. */}
+        <div className="mt-2.5 rounded-2xl border border-borde bg-white">
+          <div className="flex items-center gap-2 px-3.5 pt-3.5">
+            <h2 className="flex-1 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
+              Riego y lluvias
+            </h2>
+            <Link href="/mantenimiento/riego" className="text-xs font-bold text-pasto">
+              Ver todo
+            </Link>
+          </div>
+
+          {tresDias.length === 0 ? (
+            <p className="px-3.5 py-4 text-sm text-tinta-2">Todavía sin pronóstico.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-beige">
+              {tresDias.map((d: any) => {
+                const mmDia = Number(d.precipitacion_mm ?? 0);
+                return (
+                  <li key={d.fecha} className="flex items-center gap-3 px-3.5 py-2.5">
+                    <span className="w-14 shrink-0 text-sm font-bold text-tinta">
+                      {d.fecha === hoy ? "Hoy" : fechaCorta(d.fecha)}
+                    </span>
+                    <span className="min-w-0 flex-1 text-sm tabular-nums text-tinta-2">
+                      {numero(d.temp_min, 0)}&deg; / {numero(d.temp_max, 0)}&deg;
+                    </span>
+                    <span
+                      className={
+                        "shrink-0 text-sm font-semibold tabular-nums " +
+                        (mmDia >= 2 ? "text-info-tx" : "text-tinta-3")
+                      }
+                    >
+                      {mm(mmDia)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
 
       <div className="mt-3 grid gap-4 lg:grid-cols-3">
@@ -207,42 +262,35 @@ export default async function Dashboard() {
                 No hay nada pendiente. Todo al día.
               </p>
             ) : (
-              <ul className="space-y-3">
+              <ul className="space-y-2.5">
                 {(notis ?? []).map((n: any) => (
                   <li
                     key={n.id}
-                    className="overflow-hidden rounded-[20px] border border-borde bg-white shadow-[0_1px_2px_rgba(26,29,24,.05)]"
+                    className="overflow-hidden rounded-2xl border border-borde bg-white shadow-[0_1px_2px_rgba(26,29,24,.05)]"
                   >
-                    {/* La urgencia vive en la franja de arriba, no en un borde
-                        de costado: el cuerpo queda blanco y los campos se leen. */}
-                    <div
-                      className={
-                        "flex items-center justify-between gap-2 px-[18px] py-3 " + franja(n.severidad)
-                      }
-                    >
-                      <span className="text-xs font-extrabold uppercase tracking-[.08em]">
-                        {n.severidad}
-                      </span>
-                      {n.fecha_referencia && (
-                        <span className="text-[12.5px] font-semibold">
-                          {fechaCorta(n.fecha_referencia)}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex flex-col gap-4 p-[18px]">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-[19px] font-bold leading-tight text-pasto-oscuro">
-                            {n.titulo}
-                          </p>
-                          {n.mensaje && (
-                            <p className="mt-1.5 text-[15px] leading-relaxed text-tinta-2">
-                              {n.mensaje}
-                            </p>
+                    <div className="flex flex-col gap-2.5 p-3.5">
+                      <div className="min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className={
+                              "rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[.08em] " +
+                              franja(n.severidad)
+                            }
+                          >
+                            {n.severidad}
+                          </span>
+                          {n.fecha_referencia && (
+                            <span className="text-[11.5px] font-semibold text-tinta-3">
+                              {fechaCorta(n.fecha_referencia)}
+                            </span>
                           )}
                         </div>
-
+                        <p className="mt-1.5 text-[16px] font-bold leading-snug text-pasto-oscuro">
+                          {n.titulo}
+                        </p>
+                        {n.mensaje && (
+                          <p className="mt-0.5 text-[13px] leading-snug text-tinta-2">{n.mensaje}</p>
+                        )}
                       </div>
 
                     {n.tipo === "confirmar_lluvia" && (
@@ -272,7 +320,7 @@ export default async function Dashboard() {
                     )}
 
                     {n.tipo === "confirmar_entrega" && (
-                      <div className="space-y-3">
+                      <div className="space-y-2.5">
                         <form
                           action={confirmarEntrega}
                           className="flex flex-wrap items-end gap-2"
@@ -313,30 +361,38 @@ export default async function Dashboard() {
                           <button className="btn">Se entregó</button>
                         </form>
 
-                        <div className="flex flex-wrap items-end gap-2 border-t border-beige pt-3">
-                          <form
-                            action={reprogramarPedido}
-                            className="flex flex-wrap items-end gap-2"
-                          >
-                            <input type="hidden" name="id" value={n.entidad_id} />
-                            <div>
-                              <label className="label">Fecha nueva</label>
-                              <input
-                                name="fecha_entrega"
-                                type="date"
-                                required
-                                className="input w-40"
-                              />
-                            </div>
-                            <button className="btn-ghost">Reprogramar</button>
-                          </form>
-                          <form action={anularPedido}>
-                            <input type="hidden" name="id" value={n.entidad_id} />
-                            <button className="text-xs font-semibold text-tierra-400 hover:text-red-600">
-                              Se cayó
-                            </button>
-                          </form>
-                        </div>
+                        <details className="group border-t border-beige pt-2.5">
+                          <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1 text-[13px] font-semibold text-tinta-3">
+                            No se entregó
+                            <span aria-hidden className="text-[9px] group-open:rotate-180">
+                              &#9662;
+                            </span>
+                          </summary>
+                          <div className="mt-2 flex flex-wrap items-end gap-2">
+                            <form
+                              action={reprogramarPedido}
+                              className="flex flex-wrap items-end gap-2"
+                            >
+                              <input type="hidden" name="id" value={n.entidad_id} />
+                              <div>
+                                <label className="label">Fecha nueva</label>
+                                <input
+                                  name="fecha_entrega"
+                                  type="date"
+                                  required
+                                  className="input w-40"
+                                />
+                              </div>
+                              <button className="btn-ghost">Reprogramar</button>
+                            </form>
+                            <form action={anularPedido}>
+                              <input type="hidden" name="id" value={n.entidad_id} />
+                              <button className="flex min-h-11 items-center px-1 text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
+                                Se cayó
+                              </button>
+                            </form>
+                          </div>
+                        </details>
                       </div>
                     )}
                     </div>
@@ -404,7 +460,7 @@ export default async function Dashboard() {
         </div>
 
         <div className="min-w-0 space-y-4">
-          <Card titulo="Clima en Cardales">
+          <Card titulo="Clima en Cardales" className="hidden sm:block">
             {(clima ?? []).length === 0 ? (
               <p className="py-4 text-sm text-tierra-400">
                 Todavía sin datos. Tocá “Sincronizar ahora”.
@@ -440,17 +496,16 @@ export default async function Dashboard() {
           </Card>
 
           <Card titulo="Próximas fertilizaciones">
-            {(fertProx ?? []).length === 0 ? (
+            {fertAgenda.length === 0 ? (
               <p className="py-4 text-sm text-tierra-400">Nada agendado.</p>
             ) : (
-              <ul className="space-y-2 text-sm">
-                {(fertProx ?? []).map((f: any) => (
-                  <li key={f.id} className="flex items-center justify-between gap-2">
-                    <span>
-                      <strong>{fechaCorta(f.fecha_programada)}</strong> ·{" "}
-                      {f.fertilizantes?.nombre ?? "Fertilizante"}
+              <ul className="divide-y divide-beige text-sm">
+                {fertAgenda.map((f) => (
+                  <li key={f.clave} className="flex items-center justify-between gap-2 py-2">
+                    <span className="min-w-0">
+                      <strong>{fechaCorta(f.fecha)}</strong> · {f.producto}
                     </span>
-                    <span className="text-xs text-tierra-600">{f.lotes?.nombre}</span>
+                    <span className="shrink-0 text-xs text-tinta-3">{f.lotes.join(" + ")}</span>
                   </li>
                 ))}
               </ul>

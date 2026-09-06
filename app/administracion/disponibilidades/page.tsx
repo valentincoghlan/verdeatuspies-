@@ -3,7 +3,7 @@ import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Selector } from "@/components/campos";
 import { crearCuenta, ajustarSaldo } from "@/lib/actions";
 import { AjustarSaldo } from "@/components/ajustar-saldo";
-import { fechaBreve, fechaLarga, pesos } from "@/lib/format";
+import { fechaBreve, m2, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -107,7 +107,8 @@ export default async function DisponibilidadesPage({
         <Card titulo="Saldo por cuenta">
           <Tabla
             cabeceras={["Cuenta", "Tipo", "Movimientos", "Último", "Saldo", ""]}
-            soloEnCompu={[1, 2, 3]}
+            anchos={["", undefined, undefined, undefined, "text-right sm:text-left", undefined]}
+            soloEnCompu={[1, 2, 3, 5]}
             vacio="Sin cuentas cargadas."
           >
             {lista.map((c) => {
@@ -126,7 +127,7 @@ export default async function DisponibilidadesPage({
                   <td className="td text-tinta-2">{fechaBreve(c.ultimo_movimiento)}</td>
                   <td
                     className={
-                      "td tabular-nums font-semibold " +
+                      "td whitespace-nowrap text-right tabular-nums font-semibold sm:text-left " +
                       (saldo < 0 ? "text-urgente-tx" : saldo > 0 ? "text-pasto" : "text-tinta-3")
                     }
                   >
@@ -136,7 +137,7 @@ export default async function DisponibilidadesPage({
                         ? `US$ ${Math.round(saldo).toLocaleString("es-AR")}`
                         : pesos(saldo)}
                   </td>
-                  <td className="td text-right">
+                  <td className="td hidden text-right sm:table-cell">
                     {esAdmin && !enDolares && (
                       <AjustarSaldo
                         cuenta={{ id: c.cuenta_id, nombre: c.nombre, saldo }}
@@ -154,13 +155,13 @@ export default async function DisponibilidadesPage({
           </p>
         </Card>
 
-        <Card titulo="Aportes de los socios">
+        <Card titulo="Aportes de los socios (US$)">
           <Tabla
             cabeceras={["Socio", "Puso", "Recuperó", "Pendiente"]}
             vacio="Sin socios cargados."
           >
             {socios.map((s: any) => {
-              const usd = (n: number) => `US$ ${Math.round(n).toLocaleString("es-AR")}`;
+              const usd = (n: number) => Math.round(n).toLocaleString("es-AR");
               const pendiente = Number(s.pendiente_usd ?? 0);
               return (
                 <tr key={s.persona_id}>
@@ -195,6 +196,7 @@ export default async function DisponibilidadesPage({
         <Card titulo="Préstamos a cobrar">
           <Tabla
             cabeceras={["Persona", "Desde", "Debe", "En dólares"]}
+            soloEnCompu={[3]}
             vacio="No hay préstamos sin devolver."
           >
             {debenPlata.map((p: any) => (
@@ -218,7 +220,11 @@ export default async function DisponibilidadesPage({
         </Card>
 
         <Card titulo="Saldos por cliente">
-          <Tabla cabeceras={["Cliente", "Vendido", "Cobrado", "Saldo"]} vacio="Sin movimientos.">
+          <Tabla
+            cabeceras={["Cliente", "Facturado", "Cobrado", "Saldo"]}
+            soloEnCompu={[2]}
+            vacio="Sin movimientos."
+          >
             {(cuentasCli ?? [])
               .filter(
                 (c: any) => Number(c.total_vendido ?? 0) !== 0 || Number(c.total_cobrado ?? 0) !== 0,
@@ -228,11 +234,20 @@ export default async function DisponibilidadesPage({
                 return (
                   <tr key={c.cliente_id}>
                     <td className="td font-semibold">{c.nombre}</td>
-                    <td className="td tabular-nums">{pesos(Number(c.total_vendido ?? 0))}</td>
+                    <td className="td tabular-nums">
+                      <span className="block whitespace-nowrap">
+                        {pesos(Number(c.total_vendido ?? 0))}
+                      </span>
+                      {Number(c.m2_vendidos ?? 0) > 0 && (
+                        <span className="block text-[11px] text-tinta-3">
+                          {m2(Number(c.m2_vendidos))}
+                        </span>
+                      )}
+                    </td>
                     <td className="td tabular-nums">{pesos(Number(c.total_cobrado ?? 0))}</td>
                     <td
                       className={
-                        "td tabular-nums font-semibold " +
+                        "td whitespace-nowrap tabular-nums font-semibold " +
                         (saldo > 0 ? "text-atencion-tx" : saldo < 0 ? "text-info-tx" : "text-tinta-3")
                       }
                     >

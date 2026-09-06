@@ -102,7 +102,7 @@ export default async function PedidosPage() {
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat
-          label="m² comprometidos"
+          label="m² por entregar"
           valor={m2(m2Comprometidos)}
           tono="verde"
           detalle={`${lista.length} pedidos pendientes`}

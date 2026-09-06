@@ -135,14 +135,16 @@ export function Card({
   accion,
   children,
   id,
+  className,
 }: {
   titulo?: string;
   accion?: ReactNode;
   children: ReactNode;
   id?: string;
+  className?: string;
 }) {
   return (
-    <section id={id} className="card">
+    <section id={id} className={"card " + (className ?? "")}>
       {(titulo || accion) && (
         <div className="mb-3 flex items-center justify-between gap-3">
           {titulo && (

@@ -177,6 +177,7 @@ export default async function AguaPage({
       probabilidad: d.prob_precipitacion ?? null,
       lluviaMm: delDia(listaLluvias).reduce((a, l) => a + Number(l.mm ?? 0), 0),
       riegoMin: riegosDia.reduce((a, r) => a + Number(r.minutos ?? 0), 0),
+      riegos: riegosDia.length,
       riegoMm: riegosDia.reduce((a, r) => a + Number(r.mm ?? 0), 0),
       planMin: plan?.minutos ?? 0,
       planMm: plan?.mm ?? 0,

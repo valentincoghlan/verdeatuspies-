@@ -639,6 +639,36 @@ export async function cambiarEstadoVenta(fd: FormData) {
   bump("/ventas", "/administracion");
 }
 
+/**
+ * Editar una venta ya cargada, desde el lápiz de la tabla.
+ *
+ * Cambia lo que se equivoca uno al cargar: la fecha, los metros, el
+ * precio, el estado. El comprador no se toca acá — si la venta era de
+ * otro, es otra venta.
+ */
+export async function editarVenta(fd: FormData) {
+  const { supabase } = await sesion();
+  const metros = dec(fd, "m2");
+  const estado = txt(fd, "estado") ?? "confirmada";
+
+  const { error } = await supabase
+    .from("ventas")
+    .update({
+      fecha: txt(fd, "fecha") ?? hoyISO(),
+      fecha_entrega: txt(fd, "fecha_entrega"),
+      m2: metros,
+      precio_m2: num(fd, "precio_m2"),
+      flete: num(fd, "flete") ?? 0,
+      estado,
+      lote_id: txt(fd, "lote_id"),
+      notas: txt(fd, "notas"),
+    })
+    .eq("id", txt(fd, "id")!);
+  if (error) throw new Error(`No se pudo guardar la venta: ${error.message}`);
+
+  bump("/ventas", "/ventas/pedidos", "/administracion");
+}
+
 export async function borrarVenta(fd: FormData) {
   const { supabase } = await sesion();
   await supabase.from("ventas").delete().eq("id", txt(fd, "id")!);

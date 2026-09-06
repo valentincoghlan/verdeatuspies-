@@ -165,30 +165,51 @@ export default async function CajaPage({
             </p>
           )}
           <Tabla
-            cabeceras={["Fecha", "Categoría", "Persona", "Detalle", "Cuenta", "Monto", ""]}
-            soloEnCompu={[3, 4]}
+            cabeceras={["Fecha", "Categoría", "Persona y monto", "Detalle", "Cuenta", "Monto", ""]}
+            soloEnCompu={[3, 4, 5]}
+            anchos={["w-[3.6rem] sm:w-auto", undefined, undefined, undefined, undefined, undefined, "w-11 sm:w-auto"]}
             vacio="No hay movimientos en este período."
           >
             {lista.map((m) => (
               <tr key={m.id}>
-                <td className="td whitespace-nowrap">{fechaBreve(m.fecha)}</td>
+                <td className="td whitespace-nowrap text-[11px] sm:text-sm">
+                  {fechaBreve(m.fecha)}
+                </td>
                 <td className="td">
-                  <span className="font-semibold">{m.categoria ?? "—"}</span>
+                  <span className="block text-[13px] font-semibold leading-tight sm:text-sm">
+                    {m.categoria ?? "—"}
+                  </span>
                   {m.subcategoria && (
-                    <span className="block text-xs text-tinta-3">{m.subcategoria}</span>
+                    <span className="block text-[11px] leading-tight text-tinta-3">
+                      {m.subcategoria}
+                    </span>
                   )}
                 </td>
                 <td className="td">
-                  {m.persona ?? "—"}
+                  <span className="block text-[13px] leading-tight sm:text-sm">
+                    {m.persona ?? "—"}
+                  </span>
+                  {/* El monto viaja acá abajo en el celular: en su
+                      propia columna quedaba cortado contra el borde. */}
+                  <span
+                    className={
+                      "block whitespace-nowrap text-[13px] font-bold tabular-nums leading-tight sm:hidden " +
+                      (m.tipo === "I" ? "text-pasto" : "text-atencion-tx")
+                    }
+                  >
+                    {m.tipo === "I" ? "+" : "−"} {pesos(Number(m.monto))}
+                  </span>
                   {m.metros ? (
-                    <span className="block text-xs text-tinta-3">{numero(m.metros)} m²</span>
+                    <span className="block text-[11px] leading-tight text-tinta-3">
+                      {numero(m.metros)} m²
+                    </span>
                   ) : null}
                 </td>
                 <td className="td hidden text-tinta-2 sm:table-cell">{m.detalle ?? "—"}</td>
                 <td className="td hidden text-tinta-2 sm:table-cell">{m.cuenta ?? "—"}</td>
                 <td
                   className={
-                    "td whitespace-nowrap tabular-nums font-semibold " +
+                    "td hidden whitespace-nowrap tabular-nums font-semibold sm:table-cell " +
                     (m.tipo === "I" ? "text-pasto" : "text-atencion-tx")
                   }
                 >

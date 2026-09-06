@@ -133,7 +133,7 @@ export default async function ClientesPage({
         >
           <Tabla
             cabeceras={["Cliente", "Teléfono", "m² comprados", "Vendido", "Cobrado", "Saldo", "Última compra", ""]}
-            soloEnCompu={[1, 2, 4, 6]}
+            soloEnCompu={[1, 2, 3, 4, 6]}
             vacio={
               vista === "cuenta"
                 ? "Todavía no hay distribuidores cargados."
@@ -159,7 +159,7 @@ export default async function ClientesPage({
                   <td className="td tabular-nums">{pesos(Number(cta.total_cobrado ?? 0))}</td>
                   <td
                     className={
-                      "td tabular-nums font-semibold " +
+                      "td whitespace-nowrap tabular-nums font-semibold " +
                       (saldo > 0 ? "text-atencion-tx" : saldo < 0 ? "text-info-tx" : "text-tinta-3")
                     }
                   >

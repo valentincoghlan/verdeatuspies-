@@ -35,7 +35,9 @@ export function Confirmar({
         onClick={() => dialogo.current?.showModal()}
         className={
           "font-semibold text-tinta-3 transition hover:text-urgente-tx " +
-          (compacto ? "text-xs" : "text-sm")
+          (compacto
+            ? "-my-2 flex size-11 items-center justify-center rounded-full text-base active:bg-urgente-bg sm:-my-1 sm:size-8 sm:text-xs"
+            : "text-sm")
         }
       >
         {etiqueta}

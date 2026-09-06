@@ -9,6 +9,8 @@ export type DiaAgua = {
   lluviaMm: number;
   riegoMin: number;
   riegoMm: number;
+  /** Cuántos riegos hubo ese día. */
+  riegos: number;
   /** Lo que el controlador tiene agendado para ese día, todavía sin regar. */
   planMin: number;
   planMm: number;
@@ -122,17 +124,28 @@ export function BalanceAgua({ dias, hoy }: { dias: DiaAgua[]; hoy: string }) {
                   )}
                 </td>
                 <td className={`td text-right tabular-nums ${riego}`}>
-                  {d.riegoMm ? (
-                    <span className="font-semibold">{mm(d.riegoMm)}</span>
-                  ) : d.planMm ? (
-                    <span className="text-tinta-3">{mm(d.planMm)}</span>
-                  ) : d.riegoMin || d.planMin ? (
-                    <span
-                      className="text-tinta-3"
-                      title="Se regó, pero falta cargar el caudal de la zona para saber cuántos mm"
-                    >
-                      {numero(d.riegoMin || d.planMin)} min
-                    </span>
+                  {d.riegos > 0 || d.planZonas > 0 ? (
+                    <>
+                      <span className="block text-[11px] text-tinta-3">
+                        {d.riegos || d.planZonas} riego{(d.riegos || d.planZonas) === 1 ? "" : "s"}
+                      </span>
+                      {d.riegoMm || d.planMm ? (
+                        <span
+                          className={
+                            "block " + (d.riegoMm ? "font-semibold text-tinta" : "text-tinta-3")
+                          }
+                        >
+                          {mm(d.riegoMm || d.planMm)}
+                        </span>
+                      ) : (
+                        <span
+                          className="block text-[11px] text-atencion-tx"
+                          title="Falta cargar el caudal de la zona para saber cuántos mm dio"
+                        >
+                          falta caudal
+                        </span>
+                      )}
+                    </>
                   ) : (
                     "—"
                   )}

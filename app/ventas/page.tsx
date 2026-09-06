@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { BarrasTiempo } from "@/components/barras-tiempo";
+import { EditarVenta } from "@/components/editar-venta";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota, Selector } from "@/components/campos";
-import Barras from "@/components/barras";
-import { borrarVenta, cambiarEstadoVenta, crearVenta } from "@/lib/actions";
+import { borrarVenta, crearVenta, editarVenta } from "@/lib/actions";
 import { fechaBreve, fechaCorta, fechaLarga, hoyISO, m2, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +16,6 @@ const ESTADOS = [
   { value: "entregada", label: "Entregada" },
   { value: "anulada", label: "Anulada" },
 ];
-
-const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
 
 export default async function VentasPage() {
   const supabase = await createClient();
@@ -49,13 +48,12 @@ export default async function VentasPage() {
   const precioProm = m2Mes > 0 ? totalMes / m2Mes : 0;
   const precioDefault = Number(config?.valor ?? 0) || undefined;
 
+  // El grafico arma sus propias etiquetas segun como lo agrupes, asi que
+  // desde aca va el mes crudo.
   const serie = (porMes ?? [])
     .slice()
     .reverse()
-    .map((r: any) => ({
-      label: `${MESES[Number(r.mes.slice(5, 7)) - 1]} ${r.mes.slice(2, 4)}`,
-      valor: Number(r.m2 ?? 0),
-    }));
+    .map((r: any) => ({ mes: String(r.mes).slice(0, 7), valor: Number(r.m2 ?? 0) }));
 
   const tonoEstado = (e: string) =>
     e === "entregada"
@@ -163,13 +161,18 @@ export default async function VentasPage() {
           )}
         </Card>
 
-        <Card titulo="m² vendidos por mes">
-          <Barras datos={serie} formato={(n) => m2(n)} />
+        <Card titulo="m² vendidos">
+          <BarrasTiempo datos={serie} />
         </Card>
 
         <Card titulo="Operaciones">
+          {/* En el celular quedan tres columnas: el comprador con sus m²
+              debajo, el total con el precio por m² debajo, y el estado con
+              el lapiz al lado. En la compu siguen todas separadas. */}
           <Tabla
-            cabeceras={["Fecha", "Cliente", "m²", "$/m²", "Total", "Lote", "Estado", "Acciones"]}
+            cabeceras={["Fecha", "Cliente", "m²", "$/m²", "Total", "Estado", ""]}
+            soloEnCompu={[0, 2, 3]}
+            anchos={[undefined, undefined, undefined, undefined, undefined, undefined, "w-11 sm:w-auto"]}
             vacio="Todavía no cargaste ventas."
           >
             {(ventas ?? []).map((v: any) => (
@@ -178,47 +181,50 @@ export default async function VentasPage() {
                 <td className="td font-medium">
                   {v.clientes?.nombre}
                   {(v.vinculante || v.cliente_final) && (
-                    <span className="block text-xs font-normal text-tierra-400">
+                    <span className="block text-xs font-normal text-tinta-3">
                       {v.vinculante ? `vía ${v.vinculante.nombre}` : ""}
                       {v.vinculante && v.cliente_final ? " · " : ""}
                       {v.cliente_final ? `entrega a ${v.cliente_final}` : ""}
                     </span>
                   )}
+                  <span className="block text-xs font-normal tabular-nums text-tinta-3 sm:hidden">
+                    {numero(v.m2)} m² &middot; {fechaBreve(v.fecha)}
+                  </span>
                 </td>
                 <td className="td tabular-nums">{numero(v.m2)}</td>
                 <td className="td tabular-nums">{pesos(Number(v.precio_m2))}</td>
-                <td className="td tabular-nums font-semibold">{pesos(Number(v.total))}</td>
-                <td className="td text-xs text-tierra-600">{v.lotes?.nombre ?? "—"}</td>
+                <td className="td whitespace-nowrap tabular-nums font-semibold">
+                  {pesos(Number(v.total))}
+                  <span className="block text-xs font-normal text-tinta-3 sm:hidden">
+                    {pesos(Number(v.precio_m2))} /m²
+                  </span>
+                </td>
                 <td className="td">
                   <Chip tono={tonoEstado(v.estado) as any}>{v.estado}</Chip>
                   {v.fecha_entrega && (
-                    <span className="ml-1 text-xs text-tierra-400">
+                    <span className="block text-xs text-tinta-3 sm:ml-1 sm:inline">
                       {fechaCorta(v.fecha_entrega)}
                     </span>
                   )}
                 </td>
-                <td className="td">
-                  <div className="flex items-center gap-2">
-                    <form action={cambiarEstadoVenta} className="flex items-center gap-1">
-                      <input type="hidden" name="id" value={v.id} />
-                      <select name="estado" defaultValue={v.estado} className="input w-32 py-1">
-                        {ESTADOS.map((e) => (
-                          <option key={e.value} value={e.value}>
-                            {e.label}
-                          </option>
-                        ))}
-                      </select>
-                      <button className="text-xs font-semibold text-hoja-700 hover:underline">
-                        Cambiar
-                      </button>
-                    </form>
-                    <form action={borrarVenta}>
-                      <input type="hidden" name="id" value={v.id} />
-                      <button className="text-xs font-semibold text-tierra-400 hover:text-red-600">
-                        Borrar
-                      </button>
-                    </form>
-                  </div>
+                <td className="td text-right">
+                  <EditarVenta
+                    venta={{
+                      id: v.id,
+                      comprador: v.clientes?.nombre ?? "Sin comprador",
+                      fecha: v.fecha,
+                      fecha_entrega: v.fecha_entrega,
+                      m2: Number(v.m2 ?? 0),
+                      precio_m2: Number(v.precio_m2 ?? 0),
+                      flete: Number(v.flete ?? 0),
+                      estado: v.estado,
+                      lote_id: v.lote_id,
+                      notas: v.notas,
+                    }}
+                    lotes={(lotes ?? []) as any[]}
+                    accion={editarVenta}
+                    borrar={borrarVenta}
+                  />
                 </td>
               </tr>
             ))}
