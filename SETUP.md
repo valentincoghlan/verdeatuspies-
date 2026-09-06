@@ -106,18 +106,35 @@ Config -> Equipo entran directo.
 
 ---
 
-## 4. Mails de alerta (Resend)
+## 4. Mails de alerta (Gmail)
 
 Sin esto la app funciona igual, pero las alertas quedan solo dentro de la app.
 
-**4.1** Cuenta en [resend.com](https://resend.com). El plan free da 3.000 mails por mes,
-de sobra.
+Los mails salen desde `verdeatuspies@gmail.com`, con el SMTP de Gmail. No se usa un
+servicio de envío tipo Resend porque ninguno deja mandar desde una dirección
+`@gmail.com`: todos exigen un dominio propio verificado.
 
-**4.2** Copiá la API key a `RESEND_API_KEY` (en `.env.local` y en Vercel).
+**4.1** Entrá a esa cuenta de Google y activá la **verificación en dos pasos**
+(Seguridad → Verificación en 2 pasos). Sin eso, el paso siguiente no aparece.
 
-**4.3** Para arrancar rápido, dejá `MAIL_FROM="Verde A Tus Pies <onboarding@resend.dev>"`.
-Para que salgan de tu dominio, verificalo en Resend (te pide unos registros DNS) y poné
-`MAIL_FROM="Verde A Tus Pies <alertas@tudominio.com>"`.
+**4.2** Andá a [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords),
+ponele de nombre "Verde A Tus Pies" y generá la **contraseña de aplicación**. Son 16
+letras. Se muestran una sola vez.
+
+**4.3** En `.env.local` y en Vercel:
+
+```
+GMAIL_USER=verdeatuspies@gmail.com
+GMAIL_APP_PASSWORD=las16letras
+MAIL_FROM="Verde A Tus Pies <verdeatuspies@gmail.com>"
+```
+
+Los espacios en la contraseña no molestan: la app los saca sola.
+
+**4.4** Probalo desde Ajustes → Mi cuenta, con el botón de aviso de prueba.
+
+Gmail deja mandar unos 500 mails por día. Con tres personas y un digest diario,
+no te vas a acercar.
 
 ---
 

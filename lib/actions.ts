@@ -1201,11 +1201,16 @@ export async function crearCosecha(fd: FormData) {
   }
   if (!objetivo || objetivo <= 0) return;
 
+  // Una cosecha puede salir de los dos lotes en la misma pasada. El
+  // primero queda además en `cosechas.lote_id`, que es lo que espera el
+  // resto del esquema viejo.
+  const lotes = fd.getAll("lote_id").map(String).filter(Boolean);
+
   const { data } = await supabase
     .from("cosechas")
     .insert({
       fecha: txt(fd, "fecha") ?? hoyISO(),
-      lote_id: txt(fd, "lote_id"),
+      lote_id: lotes[0] ?? null,
       venta_id: ventaId,
       objetivo_m2: objetivo,
       pan_largo_m: dec(fd, "pan_largo_m") ?? 0.62,
@@ -1216,6 +1221,13 @@ export async function crearCosecha(fd: FormData) {
     })
     .select("id")
     .single();
+
+  if (data?.id && lotes.length > 0) {
+    const { error } = await supabase
+      .from("cosechas_lotes")
+      .insert(lotes.map((lote_id) => ({ cosecha_id: data.id, lote_id })));
+    if (error) throw new Error(`No se pudieron guardar los lotes: ${error.message}`);
+  }
 
   bump("/mantenimiento/cosecha");
   if (data?.id) redirect(`/mantenimiento/cosecha/${data.id}`);

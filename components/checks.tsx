@@ -18,17 +18,27 @@ export function Checks({
   opciones,
   resumenVacio = "Elegí uno o más",
   className,
+  required,
+  todos,
 }: {
   label: string;
   name: string;
   opciones: { value: string; label: string }[];
   resumenVacio?: string;
   className?: string;
+  /** Frena el envío si no se eligió ninguno. */
+  required?: boolean;
+  /** Texto del atajo que marca todos de una. Si no va, no se muestra. */
+  todos?: string;
 }) {
   const [elegidos, setElegidos] = useState<string[]>([]);
+  const [abierto, setAbierto] = useState(false);
 
   const alternar = (v: string) =>
     setElegidos((xs) => (xs.includes(v) ? xs.filter((x) => x !== v) : [...xs, v]));
+
+  const estanTodos = opciones.length > 0 && elegidos.length === opciones.length;
+  const alternarTodos = () => setElegidos(estanTodos ? [] : opciones.map((o) => o.value));
 
   const nombres = opciones.filter((o) => elegidos.includes(o.value)).map((o) => o.label);
 
@@ -37,14 +47,39 @@ export function Checks({
   const resumen =
     nombres.length === 0
       ? resumenVacio
-      : nombres.length <= 2
-        ? nombres.join(" + ")
-        : `${nombres.length} elegidos`;
+      : todos && estanTodos && opciones.length > 2
+        ? todos
+        : nombres.length <= 2
+          ? nombres.join(" + ")
+          : `${nombres.length} elegidos`;
 
   return (
-    <div className={"min-w-0 " + (className ?? "")}>
+    <div className={"relative min-w-0 " + (className ?? "")}>
       <span className="label">{label}</span>
-      <details className="group relative">
+
+      {/*
+        Igual que en Elegir: el valor viaja en un input de verdad para
+        que el navegador frene el envío si el campo es obligatorio y no
+        se eligió nada. Los ocultos quedan afuera de la validación.
+      */}
+      {required && (
+        <input
+          type="text"
+          value={elegidos.join(",")}
+          required
+          tabIndex={-1}
+          aria-hidden
+          onChange={() => {}}
+          onInvalid={() => setAbierto(true)}
+          className="pointer-events-none absolute bottom-0 left-3 h-px w-px opacity-0"
+        />
+      )}
+
+      <details
+        className="group relative"
+        open={abierto}
+        onToggle={(e) => setAbierto((e.target as HTMLDetailsElement).open)}
+      >
         <summary className="input flex cursor-pointer list-none items-center justify-between">
           <span className={"truncate " + (nombres.length ? "text-tinta" : "text-tinta-3")}>
             {resumen}
@@ -58,7 +93,19 @@ export function Checks({
           {opciones.length === 0 ? (
             <p className="px-3 py-2 text-xs text-tinta-3">No hay opciones cargadas.</p>
           ) : (
-            opciones.map((o) => (
+            <>
+              {todos && opciones.length > 1 && (
+                <label className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl border-b border-beige px-3 text-sm font-bold text-tinta transition hover:bg-beige">
+                  <input
+                    type="checkbox"
+                    checked={estanTodos}
+                    onChange={alternarTodos}
+                    className="size-5 shrink-0 accent-pasto"
+                  />
+                  <span className="truncate">{todos}</span>
+                </label>
+              )}
+              {opciones.map((o) => (
               <label
                 key={o.value}
                 className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-xl px-3 text-sm font-semibold text-tinta transition hover:bg-beige"
@@ -73,7 +120,8 @@ export function Checks({
                 />
                 <span className="truncate">{o.label}</span>
               </label>
-            ))
+              ))}
+            </>
           )}
         </div>
       </details>

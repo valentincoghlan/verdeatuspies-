@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 
 const VERDE = "#15803c";
 
@@ -40,6 +40,19 @@ export function plantilla(notis: NotiMail[], baseUrl: string) {
 </body></html>`;
 }
 
+/**
+ * Manda el mail desde la casilla del proyecto.
+ *
+ * Sale por el SMTP de Gmail, con la casilla verdeatuspies@gmail.com y
+ * una "contraseña de aplicacion" —no la contraseña de la cuenta—. Se
+ * eligió así porque los servicios de envio tipo Resend no dejan mandar
+ * desde una dirección @gmail.com: exigen un dominio propio y verificado.
+ * Con tres personas y un puñado de avisos por dia, el límite de Gmail
+ * (unos 500 mails diarios) sobra de lejos.
+ *
+ * GMAIL_USER es la casilla y GMAIL_APP_PASSWORD la clave de aplicación.
+ * Si falta cualquiera de las dos, no se manda nada y se avisa por qué.
+ */
 export async function enviarMail({
   to,
   asunto,
@@ -49,17 +62,29 @@ export async function enviarMail({
   asunto: string;
   html: string;
 }) {
-  const key = process.env.RESEND_API_KEY;
-  if (!key || to.length === 0) return { enviado: false, motivo: "sin RESEND_API_KEY o sin destinatarios" };
+  const usuario = process.env.GMAIL_USER;
+  const clave = process.env.GMAIL_APP_PASSWORD?.replace(/\s/g, "");
 
-  const resend = new Resend(key);
-  const { error } = await resend.emails.send({
-    from: process.env.MAIL_FROM ?? "Verde A Tus Pies <onboarding@resend.dev>",
-    to,
-    subject: asunto,
-    html,
-  });
+  if (!usuario || !clave) {
+    return { enviado: false, motivo: "falta GMAIL_USER o GMAIL_APP_PASSWORD" };
+  }
+  if (to.length === 0) return { enviado: false, motivo: "sin destinatarios" };
 
-  if (error) return { enviado: false, motivo: error.message };
-  return { enviado: true };
+  try {
+    const correo = nodemailer.createTransport({
+      service: "gmail",
+      auth: { user: usuario, pass: clave },
+    });
+
+    await correo.sendMail({
+      from: process.env.MAIL_FROM ?? `Verde A Tus Pies <${usuario}>`,
+      to: to.join(", "),
+      subject: asunto,
+      html,
+    });
+
+    return { enviado: true };
+  } catch (e) {
+    return { enviado: false, motivo: e instanceof Error ? e.message : "error al enviar" };
+  }
 }

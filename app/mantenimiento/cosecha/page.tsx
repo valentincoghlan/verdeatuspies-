@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { Checks } from "@/components/checks";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
-import { Campo, Nota, Opciones, Selector } from "@/components/campos";
+import { Campo, Nota, Selector } from "@/components/campos";
 import { crearCosecha } from "@/lib/actions";
 import { fechaBreve, fechaLarga, hoyISO, m2, numero } from "@/lib/format";
 
@@ -87,14 +88,13 @@ export default async function CosechaPage() {
               placeholder="600"
               className="col-span-2"
             />
-            <Opciones
+            <Checks
               label="Lote"
               name="lote_id"
-              defaultValue=""
-              opciones={[
-                { value: "", label: "Sin definir" },
-                ...(lotes ?? []).map((l: any) => ({ value: l.id, label: l.nombre })),
-              ]}
+              required
+              todos="Los dos lotes"
+              resumenVacio="Elegí de dónde cortás"
+              opciones={(lotes ?? []).map((l: any) => ({ value: l.id, label: l.nombre }))}
               className="col-span-2"
             />
             <Campo label="Fecha" name="fecha" type="date" defaultValue={hoy} />

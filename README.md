@@ -47,13 +47,19 @@ pero queda inactivo y no ve ningún dato (lo bloquea RLS en la base).
 En el celular: abrí la URL en Chrome/Safari y "Agregar a inicio". Queda como
 una app; todo está pensado mobile-first para cargar datos desde el campo.
 
-## 4. Mails de alerta (Resend)
+## 4. Mails de alerta (Gmail)
 
-1. Cuenta en [resend.com](https://resend.com), plan free = 3.000 mails/mes.
-2. Copiá la API key a `RESEND_API_KEY`.
-3. Para que los mails salgan desde tu dominio, verificalo en Resend y poné
-   `MAIL_FROM="Verde A Tus Pies <alertas@tudominio.com>"`. Sin dominio propio
-   podés arrancar con `onboarding@resend.dev`.
+Los avisos salen desde `verdeatuspies@gmail.com` por el SMTP de Gmail.
+
+1. En esa cuenta de Google, activá la verificación en dos pasos.
+2. Generá una **contraseña de aplicación** en
+   [myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords).
+3. Poné `GMAIL_USER=verdeatuspies@gmail.com` y `GMAIL_APP_PASSWORD=` con esa
+   clave de 16 letras, en `.env.local` y en Vercel.
+
+Gmail deja mandar unos 500 mails por día: para tres personas sobra. Los
+servicios tipo Resend no sirven acá porque no dejan mandar desde una
+dirección `@gmail.com`: exigen un dominio propio verificado.
 
 ## 5. Hydrawise
 
