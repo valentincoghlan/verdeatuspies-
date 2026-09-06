@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, Chip } from "@/components/ui";
 import { Campo, Opciones, Selector } from "@/components/campos";
 import { guardarCategoria } from "@/lib/actions";
+import { esAdmin } from "@/lib/rol";
 
 export const dynamic = "force-dynamic";
 
@@ -19,10 +20,10 @@ const CHIP = {
 
 export default async function ConfigDatosPage() {
   const supabase = await createClient();
-  const { data: categorias } = await supabase
-    .from("categorias")
-    .select("*")
-    .order("orden");
+  const [{ data: categorias }, admin] = await Promise.all([
+    supabase.from("categorias").select("*").order("orden"),
+    esAdmin(),
+  ]);
 
   const todas = (categorias ?? []) as any[];
   const rubros = todas.filter((c) => !c.padre_id);
@@ -34,6 +35,13 @@ export default async function ConfigDatosPage() {
         chicos. Desde el celular se ve, pero cuesta.
       </p>
 
+      {!admin && (
+        <p className="mb-3 rounded-2xl border border-borde bg-crema p-3 text-sm text-tinta-2">
+          Las categorías las maneja el dueño. Acá las ves, para saber qué elegir al cargar un
+          movimiento.
+        </p>
+      )}
+
       <Card titulo="Categorías">
         <p className="mb-4 text-sm text-tinta-2">
           Cada categoría dice para qué lado sirve. Al cargar un movimiento, el desplegable trae
@@ -41,6 +49,7 @@ export default async function ConfigDatosPage() {
           Combustible&raquo;. Cuando cambiás un rubro a un solo lado, sus subcategorías lo siguen.
         </p>
 
+        {admin && (
         <form
           action={guardarCategoria}
           className="mb-6 grid grid-cols-2 gap-3 rounded-2xl bg-crema p-3 sm:grid-cols-4"
@@ -70,6 +79,7 @@ export default async function ConfigDatosPage() {
             <button className="btn-ghost">Agregar</button>
           </div>
         </form>
+        )}
 
         <div className="space-y-4">
           {rubros.map((r) => {
@@ -81,6 +91,7 @@ export default async function ConfigDatosPage() {
                   <Chip tono={CHIP[(r.tipo ?? "ambos") as keyof typeof CHIP].tono}>
                     {CHIP[(r.tipo ?? "ambos") as keyof typeof CHIP].texto}
                   </Chip>
+                  {admin && (
                   <form action={guardarCategoria} className="ml-auto flex items-center gap-2">
                     <input type="hidden" name="id" value={r.id} />
                     <select
@@ -98,6 +109,7 @@ export default async function ConfigDatosPage() {
                       Guardar
                     </button>
                   </form>
+                  )}
                 </div>
 
                 <ul className="divide-y divide-beige">
@@ -112,6 +124,7 @@ export default async function ConfigDatosPage() {
                       <Chip tono={CHIP[(h.tipo ?? "ambos") as keyof typeof CHIP].tono}>
                         {CHIP[(h.tipo ?? "ambos") as keyof typeof CHIP].texto}
                       </Chip>
+                      {admin && (
                       <form action={guardarCategoria} className="ml-auto flex items-center gap-2">
                         <input type="hidden" name="id" value={h.id} />
                         <input type="hidden" name="padre_id" value={r.id} />
@@ -130,6 +143,7 @@ export default async function ConfigDatosPage() {
                           Guardar
                         </button>
                       </form>
+                      )}
                     </li>
                   ))}
                 </ul>

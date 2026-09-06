@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { BarrasTiempo } from "@/components/barras-tiempo";
 import { EditarVenta } from "@/components/editar-venta";
+import { Dato } from "@/components/dato";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota, Selector } from "@/components/campos";
 import { borrarVenta, crearVenta, editarVenta } from "@/lib/actions";
@@ -102,6 +103,13 @@ export default async function VentasPage() {
               className="col-span-2"
             />
             <Selector
+              label="Distribuidor"
+              name="vinculante_id"
+              vacio="Sin distribuidor"
+              opciones={(clientes ?? []).map((c: any) => ({ value: c.id, label: c.nombre }))}
+              className="col-span-2"
+            />
+            <Selector
               label="Canal de venta"
               name="canal"
               defaultValue="directa"
@@ -109,18 +117,6 @@ export default async function VentasPage() {
                 { value: "directa", label: "Directa" },
                 { value: "distribuidor", label: "Distribuidores" },
               ]}
-            />
-            <Selector
-              label="Distribuidor"
-              name="vinculante_id"
-              vacio="Sin distribuidor"
-              opciones={(clientes ?? []).map((c: any) => ({ value: c.id, label: c.nombre }))}
-            />
-            <Campo
-              label="Cliente final"
-              name="cliente_final"
-              placeholder="Nombre de quien recibe"
-              className="col-span-2"
             />
             <Campo label="Fecha" name="fecha" type="date" required defaultValue={hoy} />
             <Selector
@@ -137,17 +133,10 @@ export default async function VentasPage() {
               required
               defaultValue={precioDefault}
             />
-            <Campo label="Flete" name="flete" type="number" defaultValue={0} />
-            <Selector
-              label="Lote de origen"
-              name="lote_id"
-              vacio="Sin definir"
-              opciones={(lotes ?? []).map((l: any) => ({ value: l.id, label: l.nombre }))}
-            />
             <Campo label="Fecha de entrega" name="fecha_entrega" type="date" />
-            <Nota className="col-span-2 sm:col-span-3" />
-            <div className="col-span-2 flex items-end sm:col-span-4">
-              <button className="btn">Guardar venta</button>
+            <Nota className="col-span-2 sm:col-span-4" />
+            <div className="col-span-2 sm:col-span-4">
+              <button className="btn btn-alto sm:w-auto">Guardar venta</button>
             </div>
           </form>
           {(clientes ?? []).length === 0 && (
@@ -178,7 +167,7 @@ export default async function VentasPage() {
             {(ventas ?? []).map((v: any) => (
               <tr key={v.id}>
                 <td className="td whitespace-nowrap">{fechaBreve(v.fecha)}</td>
-                <td className="td font-medium">
+                <td className="td max-w-0 truncate font-medium">
                   {v.clientes?.nombre}
                   {(v.vinculante || v.cliente_final) && (
                     <span className="block text-xs font-normal text-tinta-3">
@@ -187,17 +176,14 @@ export default async function VentasPage() {
                       {v.cliente_final ? `entrega a ${v.cliente_final}` : ""}
                     </span>
                   )}
-                  <span className="block text-xs font-normal tabular-nums text-tinta-3 sm:hidden">
-                    {numero(v.m2)} m² &middot; {fechaBreve(v.fecha)}
-                  </span>
                 </td>
                 <td className="td tabular-nums">{numero(v.m2)}</td>
                 <td className="td tabular-nums">{pesos(Number(v.precio_m2))}</td>
-                <td className="td whitespace-nowrap tabular-nums font-semibold">
-                  {pesos(Number(v.total))}
-                  <span className="block text-xs font-normal text-tinta-3 sm:hidden">
-                    {pesos(Number(v.precio_m2))} /m²
-                  </span>
+                <td className="td tabular-nums font-semibold">
+                  <Dato
+                    principal={pesos(Number(v.total))}
+                    secundario={<span className="sm:hidden">{numero(v.m2)} m&sup2;</span>}
+                  />
                 </td>
                 <td className="td">
                   <Chip tono={tonoEstado(v.estado) as any}>{v.estado}</Chip>

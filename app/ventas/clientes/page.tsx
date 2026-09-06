@@ -133,7 +133,7 @@ export default async function ClientesPage({
         >
           <Tabla
             cabeceras={["Cliente", "Teléfono", "m² comprados", "Vendido", "Cobrado", "Saldo", "Última compra", ""]}
-            soloEnCompu={[1, 2, 3, 4, 6]}
+            soloEnCompu={[1, 2, 3, 4]}
             vacio={
               vista === "cuenta"
                 ? "Todavía no hay distribuidores cargados."
@@ -145,13 +145,21 @@ export default async function ClientesPage({
               const saldo = Number(cta.saldo ?? 0);
               return (
                 <tr key={c.id}>
-                  <td className="td">
-                    <span className="font-semibold">{c.nombre}</span>
-                    {vista === "todos" && c.canal === "distribuidor" && (
-                      <span className="ml-2">
-                        <Chip tono="verde">distribuidor</Chip>
+                  <td className="td max-w-0 p-0">
+                    <Link
+                      href={`/ventas/clientes/${c.id}`}
+                      className="flex min-h-11 items-center gap-2 px-3 transition hover:bg-beige active:bg-beige"
+                    >
+                      <span className="truncate font-semibold">{c.nombre}</span>
+                      {vista === "todos" && c.canal === "distribuidor" && (
+                        <span className="hidden sm:inline">
+                          <Chip tono="verde">distribuidor</Chip>
+                        </span>
+                      )}
+                      <span aria-hidden className="ml-auto shrink-0 text-tinta-3 sm:hidden">
+                        &rsaquo;
                       </span>
-                    )}
+                    </Link>
                   </td>
                   <td className="td text-xs text-tinta-2">{c.telefono ?? "—"}</td>
                   <td className="td tabular-nums">{numero(cta.m2_vendidos)}</td>
@@ -182,7 +190,7 @@ export default async function ClientesPage({
           </Tabla>
           <p className="mt-3 text-xs text-tinta-3">
             Saldo positivo = te debe. Negativo = pagó de más o hay un anticipo, y cero quiere decir
-            que está al día.
+            que está al día. Tocá un nombre para ver todas sus compras.
           </p>
         </Card>
       </div>

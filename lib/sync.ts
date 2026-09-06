@@ -122,6 +122,18 @@ async function avisoEntrega(
     accion_url: "/ventas/pedidos",
   };
 
+  // Un pedido tiene UNA entrada en la lista, no dos. La de "entrega el
+  // jueves" y la de "¿se entregó?" son la misma cosa en dos momentos: al
+  // crear la nueva se cierra la vieja, así el mismo pedido no aparece
+  // dos veces con el mismo texto.
+  await sb
+    .from("notificaciones")
+    .update({ resuelta: true, resuelta_at: new Date().toISOString() })
+    .eq("entidad_id", n.entidad_id)
+    .eq("resuelta", false)
+    .in("tipo", ["entrega_proxima", "confirmar_entrega"])
+    .neq("clave_unica", n.clave_unica);
+
   const { data: existente } = await sb
     .from("notificaciones")
     .select("id, severidad, resuelta, mail_enviado_at")

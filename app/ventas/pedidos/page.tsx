@@ -76,7 +76,6 @@ export default async function PedidosPage() {
     nombre: c.nombre as string,
     canal: (c.canal ?? "directa") as string,
   }));
-  const lotesOpc = (lotes ?? []).map((l: any) => ({ value: l.id, label: l.nombre }));
   const cuentasOpc = (cuentas ?? []).map((c: any) => ({ value: c.id, label: c.nombre }));
   const personasOpc = (personas ?? []).map((p: any) => ({ value: p.id, label: p.nombre }));
 
@@ -127,13 +126,6 @@ export default async function PedidosPage() {
             {/* Primero cuándo se entrega, que es lo que define todo lo demás. */}
             <Campo label="Entrega" name="fecha_entrega" type="date" required />
             <CanalYComprador clientes={clientesPorCanal} />
-            <Selector
-              label="Lote"
-              name="lote_id"
-              vacio="Sin definir"
-              opciones={lotesOpc}
-            />
-
             <Campo label="m²" name="m2" type="number" step="0.5" required placeholder="200" />
             <Campo
               label="Precio por m²"
@@ -142,12 +134,11 @@ export default async function PedidosPage() {
               required
               defaultValue={precioDefault}
             />
-            <Campo label="Flete" name="flete" type="number" defaultValue={0} />
             <Campo
               label="Notas"
               name="notas"
               placeholder="Opcional"
-              className="col-span-2 sm:col-span-1"
+              className="col-span-2"
             />
 
             <div className="col-span-2 sm:col-span-4">

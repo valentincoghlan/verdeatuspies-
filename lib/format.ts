@@ -10,6 +10,24 @@ export function pesos(n: number | null | undefined, decimales = 0) {
   }).format(n);
 }
 
+/**
+ * Pesos abreviados en millones, para las tablas angostas.
+ *
+ * "$ 9.007.500" no entra en una columna de telefono y rompe en cuatro
+ * renglones. "$ 9,0 MM" dice lo mismo y entra. Se abrevia recien desde
+ * el millon: abajo de eso el numero completo entra igual y es mas util.
+ */
+export function pesosCortos(n: number | null | undefined) {
+  if (n === null || n === undefined) return "—";
+  const abs = Math.abs(n);
+  if (abs < 1_000_000) return pesos(n);
+  const mm = n / 1_000_000;
+  return `$${NBSP}${new Intl.NumberFormat("es-AR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(mm)}${NBSP}MM`;
+}
+
 export function dolares(n: number | null | undefined, decimales = 0) {
   if (n === null || n === undefined) return "—";
   return `US$${NBSP}${new Intl.NumberFormat("es-AR", {

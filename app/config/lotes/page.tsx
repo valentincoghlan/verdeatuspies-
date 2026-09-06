@@ -136,7 +136,7 @@ export default async function ConfigLotesPage() {
           </Tabla>
           {(zonas ?? []).length > 0 && (
             <div className="mt-4">
-              <button className="btn">Guardar todas las zonas</button>
+              <button className="btn btn-alto sm:w-auto">Guardar todas las zonas</button>
             </div>
           )}
         </form>

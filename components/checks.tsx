@@ -42,7 +42,7 @@ export function Checks({
         : `${nombres.length} elegidos`;
 
   return (
-    <div className={className}>
+    <div className={"min-w-0 " + (className ?? "")}>
       <span className="label">{label}</span>
       <details className="group relative">
         <summary className="input flex cursor-pointer list-none items-center justify-between">

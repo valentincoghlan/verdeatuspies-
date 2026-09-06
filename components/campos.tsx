@@ -32,7 +32,7 @@ export function Campo({
       : (defaultValue ?? undefined);
 
   return (
-    <div className={className}>
+    <div className={"min-w-0 " + (className ?? "")}>
       <label className="label" htmlFor={name}>
         {label}
       </label>
@@ -101,7 +101,7 @@ export function Nota({
   className?: string;
 }) {
   return (
-    <div className={className}>
+    <div className={"min-w-0 " + (className ?? "")}>
       <label className="label" htmlFor={name}>
         {label}
       </label>
@@ -145,7 +145,7 @@ export function Opciones({
   const elegido = defaultValue ?? opciones[0]?.value;
 
   return (
-    <div className={className}>
+    <div className={"min-w-0 " + (className ?? "")}>
       {/* Aunque no se lea, el renglón queda: si no, la fila se desalinea. */}
       <span className={"label" + (ocultarLabel ? " invisible" : "")} aria-hidden={ocultarLabel}>
         {label}

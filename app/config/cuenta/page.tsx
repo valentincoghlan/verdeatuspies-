@@ -148,7 +148,7 @@ export default async function ConfigCuentaPage({
           <Campo label="Contraseña nueva" name="clave" type="password" required />
           <Campo label="Repetila" name="clave2" type="password" required />
           <div className="col-span-2 flex items-end">
-            <button className="btn">Guardar contraseña</button>
+            <button className="btn btn-alto sm:w-auto">Guardar contraseña</button>
           </div>
         </form>
         {resultado === "ok" && (

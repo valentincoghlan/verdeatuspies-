@@ -32,7 +32,7 @@ export default async function ConfigIntegracionesPage() {
             className="col-span-2 sm:col-span-4"
           />
           <div className="col-span-2 sm:col-span-4">
-            <button className="btn">Guardar</button>
+            <button className="btn btn-alto sm:w-auto">Guardar</button>
           </div>
         </form>
         <p className="mt-3 text-xs text-tierra-600">

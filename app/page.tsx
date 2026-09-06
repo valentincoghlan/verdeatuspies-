@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Refrescar } from "@/components/refrescar";
+import { ConfirmarEntrega } from "@/components/confirmar-entrega";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { diasDesde, fechaCorta, fechaLarga, hoyISO, m2, mm, numero, pesos, sumarDiasISO } from "@/lib/format";
 import {
@@ -49,8 +50,20 @@ export default async function Dashboard() {
       .select("m2, total, estado")
       .gte("fecha", inicioMes)
       .in("estado", ["confirmada", "entregada"]),
-    supabase.from("movimientos").select("monto").eq("tipo", "I").gte("fecha", inicioMes),
-    supabase.from("movimientos").select("monto").eq("tipo", "E").gte("fecha", inicioMes),
+    // Sin los ajustes de saldo: inflaban "cobrado este mes" con plata
+    // que en realidad venía arrastrada de antes.
+    supabase
+      .from("v_movimientos")
+      .select("monto")
+      .eq("tipo", "I")
+      .neq("categoria", "Ajustes")
+      .gte("fecha", inicioMes),
+    supabase
+      .from("v_movimientos")
+      .select("monto")
+      .eq("tipo", "E")
+      .neq("categoria", "Ajustes")
+      .gte("fecha", inicioMes),
     supabase
       .from("fertilizaciones")
       .select("id, fecha_programada, dosis, unidad, lotes(nombre), fertilizantes(nombre)")
@@ -106,6 +119,19 @@ export default async function Dashboard() {
     .reduce((a, c) => a + Number(c.saldo_ars ?? 0), 0);
 
   const proximos = ((pedidosPend ?? []) as any[]).slice(0, 3);
+
+  // I15 - Un pedido generaba dos tarjetas: la de "entrega el 06/09" que
+  // se creo dias antes y la de "se entrego?" del dia de la entrega. Se
+  // deja una sola por pedido, la mas nueva, y las dos se ven igual: el
+  // titulo y el boton que abre el modal.
+  const notiPedido = new Set(["entrega_proxima", "confirmar_entrega"]);
+  const vistos = new Set<string>();
+  const alertas = ((notis ?? []) as any[]).filter((n) => {
+    if (!notiPedido.has(n.tipo)) return true;
+    if (vistos.has(n.entidad_id)) return false;
+    vistos.add(n.entidad_id);
+    return true;
+  });
   const tresDias = ((clima ?? []) as any[]).slice(0, 3);
 
   return (
@@ -146,124 +172,124 @@ export default async function Dashboard() {
         />
       </div>
 
-      <div className="mt-2.5 flex items-stretch gap-2.5 sm:gap-3">
-        <Link
-          href="/administracion/disponibilidades"
-          className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-borde bg-white px-3.5 py-2.5 active:bg-beige"
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block text-[10px] font-bold uppercase tracking-[.07em] text-tinta-3">
-              Disponible
-            </span>
-            <span className="block truncate text-lg font-bold tabular-nums leading-tight text-pasto-oscuro">
-              {pesos(disponible)}
-            </span>
-          </span>
-          <span aria-hidden className="shrink-0 text-tinta-3">
-            ›
-          </span>
-        </Link>
-
-        <div className="flex min-w-0 flex-1 flex-col justify-center rounded-2xl border border-borde bg-beige px-3.5 py-2.5">
-          <span className="block text-[10px] font-bold uppercase tracking-[.07em] text-tinta-3">
-            Dólar MEP
-          </span>
-          <span className="block truncate text-lg font-bold tabular-nums leading-tight text-tinta">
-            {dolar ? pesos(Number(dolar.mep), 2) : "—"}
-          </span>
-          <span className="block truncate text-[11px] text-tinta-3">
-            {dolar
-              ? `al ${fechaLarga(dolar.fecha)}${dolar.fecha === hoy ? "" : " · viejo"}`
-              : "sin cotización"}
-          </span>
-        </div>
-      </div>
-
-      {/* Lo que se mira todos los días, sin abrir el menú. */}
-      <div className="mt-2.5 sm:hidden">
-        <div className="rounded-2xl border border-borde bg-white">
-          <div className="flex items-center gap-2 px-3.5 pt-3.5">
-            <h2 className="flex-1 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
-              Próximos pedidos
-            </h2>
-            <Link href="/ventas/pedidos" className="text-xs font-bold text-pasto">
-              Ver todos
-            </Link>
-          </div>
-
-          {proximos.length === 0 ? (
-            <p className="px-3.5 py-4 text-sm text-tinta-2">No hay pedidos pendientes.</p>
-          ) : (
-            <ul className="mt-2 divide-y divide-beige">
-              {proximos.map((p: any) => (
-                <li key={p.id} className="flex items-center gap-3 px-3.5 py-2.5">
-                  <span className="w-14 shrink-0 text-sm font-bold tabular-nums text-tinta">
-                    {p.fecha_entrega ? fechaCorta(p.fecha_entrega) : "—"}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-tinta">
-                    {p.comprador ?? "Sin comprador"}
-                  </span>
-                  <span className="shrink-0 text-sm font-semibold tabular-nums text-tinta-2">
-                    {m2(Number(p.m2 ?? 0))}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* I14 - Los tres dias que vienen, que es lo que define si hay que
-            regar. El detalle completo esta en Riego y lluvias. */}
-        <div className="mt-2.5 rounded-2xl border border-borde bg-white">
-          <div className="flex items-center gap-2 px-3.5 pt-3.5">
-            <h2 className="flex-1 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
-              Riego y lluvias
-            </h2>
-            <Link href="/mantenimiento/riego" className="text-xs font-bold text-pasto">
-              Ver todo
-            </Link>
-          </div>
-
-          {tresDias.length === 0 ? (
-            <p className="px-3.5 py-4 text-sm text-tinta-2">Todavía sin pronóstico.</p>
-          ) : (
-            <ul className="mt-2 divide-y divide-beige">
-              {tresDias.map((d: any) => {
-                const mmDia = Number(d.precipitacion_mm ?? 0);
-                return (
-                  <li key={d.fecha} className="flex items-center gap-3 px-3.5 py-2.5">
-                    <span className="w-14 shrink-0 text-sm font-bold text-tinta">
-                      {d.fecha === hoy ? "Hoy" : fechaCorta(d.fecha)}
-                    </span>
-                    <span className="min-w-0 flex-1 text-sm tabular-nums text-tinta-2">
-                      {numero(d.temp_min, 0)}&deg; / {numero(d.temp_max, 0)}&deg;
-                    </span>
-                    <span
-                      className={
-                        "shrink-0 text-sm font-semibold tabular-nums " +
-                        (mmDia >= 2 ? "text-info-tx" : "text-tinta-3")
-                      }
-                    >
-                      {mm(mmDia)}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </div>
-      </div>
-
-      <div className="mt-3 grid gap-4 lg:grid-cols-3">
+      <div className="mt-2.5 grid gap-4 lg:grid-cols-3">
         <div className="min-w-0 lg:col-span-2 space-y-4">
+          <div className="flex items-stretch gap-2.5 sm:gap-3">
+            <Link
+              href="/administracion/disponibilidades"
+              className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border border-borde bg-white px-3.5 py-2.5 active:bg-beige"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-[10px] font-bold uppercase tracking-[.07em] text-tinta-3">
+                  Disponible
+                </span>
+                <span className="block truncate text-lg font-bold tabular-nums leading-tight text-pasto-oscuro">
+                  {pesos(disponible)}
+                </span>
+              </span>
+              <span aria-hidden className="shrink-0 text-tinta-3">
+                ›
+              </span>
+            </Link>
+
+            <div className="flex min-w-0 flex-1 flex-col justify-center rounded-2xl border border-borde bg-beige px-3.5 py-2.5">
+              <span className="block text-[10px] font-bold uppercase tracking-[.07em] text-tinta-3">
+                Dólar MEP
+              </span>
+              <span className="block truncate text-lg font-bold tabular-nums leading-tight text-tinta">
+                {dolar ? pesos(Number(dolar.mep), 2) : "—"}
+              </span>
+              <span className="block truncate text-[11px] text-tinta-3">
+                {dolar
+                  ? `al ${fechaLarga(dolar.fecha)}${dolar.fecha === hoy ? "" : " · viejo"}`
+                  : "sin cotización"}
+              </span>
+            </div>
+          </div>
+
+          {/* Lo que se mira todos los días, sin abrir el menú. */}
+          <div className="sm:hidden">
+            <div className="rounded-2xl border border-borde bg-white">
+              <div className="flex items-center gap-2 px-3.5 pt-3.5">
+                <h2 className="flex-1 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
+                  Próximos pedidos
+                </h2>
+                <Link href="/ventas/pedidos" className="text-xs font-bold text-pasto">
+                  Ver todos
+                </Link>
+              </div>
+
+              {proximos.length === 0 ? (
+                <p className="px-3.5 py-4 text-sm text-tinta-2">No hay pedidos pendientes.</p>
+              ) : (
+                <ul className="mt-2 divide-y divide-beige">
+                  {proximos.map((p: any) => (
+                    <li key={p.id} className="flex items-center gap-3 px-3.5 py-2.5">
+                      <span className="w-14 shrink-0 text-sm font-bold tabular-nums text-tinta">
+                        {p.fecha_entrega ? fechaCorta(p.fecha_entrega) : "—"}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate text-sm text-tinta">
+                        {p.comprador ?? "Sin comprador"}
+                      </span>
+                      <span className="shrink-0 text-sm font-semibold tabular-nums text-tinta-2">
+                        {m2(Number(p.m2 ?? 0))}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* I14 - Los tres dias que vienen, que es lo que define si hay que
+                regar. El detalle completo esta en Riego y lluvias. */}
+            <div className="mt-2.5 rounded-2xl border border-borde bg-white">
+              <div className="flex items-center gap-2 px-3.5 pt-3.5">
+                <h2 className="flex-1 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
+                  Riego y lluvias
+                </h2>
+                <Link href="/mantenimiento/riego" className="text-xs font-bold text-pasto">
+                  Ver todo
+                </Link>
+              </div>
+
+              {tresDias.length === 0 ? (
+                <p className="px-3.5 py-4 text-sm text-tinta-2">Todavía sin pronóstico.</p>
+              ) : (
+                <ul className="mt-2 divide-y divide-beige">
+                  {tresDias.map((d: any) => {
+                    const mmDia = Number(d.precipitacion_mm ?? 0);
+                    return (
+                      <li key={d.fecha} className="flex items-center gap-3 px-3.5 py-2.5">
+                        <span className="w-14 shrink-0 text-sm font-bold text-tinta">
+                          {d.fecha === hoy ? "Hoy" : fechaCorta(d.fecha)}
+                        </span>
+                        <span className="min-w-0 flex-1 text-sm tabular-nums text-tinta-2">
+                          {numero(d.temp_min, 0)}&deg; / {numero(d.temp_max, 0)}&deg;
+                        </span>
+                        <span
+                          className={
+                            "shrink-0 text-sm font-semibold tabular-nums " +
+                            (mmDia >= 2 ? "text-info-tx" : "text-tinta-3")
+                          }
+                        >
+                          {mm(mmDia)}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+
           <Card titulo="Pendientes y alertas" id="alertas">
-            {(notis ?? []).length === 0 ? (
+            {alertas.length === 0 ? (
               <p className="rounded-[16px] bg-crema py-8 text-center text-[15px] text-tinta-2">
                 No hay nada pendiente. Todo al día.
               </p>
             ) : (
               <ul className="space-y-2.5">
-                {(notis ?? []).map((n: any) => (
+                {alertas.map((n: any) => (
                   <li
                     key={n.id}
                     className="overflow-hidden rounded-2xl border border-borde bg-white shadow-[0_1px_2px_rgba(26,29,24,.05)]"
@@ -319,82 +345,18 @@ export default async function Dashboard() {
                       </div>
                     )}
 
-                    {n.tipo === "confirmar_entrega" && (
-                      <div className="space-y-2.5">
-                        <form
-                          action={confirmarEntrega}
-                          className="flex flex-wrap items-end gap-2"
-                        >
-                          <input type="hidden" name="id" value={n.entidad_id} />
-                          <div>
-                            <label className="label">m² facturados</label>
-                            <input
-                              name="m2"
-                              type="number"
-                              step="0.5"
-                              min="0"
-                              required
-                              defaultValue={Number(pedidoPorId.get(n.entidad_id)?.m2 ?? 0)}
-                              className="input w-28"
-                            />
-                          </div>
-                          <div>
-                            <label className="label">m² de cortesía</label>
-                            <input
-                              name="m2_cortesia"
-                              type="number"
-                              step="0.5"
-                              min="0"
-                              defaultValue={0}
-                              className="input w-28"
-                            />
-                          </div>
-                          <div>
-                            <label className="label">Fecha</label>
-                            <input
-                              name="fecha_entrega"
-                              type="date"
-                              defaultValue={n.fecha_referencia ?? hoy}
-                              className="input w-40"
-                            />
-                          </div>
-                          <button className="btn">Se entregó</button>
-                        </form>
-
-                        <details className="group border-t border-beige pt-2.5">
-                          <summary className="flex min-h-8 cursor-pointer list-none items-center gap-1 text-[13px] font-semibold text-tinta-3">
-                            No se entregó
-                            <span aria-hidden className="text-[9px] group-open:rotate-180">
-                              &#9662;
-                            </span>
-                          </summary>
-                          <div className="mt-2 flex flex-wrap items-end gap-2">
-                            <form
-                              action={reprogramarPedido}
-                              className="flex flex-wrap items-end gap-2"
-                            >
-                              <input type="hidden" name="id" value={n.entidad_id} />
-                              <div>
-                                <label className="label">Fecha nueva</label>
-                                <input
-                                  name="fecha_entrega"
-                                  type="date"
-                                  required
-                                  className="input w-40"
-                                />
-                              </div>
-                              <button className="btn-ghost">Reprogramar</button>
-                            </form>
-                            <form action={anularPedido}>
-                              <input type="hidden" name="id" value={n.entidad_id} />
-                              <button className="flex min-h-11 items-center px-1 text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
-                                Se cayó
-                              </button>
-                            </form>
-                          </div>
-                        </details>
-                      </div>
+                    {notiPedido.has(n.tipo) && pedidoPorId.get(n.entidad_id) && (
+                      <ConfirmarEntrega
+                        pedidoId={n.entidad_id}
+                        comprador={pedidoPorId.get(n.entidad_id)?.comprador ?? "Sin comprador"}
+                        m2={Number(pedidoPorId.get(n.entidad_id)?.m2 ?? 0)}
+                        fecha={n.fecha_referencia ?? hoy}
+                        confirmar={confirmarEntrega}
+                        reprogramar={reprogramarPedido}
+                        anular={anularPedido}
+                      />
                     )}
+
                     </div>
                   </li>
                 ))}

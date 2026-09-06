@@ -54,10 +54,10 @@ export function CuentaYMonto({
         vacio="Elegí la cuenta"
         value={cuenta}
         onChange={setCuenta}
-        className="col-span-2 sm:col-span-1"
+        className="col-span-1"
       />
 
-      <div className="col-span-2 sm:col-span-1">
+      <div className="col-span-1">
         <label className="label" htmlFor="monto">
           Monto{" "}
           <span className="font-normal text-tinta-3">

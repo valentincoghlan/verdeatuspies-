@@ -21,7 +21,7 @@ const sirve = (t: string, lado: string) => t === "ambos" || t === lado;
  * formulario: se guarda junto con el movimiento, ya marcada para el lado
  * que estabas cargando.
  */
-export function QuePaso({ rubros }: { rubros: Rubro[] }) {
+export function QuePaso({ rubros, admin }: { rubros: Rubro[]; admin: boolean }) {
   const [lado, setLado] = useState("E");
   const [rubro, setRubro] = useState("");
   const [sub, setSub] = useState("");
@@ -100,7 +100,7 @@ export function QuePaso({ rubros }: { rubros: Rubro[] }) {
         label="Categoría"
         name="rubro"
         required
-        permiteNuevo
+        permiteNuevo={admin}
         opciones={opcionesRubro}
         vacio="Elegí la categoría"
         value={rubro}
@@ -111,7 +111,7 @@ export function QuePaso({ rubros }: { rubros: Rubro[] }) {
           setRubro(v);
           setSub("");
         }}
-        className="col-span-2 sm:col-span-1"
+        className="col-span-1"
       />
 
       <Elegir
@@ -119,7 +119,7 @@ export function QuePaso({ rubros }: { rubros: Rubro[] }) {
         name="subrubro"
         required={opcionesSub.length > 0}
         deshabilitado={!rubro}
-        permiteNuevo={Boolean(rubro)}
+        permiteNuevo={admin && Boolean(rubro)}
         opciones={opcionesSub}
         vacio={
           !rubro
@@ -136,7 +136,7 @@ export function QuePaso({ rubros }: { rubros: Rubro[] }) {
           }
           setSub(v);
         }}
-        className="col-span-2 sm:col-span-1"
+        className="col-span-1"
       />
     </>
   );

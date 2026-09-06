@@ -119,7 +119,7 @@ export function Elegir({
   };
 
   return (
-    <div className={"relative " + (className ?? "")} ref={caja}>
+    <div className={"relative min-w-0 " + (className ?? "")} ref={caja}>
       <span className="label">{label}</span>
 
       {/*

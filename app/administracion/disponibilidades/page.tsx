@@ -263,6 +263,7 @@ export default async function DisponibilidadesPage({
           </p>
         </Card>
 
+        {esAdmin && (
         <Card titulo="Agregar una cuenta">
           <form action={crearCuenta} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Campo label="Nombre" name="nombre" required placeholder="Banco Nación" className="col-span-2" />
@@ -281,6 +282,7 @@ export default async function DisponibilidadesPage({
             </div>
           </form>
         </Card>
+        )}
       </div>
     </>
   );

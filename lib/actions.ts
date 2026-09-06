@@ -1004,7 +1004,7 @@ export async function crearMovimiento(fd: FormData) {
  * Los ajustes mueven la plata de los libros sin que haya pasado nada en
  * el campo, así que no los puede correr cualquiera.
  */
-async function soloAdmin() {
+async function soloAdmin(que = "hacer esto") {
   const { supabase, user } = await sesion();
   const { data: perfil } = await supabase
     .from("perfiles")
@@ -1013,7 +1013,7 @@ async function soloAdmin() {
     .maybeSingle();
 
   if (perfil?.rol !== "admin") {
-    throw new Error("Solo el dueño puede ajustar saldos.");
+    throw new Error(`Solo el dueño puede ${que}.`);
   }
   return { supabase, user };
 }
@@ -1026,7 +1026,7 @@ async function soloAdmin() {
  * salió, y de acá en adelante la cuenta arranca de la realidad.
  */
 export async function ajustarSaldo(fd: FormData) {
-  const { supabase, user } = await soloAdmin();
+  const { supabase, user } = await soloAdmin("ajustar saldos");
 
   const cuentaId = txt(fd, "cuenta_id");
   const real = dec(fd, "saldo_real");
@@ -1086,7 +1086,7 @@ export async function ajustarSaldo(fd: FormData) {
  * disponibilidades.
  */
 export async function saldarCliente(fd: FormData) {
-  const { supabase, user } = await soloAdmin();
+  const { supabase, user } = await soloAdmin("saldar cuentas de clientes");
 
   const clienteId = txt(fd, "cliente_id");
   if (!clienteId) throw new Error("Falta el cliente.");
@@ -1130,7 +1130,8 @@ export async function saldarCliente(fd: FormData) {
 }
 
 export async function borrarMovimiento(fd: FormData) {
-  const { supabase } = await sesion();
+  // Un movimiento borrado le cambia el saldo a todos y no deja rastro.
+  const { supabase } = await soloAdmin("borrar movimientos");
   await supabase.from("movimientos").delete().eq("id", txt(fd, "id")!);
   bump("/administracion", "/reportes", "/ventas/pedidos");
 }
@@ -1172,7 +1173,7 @@ export async function crearPersona(fd: FormData) {
 }
 
 export async function crearCuenta(fd: FormData) {
-  const { supabase } = await sesion();
+  const { supabase } = await soloAdmin("crear cuentas");
   await supabase.from("cuentas").insert({
     nombre: txt(fd, "nombre"),
     tipo: txt(fd, "tipo_cuenta") ?? "otro",
@@ -1305,7 +1306,7 @@ export async function resolverNotificacion(fd: FormData) {
  * borraría la API key de Hydrawise, que vive en otra pantalla.
  */
 export async function guardarConfig(fd: FormData) {
-  const { supabase } = await sesion();
+  const { supabase } = await soloAdmin("cambiar la configuración");
   const items: { clave: string; valor: unknown }[] = [];
 
   if (fd.has("hydrawise_api_key")) {
@@ -1371,7 +1372,7 @@ export async function guardarLote(fd: FormData) {
  * categoría marcada como salida no aparece cuando cargás una entrada.
  */
 export async function guardarCategoria(fd: FormData) {
-  const { supabase } = await sesion();
+  const { supabase } = await soloAdmin("editar las categorías");
   const id = txt(fd, "id");
   const tipo = txt(fd, "tipo");
 
@@ -1421,7 +1422,7 @@ export async function guardarZona(fd: FormData) {
 }
 
 export async function agregarMiembro(fd: FormData) {
-  const { supabase } = await sesion();
+  const { supabase } = await soloAdmin("cambiar el equipo");
   const email = (txt(fd, "email") ?? "").toLowerCase();
   const nombre = txt(fd, "nombre");
   const rol = txt(fd, "rol") ?? "operador";
@@ -1439,8 +1440,25 @@ export async function agregarMiembro(fd: FormData) {
   bump("/config/equipo");
 }
 
+export async function cambiarRol(fd: FormData) {
+  const { supabase } = await soloAdmin("cambiar el equipo");
+  const email = (txt(fd, "email") ?? "").toLowerCase();
+  const rol = txt(fd, "rol") === "admin" ? "admin" : "operador";
+
+  const { error } = await supabase
+    .from("miembros_habilitados")
+    .update({ rol })
+    .ilike("email", email);
+  if (error) throw new Error(`No se pudo cambiar el rol: ${error.message}`);
+
+  // El perfil es el que manda cuando la persona ya entró alguna vez.
+  await supabase.from("perfiles").update({ rol }).ilike("email", email);
+
+  bump("/config/equipo");
+}
+
 export async function quitarMiembro(fd: FormData) {
-  const { supabase } = await sesion();
+  const { supabase } = await soloAdmin("cambiar el equipo");
   const email = (txt(fd, "email") ?? "").toLowerCase();
   await supabase.from("miembros_habilitados").delete().eq("email", email);
   await supabase.from("perfiles").update({ activo: false }).eq("email", email);

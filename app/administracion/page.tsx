@@ -7,6 +7,7 @@ import { QuePaso } from "@/components/que-paso";
 import { Confirmar } from "@/components/confirmar";
 import { FiltroFechas, resolverRango } from "@/components/filtro-fechas";
 import { borrarMovimiento, crearMovimiento, crearPersona } from "@/lib/actions";
+import { esAdmin } from "@/lib/rol";
 import { fechaBreve, hoyISO, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -37,6 +38,7 @@ export default async function CajaPage({
     { data: movs },
     { data: totales },
     { data: cotizacion },
+    admin,
   ] = await Promise.all([
     supabase.from("cuentas").select("*").eq("activa", true).order("orden"),
     supabase.from("categorias").select("*").eq("activa", true).order("orden"),
@@ -52,10 +54,12 @@ export default async function CajaPage({
     // Los totales se calculan sobre TODO el período, no sobre las 300 filas
     // que se muestran en la tabla.
     supabase
-      .from("movimientos")
+      .from("v_movimientos")
       // `monto` está siempre en pesos, sin importar en qué moneda se
-      // escribió: por eso se suman todos.
+      // escribió: por eso se suman todos. Los ajustes de saldo quedan
+      // afuera: corrigen un arrastre, no son plata que se movió.
       .select("tipo, monto")
+      .neq("categoria", "Ajustes")
       .gte("fecha", rango.desde)
       .lte("fecha", rango.hasta),
     supabase
@@ -64,6 +68,7 @@ export default async function CajaPage({
       .order("fecha", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    esAdmin(),
   ]);
 
   const mep = cotizacion?.mep ? Number(cotizacion.mep) : null;
@@ -108,7 +113,7 @@ export default async function CajaPage({
         <Card titulo="Cargar un movimiento">
           <form action={crearMovimiento} className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {/* Qué pasó */}
-            <QuePaso rubros={rubros} />
+            <QuePaso rubros={rubros} admin={admin} />
 
             {/* Cuánto */}
             <CuentaYMonto cuentas={opcionesCuenta} mep={mep} />
@@ -118,10 +123,17 @@ export default async function CajaPage({
               type="date"
               required
               defaultValue={hoy}
-              className="col-span-2 sm:col-span-1"
+              className="col-span-1"
             />
 
             {/* Con quién y dónde */}
+            <Selector
+              label="Lote"
+              name="lote_id"
+              vacio="General"
+              opciones={opcionesLote}
+              className="col-span-1"
+            />
             <Elegir
               label="Persona"
               name="persona"
@@ -129,13 +141,6 @@ export default async function CajaPage({
               vacio="Sin especificar"
               opcional
               permiteNuevo
-              className="col-span-2 sm:col-span-1"
-            />
-            <Selector
-              label="Lote"
-              name="lote_id"
-              vacio="General"
-              opciones={opcionesLote}
               className="col-span-2 sm:col-span-1"
             />
             <Campo
@@ -153,7 +158,7 @@ export default async function CajaPage({
 
         <Card titulo={`Del ${fechaBreve(rango.desde)} al ${fechaBreve(rango.hasta)}`}>
           <p className="mb-3 text-sm text-tinta-2">
-            {todos.length} movimientos · entró{" "}
+            {todos.length} movimientos (sin contar ajustes de saldo) · entró{" "}
             <strong className="text-pasto">{pesos(ingresos)}</strong> · salió{" "}
             <strong className="text-atencion-tx">{pesos(egresos)}</strong> · diferencia{" "}
             <strong className="text-tinta">{pesos(ingresos - egresos)}</strong>
@@ -216,13 +221,17 @@ export default async function CajaPage({
                   {m.tipo === "I" ? "+" : "−"} {pesos(Number(m.monto))}
                 </td>
                 <td className="td text-right">
-                  <Confirmar
-                    action={borrarMovimiento}
-                    campos={{ id: m.id }}
-                    etiqueta="×"
-                    pregunta="¿Borrar este movimiento?"
-                    compacto
-                  />
+                  {/* Borrar un movimiento le mueve el saldo a todos: solo
+                      lo hace el dueño. */}
+                  {admin && (
+                    <Confirmar
+                      action={borrarMovimiento}
+                      campos={{ id: m.id }}
+                      etiqueta="×"
+                      pregunta="¿Borrar este movimiento?"
+                      compacto
+                    />
+                  )}
                 </td>
               </tr>
             ))}

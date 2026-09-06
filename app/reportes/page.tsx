@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import Barras from "@/components/barras";
 import { FiltroFechas, resolverRango } from "@/components/filtro-fechas";
-import { fechaBreve, fechaLarga, m2, numero, pesos } from "@/lib/format";
+import { fechaBreve, fechaLarga, m2, numero, pesos, pesosCortos } from "@/lib/format";
+import { Dato } from "@/components/dato";
 
 export const dynamic = "force-dynamic";
 
@@ -184,7 +185,7 @@ export default async function ReportesPage({
         <div className="lg:col-span-2">
         <Card titulo="Por canal de venta">
           <Tabla
-            cabeceras={["Canal", "Operaciones", "m² vendidos", "Vendido", "Margen"]}
+            cabeceras={["Canal", "m\u00b2", "Vendido", "Margen"]}
             vacio="No hay entregas confirmadas en este período."
           >
             {porCanal
@@ -192,14 +193,22 @@ export default async function ReportesPage({
               .map((c) => (
                 <tr key={c.canal}>
                   <td className="td">
+                    {/* RP1 - la cantidad de operaciones deja de ser columna
+                        y baja debajo del chip. */}
                     <Chip tono={c.canal === "distribuidor" ? "azul" : "verde"}>
-                      {c.canal === "distribuidor" ? "Distribuidores" : "Directa"}
+                      {c.canal === "distribuidor" ? "Distrib." : "Directa"}
                     </Chip>
+                    <span className="mt-0.5 block text-[11px] text-tinta-3">
+                      {numero(c.operaciones)} ops
+                    </span>
                   </td>
-                  <td className="td tabular-nums">{numero(c.operaciones)}</td>
                   <td className="td tabular-nums">{numero(c.m2)}</td>
-                  <td className="td tabular-nums font-semibold">{pesos(c.vendido)}</td>
-                  <td className="td tabular-nums font-semibold text-pasto">{pesos(c.margen)}</td>
+                  <td className="td whitespace-nowrap tabular-nums font-semibold">
+                    {pesosCortos(c.vendido)}
+                  </td>
+                  <td className="td whitespace-nowrap tabular-nums font-semibold text-pasto">
+                    {pesosCortos(c.margen)}
+                  </td>
                 </tr>
               ))}
           </Tabla>
@@ -213,8 +222,10 @@ export default async function ReportesPage({
 
         <div className="lg:col-span-2">
         <Card titulo="Las operaciones que más dejaron" id="mejores">
+          {/* RP5 a RP8 - cuatro columnas: el canal baja debajo del
+              comprador, los m\u00b2 debajo de lo vendido y los gastos salen. */}
           <Tabla
-            cabeceras={["Entrega", "Comprador", "Canal", "m²", "Vendido", "Gastos", "Margen"]}
+            cabeceras={["Entrega", "Comprador", "Vendido", "Margen"]}
             vacio="No hay entregas confirmadas en este período."
           >
             {mejores.map((v: any) => {
@@ -224,20 +235,23 @@ export default async function ReportesPage({
               return (
                 <tr key={v.venta_id}>
                   <td className="td whitespace-nowrap">{fechaBreve(v.fecha_entrega)}</td>
-                  <td className="td font-semibold">{v.comprador}</td>
-                  <td className="td">
-                    <Chip tono={v.canal === "distribuidor" ? "azul" : "verde"}>
-                      {v.canal === "distribuidor" ? "Distribuidores" : "Directa"}
-                    </Chip>
+                  <td className="td max-w-0 font-semibold">
+                    <Dato
+                      principal={<span className="block truncate">{v.comprador}</span>}
+                      secundario={v.canal === "distribuidor" ? "distribuidor" : "directa"}
+                    />
                   </td>
-                  <td className="td tabular-nums">{numero(Number(v.m2))}</td>
-                  <td className="td tabular-nums font-semibold">{pesos(vendido)}</td>
-                  <td className="td tabular-nums text-atencion-tx">
-                    {Number(v.gastos) > 0 ? pesos(Number(v.gastos)) : "—"}
+                  <td className="td tabular-nums font-semibold">
+                    <Dato
+                      principal={pesosCortos(vendido)}
+                      secundario={`${numero(Number(v.m2))} m\u00b2`}
+                    />
                   </td>
                   <td className="td tabular-nums font-semibold text-pasto">
-                    {pesos(margen)}
-                    <span className="ml-1 text-xs font-normal text-tinta-3">{numero(pct)}%</span>
+                    <Dato
+                      principal={pesosCortos(margen)}
+                      secundario={`${numero(pct)}%`}
+                    />
                   </td>
                 </tr>
               );
