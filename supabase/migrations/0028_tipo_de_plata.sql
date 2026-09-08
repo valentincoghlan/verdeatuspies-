@@ -56,6 +56,12 @@ update categorias h
 
 -- ---------------------------------------------------------------------
 -- La vista de movimientos expone el tipo de plata del rubro
+--
+-- La columna nueva va AL FINAL y no en su lugar "lógico": Postgres deja
+-- agregar columnas a una vista existente, pero no meter una en el medio
+-- ni renombrar las que ya están. Con `create or replace` al final, la
+-- vista se actualiza sin tener que bajarla y sin romper lo que dependa
+-- de ella.
 -- ---------------------------------------------------------------------
 create or replace view v_movimientos as
 select
@@ -65,11 +71,11 @@ select
   m.categoria_id,
   coalesce(pad.nombre, cat.nombre) as categoria,
   case when pad.nombre is null then null else cat.nombre end as subcategoria,
-  coalesce(pad.tipo_plata, cat.tipo_plata, 'operativo') as tipo_plata,
   m.persona_id, p.nombre as persona, p.tipo as persona_tipo,
   m.lote_id, l.nombre as lote,
   m.venta_id, m.cliente_id, cl.nombre as cliente,
-  m.metros
+  m.metros,
+  coalesce(pad.tipo_plata, cat.tipo_plata, 'operativo') as tipo_plata
 from movimientos m
 left join cuentas cu on cu.id = m.cuenta_id
 left join categorias cat on cat.id = m.categoria_id
