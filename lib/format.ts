@@ -28,6 +28,21 @@ export function pesosCortos(n: number | null | undefined) {
   }).format(mm)}${NBSP}MM`;
 }
 
+/**
+ * Dólares abreviados en miles, para las tablas angostas. Mismo criterio
+ * que pesosCortos, pero el corte va en mil: en dólares los números del
+ * campo son mil veces más chicos.
+ */
+export function dolaresCortos(n: number | null | undefined) {
+  if (n === null || n === undefined) return "—";
+  const abs = Math.abs(n);
+  if (abs < 100_000) return dolares(n);
+  return `US$${NBSP}${new Intl.NumberFormat("es-AR", {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(n / 1000)}${NBSP}k`;
+}
+
 export function dolares(n: number | null | undefined, decimales = 0) {
   if (n === null || n === undefined) return "—";
   return `US$${NBSP}${new Intl.NumberFormat("es-AR", {

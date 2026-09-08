@@ -67,13 +67,19 @@ export function FiltroFechas({
   base,
   activo,
   rango,
+  moneda,
 }: {
   base: string;
   activo?: string;
   rango: Rango;
+  /** Si va, aparece el interruptor de pesos/dólares. */
+  moneda?: "ARS" | "USD";
 }) {
   const actual = activo ?? "mes";
   const ATAJOS = atajos(hoyISO());
+  // El período viaja en el link para que cambiar de moneda no te devuelva
+  // al mes en curso.
+  const conMoneda = (m: string) => `${base}?p=${actual}${m === "USD" ? "&m=usd" : ""}`;
 
   return (
     <div className="card">
@@ -85,7 +91,7 @@ export function FiltroFechas({
         {ATAJOS.map((a) => (
           <Link
             key={a.p}
-            href={`${base}?p=${a.p}`}
+            href={`${base}?p=${a.p}${moneda === "USD" ? "&m=usd" : ""}`}
             className={
               "inline-flex min-h-11 items-center rounded-full px-4 text-sm font-semibold transition sm:min-h-9 " +
               (rango.etiqueta !== "a medida" && a.p === actual
@@ -98,12 +104,35 @@ export function FiltroFechas({
         ))}
       </div>
 
+      {moneda && (
+        <div className="mt-3 flex items-center gap-2 border-t border-beige pt-3">
+          <span className="text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
+            Moneda
+          </span>
+          <div className="flex gap-1.5">
+            {(["ARS", "USD"] as const).map((m) => (
+              <Link
+                key={m}
+                href={conMoneda(m)}
+                className={
+                  "inline-flex min-h-9 items-center rounded-full px-3.5 text-xs font-bold transition " +
+                  (moneda === m ? "bg-pasto text-crema" : "bg-beige text-tinta-2 hover:bg-borde")
+                }
+              >
+                {m === "ARS" ? "Pesos" : "Dólares"}
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* El rango a medida se pliega: casi siempre alcanza con los atajos. */}
       <details className="mt-3 border-t border-beige pt-3">
         <summary className="cursor-pointer list-none text-xs font-semibold text-pasto">
           Otro rango de fechas
         </summary>
         <form action={base} method="get" className="mt-2 grid grid-cols-2 gap-2 sm:max-w-md">
+          {moneda === "USD" && <input type="hidden" name="m" value="usd" />}
           <div>
             <label className="label" htmlFor="desde">
               Desde

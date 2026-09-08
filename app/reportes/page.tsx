@@ -8,6 +8,8 @@ import {
   hoyISO,
   m2,
   numero,
+  dolares,
+  dolaresCortos,
   pesos,
   pesosCortos,
   sumarDiasISO,
@@ -24,11 +26,19 @@ const mesCorto = (iso: string) => `${MESES[Number(iso.slice(5, 7)) - 1]} ${iso.s
 export default async function ReportesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ p?: string; desde?: string; hasta?: string }>;
+  searchParams: Promise<{ p?: string; desde?: string; hasta?: string; m?: string }>;
 }) {
   const sp = await searchParams;
   const rango = resolverRango(sp);
   const supabase = await createClient();
+
+  // Mirar tres temporadas en pesos no dice nada: $41 millones de 2024 y
+  // $11 millones de 2026 no son la misma plata. En dólares sí se
+  // comparan. Cada movimiento ya trae su monto_usd; las ventas se pasan
+  // con la cotización del mes.
+  const enUsd = sp.m === "usd";
+  const plata = enUsd ? (n: number) => dolares(n) : (n: number) => pesos(n);
+  const plataCorta = enUsd ? (n: number) => dolaresCortos(n) : (n: number) => pesosCortos(n);
 
   // Doce meses hacia atras desde hoy, para el costo unitario.
   const desde12 = sumarDiasISO(hoyISO(), -365);
@@ -40,6 +50,7 @@ export default async function ReportesPage({
     { data: cuentas },
     { data: egresos12 },
     { data: meses12 },
+    { data: cotizMes },
   ] = await Promise.all([
       supabase
         .from("v_resumen_mes")
@@ -55,22 +66,53 @@ export default async function ReportesPage({
         .order("fecha", { ascending: false }),
       supabase
         .from("v_movimientos")
-        .select("categoria, subcategoria, monto, tipo_plata")
+        .select("categoria, subcategoria, monto, monto_usd, tipo_plata, fecha")
         .eq("tipo", "E")
         .gte("fecha", rango.desde)
         .lte("fecha", rango.hasta),
       supabase.from("v_cuenta_clientes").select("saldo"),
       supabase
         .from("v_movimientos")
-        .select("categoria, monto, tipo_plata")
+        .select("categoria, monto, monto_usd, tipo_plata")
         .eq("tipo", "E")
         .gte("fecha", desde12),
       supabase.from("v_resumen_mes").select("m2_cosechados").gte("mes", desde12.slice(0, 7) + "-01"),
+      supabase.from("v_cotizacion_mes").select("mes, mep").order("mes"),
     ]);
+
+  // Cotización de cada mes, con el mes anterior más cercano como respaldo
+  // para los meses sin ningún movimiento cargado.
+  const cotizaciones = ((cotizMes ?? []) as any[]).map((r) => ({
+    mes: String(r.mes),
+    mep: Number(r.mep),
+  }));
+  const mepDe = (fecha: string) => {
+    if (!cotizaciones.length) return 0;
+    const mes = fecha.slice(0, 7);
+    let elegida = cotizaciones[0].mep;
+    for (const c of cotizaciones) {
+      if (c.mes <= mes) elegida = c.mep;
+      else break;
+    }
+    return elegida;
+  };
+  /** El monto de un movimiento en la moneda elegida. En dólares se usa el
+   * monto_usd guardado con la cotización del día: más exacto que el mes. */
+  const montoDe = (x: any) => Number((enUsd ? x.monto_usd : x.monto) ?? 0);
+
+  /** Pasa un monto en pesos de esa fecha a la moneda elegida. */
+  const conv = (monto: number, fecha: string) => {
+    if (!enUsd) return monto;
+    const mep = mepDe(fecha);
+    return mep > 0 ? monto / mep : 0;
+  };
 
   const meses = porMes ?? [];
   const serie = (campo: string) =>
-    meses.map((r: any) => ({ label: mesCorto(r.mes), valor: Number(r[campo] ?? 0) }));
+    meses.map((r: any) => ({
+      label: mesCorto(r.mes),
+      valor: campo === "vendido" ? conv(Number(r[campo] ?? 0), r.mes) : Number(r[campo] ?? 0),
+    }));
   const suma = (campo: string) =>
     meses.reduce((a: number, r: any) => a + Number(r[campo] ?? 0), 0);
 
@@ -80,11 +122,15 @@ export default async function ReportesPage({
   const pctRegalado = cosechados > 0 ? (regalados / cosechados) * 100 : 0;
 
   const entregadas = (margenes ?? []).filter((v: any) => v.estado === "entregada");
-  const margenTotal = entregadas.reduce((a, v: any) => a + Number(v.margen ?? 0), 0);
+  const margenTotal = entregadas.reduce(
+    (a, v: any) => a + conv(Number(v.margen ?? 0), v.fecha_entrega ?? v.fecha),
+    0,
+  );
 
   // El saldo por cobrar es a hoy, no del período: es plata que te deben ahora.
+  // El saldo por cobrar es de hoy, así que va con la cotización de hoy.
   const porCobrar = (cuentas ?? []).reduce(
-    (a: number, c: any) => a + Math.max(0, Number(c.saldo ?? 0)),
+    (a: number, c: any) => a + Math.max(0, conv(Number(c.saldo ?? 0), hoyISO())),
     0,
   );
 
@@ -94,8 +140,14 @@ export default async function ReportesPage({
       canal: c,
       operaciones: filas.length,
       m2: filas.reduce((a, v: any) => a + Number(v.m2 ?? 0), 0),
-      vendido: filas.reduce((a, v: any) => a + Number(v.facturado ?? 0), 0),
-      margen: filas.reduce((a, v: any) => a + Number(v.margen ?? 0), 0),
+      vendido: filas.reduce(
+        (a, v: any) => a + conv(Number(v.facturado ?? 0), v.fecha_entrega ?? v.fecha),
+        0,
+      ),
+      margen: filas.reduce(
+        (a, v: any) => a + conv(Number(v.margen ?? 0), v.fecha_entrega ?? v.fecha),
+        0,
+      ),
     };
   });
 
@@ -103,13 +155,16 @@ export default async function ReportesPage({
   const porCategoria = new Map<string, number>();
   for (const p of pagos ?? []) {
     const k = ((p as any).categoria as string) ?? "Sin categoría";
-    porCategoria.set(k, (porCategoria.get(k) ?? 0) + Number((p as any).monto ?? 0));
+    porCategoria.set(k, (porCategoria.get(k) ?? 0) + montoDe(p));
   }
   const serieCategorias = [...porCategoria.entries()]
     .sort((a, b) => b[1] - a[1])
     .map(([k, v]) => ({ label: k.slice(0, 14), valor: v }));
 
-  const facturado = entregadas.reduce((a, v: any) => a + Number(v.facturado ?? 0), 0);
+  const facturado = entregadas.reduce(
+    (a, v: any) => a + conv(Number(v.facturado ?? 0), v.fecha_entrega ?? v.fecha),
+    0,
+  );
 
   // Cada rubro dice qué clase de plata mueve (migración 0028). Solo el
   // costo operativo entra en el resultado: plantar el campo o comprar el
@@ -117,13 +172,11 @@ export default async function ReportesPage({
   // cobranza de una venta ya está contada en Facturado.
   const egresos = (pagos ?? []) as any[];
   const suman = (xs: any[], tipo: string) =>
-    xs.filter((x) => (x.tipo_plata ?? "operativo") === tipo).reduce((a, x) => a + Number(x.monto ?? 0), 0);
+    xs.filter((x) => (x.tipo_plata ?? "operativo") === tipo).reduce((a, x) => a + montoDe(x), 0);
 
   const gastado = suman(egresos, "operativo");
   const invertido = suman(egresos, "inversion");
-  const fueraDeCosto = egresos.length
-    ? egresos.reduce((a, x) => a + Number(x.monto ?? 0), 0) - gastado
-    : 0;
+  const fueraDeCosto = egresos.reduce((a, x) => a + montoDe(x), 0) - gastado;
 
   const precioProm = vendidos > 0 ? facturado / vendidos : 0;
 
@@ -164,21 +217,21 @@ export default async function ReportesPage({
       />
 
       <div className="mb-3">
-        <FiltroFechas base="/reportes" activo={sp.p} rango={rango} />
+        <FiltroFechas base="/reportes" activo={sp.p} rango={rango} moneda={enUsd ? "USD" : "ARS"} />
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat label="m² vendidos" valor={m2(vendidos)} destacado />
-        <Stat label="Facturado" valor={pesos(facturado)} tono="verde" detalle={`${entregadas.length} operaciones`} />
+        <Stat label="Facturado" valor={plata(facturado)} tono="verde" detalle={`${entregadas.length} operaciones`} />
         <Stat
           label="Resultado"
-          valor={pesos(resultado)}
+          valor={plata(resultado)}
           tono={resultado < 0 ? "ambar" : "verde"}
           detalle={`Facturado menos gastos · ${numero(pctMargen, 1)}%`}
         />
         <Stat
           label="Por cobrar"
-          valor={pesos(porCobrar)}
+          valor={plata(porCobrar)}
           tono={porCobrar > 0 ? "ambar" : "neutro"}
           detalle="Saldo de hoy, no del período"
         />
@@ -187,12 +240,12 @@ export default async function ReportesPage({
       <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat
           label="Precio promedio"
-          valor={`${pesos(precioProm)} / m²`}
+          valor={`${plata(precioProm)} / m²`}
           detalle="Lo que sale el metro"
         />
         <Stat
           label="Costo por m² vendido"
-          valor={`${pesos(costoPorM2)} / m²`}
+          valor={`${plata(costoPorM2)} / m²`}
           tono={costoPorM2 > precioProm ? "ambar" : "neutro"}
           detalle={
             costoPorM2 > precioProm
@@ -200,10 +253,10 @@ export default async function ReportesPage({
               : "Últimos 12 meses"
           }
         />
-        <Stat label="Costo operativo" valor={pesos(gastado)} detalle="Producir y vender" />
+        <Stat label="Costo operativo" valor={plata(gastado)} detalle="Producir y vender" />
         <Stat
           label="Invertido"
-          valor={pesos(invertido)}
+          valor={plata(invertido)}
           detalle="Plantación, riego y máquinas"
         />
         <Stat
@@ -228,19 +281,19 @@ export default async function ReportesPage({
         </Card>
 
         <Card titulo="Facturado por mes">
-          <Barras datos={serie("vendido")} formato={(n) => pesos(n)} compacto />
+          <Barras datos={serie("vendido")} formato={(n) => plata(n)} compacto />
         </Card>
 
         <Card titulo="Salidas por categoría">
           <Barras
             datos={serieCategorias}
-            formato={(n) => pesos(n)}
+            formato={(n) => plata(n)}
             destacarUltimo={false}
             compacto
           />
           {fueraDeCosto > 0 && (
             <p className="mt-3 text-xs text-tinta-3">
-              Acá está todo lo que salió de la caja. {pesos(fueraDeCosto)} de eso no es costo de
+              Acá está todo lo que salió de la caja. {plata(fueraDeCosto)} de eso no es costo de
               producir —inversión en el campo, dividendos, dólares, aportes y ajustes— así que no
               entra en el resultado ni en el costo por m². Qué es cada rubro se define en Ajustes →
               Datos.
@@ -270,10 +323,10 @@ export default async function ReportesPage({
                   </td>
                   <td className="td tabular-nums">{numero(c.m2)}</td>
                   <td className="td whitespace-nowrap tabular-nums font-semibold">
-                    {pesosCortos(c.vendido)}
+                    {plataCorta(c.vendido)}
                   </td>
                   <td className="td whitespace-nowrap tabular-nums font-semibold text-pasto">
-                    {pesosCortos(c.margen)}
+                    {plataCorta(c.margen)}
                   </td>
                 </tr>
               ))}
@@ -309,13 +362,13 @@ export default async function ReportesPage({
                   </td>
                   <td className="td tabular-nums font-semibold">
                     <Dato
-                      principal={pesosCortos(vendido)}
+                      principal={plataCorta(vendido)}
                       secundario={`${numero(Number(v.m2))} m\u00b2`}
                     />
                   </td>
                   <td className="td tabular-nums font-semibold text-pasto">
                     <Dato
-                      principal={pesosCortos(margen)}
+                      principal={plataCorta(margen)}
                       secundario={`${numero(pct)}%`}
                     />
                   </td>
