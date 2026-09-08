@@ -2,7 +2,16 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import Barras from "@/components/barras";
 import { FiltroFechas, resolverRango } from "@/components/filtro-fechas";
-import { fechaBreve, fechaLarga, m2, numero, pesos, pesosCortos } from "@/lib/format";
+import {
+  fechaBreve,
+  fechaLarga,
+  hoyISO,
+  m2,
+  numero,
+  pesos,
+  pesosCortos,
+  sumarDiasISO,
+} from "@/lib/format";
 import { Dato } from "@/components/dato";
 
 export const dynamic = "force-dynamic";
@@ -21,8 +30,17 @@ export default async function ReportesPage({
   const rango = resolverRango(sp);
   const supabase = await createClient();
 
-  const [{ data: porMes }, { data: margenes }, { data: pagos }, { data: cuentas }] =
-    await Promise.all([
+  // Doce meses hacia atras desde hoy, para el costo unitario.
+  const desde12 = sumarDiasISO(hoyISO(), -365);
+
+  const [
+    { data: porMes },
+    { data: margenes },
+    { data: pagos },
+    { data: cuentas },
+    { data: egresos12 },
+    { data: meses12 },
+  ] = await Promise.all([
       supabase
         .from("v_resumen_mes")
         .select("*")
@@ -42,6 +60,12 @@ export default async function ReportesPage({
         .gte("fecha", rango.desde)
         .lte("fecha", rango.hasta),
       supabase.from("v_cuenta_clientes").select("saldo"),
+      supabase
+        .from("v_movimientos")
+        .select("categoria, monto")
+        .eq("tipo", "E")
+        .gte("fecha", desde12),
+      supabase.from("v_resumen_mes").select("m2_cosechados").gte("mes", desde12.slice(0, 7) + "-01"),
     ]);
 
   const meses = porMes ?? [];
@@ -101,10 +125,24 @@ export default async function ReportesPage({
     .reduce((a, p) => a + Number(p.monto ?? 0), 0);
 
   const precioProm = vendidos > 0 ? facturado / vendidos : 0;
+
   // Ojo con el nombre: `m2_cosechados` de la vista son los m² entregados
   // de cada venta, no lo que salió del campo. Mientras la cosecha real se
   // empiece a cargar en serio, el número que sirve es por metro vendido.
-  const costoPorM2 = cosechados > 0 ? gastado / cosechados : 0;
+  //
+  // Y va sobre doce meses fijos, no sobre el filtro: los gastos y las
+  // ventas no caen el mismo mes —la mano de obra de julio se paga en
+  // septiembre, el pasto que vendés hoy se plantó hace meses— así que en
+  // una ventana corta el cociente no mide nada. En septiembre daba
+  // $ 11.290 con un solo pago cargado.
+  const gastado12 = ((egresos12 ?? []) as any[])
+    .filter((p) => !NO_ES_COSTO.includes(p.categoria))
+    .reduce((a, p) => a + Number(p.monto ?? 0), 0);
+  const m2Doce = ((meses12 ?? []) as any[]).reduce(
+    (a, r) => a + Number(r.m2_cosechados ?? 0),
+    0,
+  );
+  const costoPorM2 = m2Doce > 0 ? gastado12 / m2Doce : 0;
 
   // El margen de verdad es lo facturado menos lo que se gastó de verdad
   // en el período. El que trae v_margen_ventas solo descuenta los gastos
@@ -159,11 +197,15 @@ export default async function ReportesPage({
           tono={costoPorM2 > precioProm ? "ambar" : "neutro"}
           detalle={
             costoPorM2 > precioProm
-              ? "Más caro de lo que se vende"
-              : "Todos los gastos del período"
+              ? "Últimos 12 meses · más caro de lo que se vende"
+              : "Últimos 12 meses"
           }
         />
-        <Stat label="Gastado" valor={pesos(gastado)} detalle="Todo lo que salió" />
+        <Stat
+          label="Gastado"
+          valor={pesos(gastado)}
+          detalle="Del período, sin dividendos ni ajustes"
+        />
         <Stat
           label="m² regalados"
           valor={m2(regalados)}
