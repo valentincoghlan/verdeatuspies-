@@ -50,8 +50,8 @@ export function resolverRango(sp: { p?: string; desde?: string; hasta?: string }
   }
 }
 
-/** Desde cuándo hay datos cargados. Antes de esto no hubo temporada. */
-const PRIMERA_TEMPORADA = 2024;
+/** Desde cuándo hay datos cargados. 2023 es el año en que se armó el campo. */
+const PRIMERA_TEMPORADA = 2023;
 
 function atajos(hoy: string) {
   const esteAnio = Number(hoy.slice(0, 4));
