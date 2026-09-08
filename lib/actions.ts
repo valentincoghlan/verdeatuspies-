@@ -1387,10 +1387,12 @@ export async function guardarCategoria(fd: FormData) {
   const { supabase } = await soloAdmin("editar las categorías");
   const id = txt(fd, "id");
   const tipo = txt(fd, "tipo");
+  const tipoPlata = txt(fd, "tipo_plata");
 
   if (id) {
     const datos: Record<string, unknown> = {};
     if (tipo) datos.tipo = tipo;
+    if (tipoPlata) datos.tipo_plata = tipoPlata;
     if (txt(fd, "nombre")) datos.nombre = txt(fd, "nombre");
     if (fd.has("activa")) datos.activa = txt(fd, "activa") === "1";
     if (Object.keys(datos).length) {
@@ -1405,12 +1407,35 @@ export async function guardarCategoria(fd: FormData) {
           .eq("padre_id", id)
           .neq("tipo", datos.tipo);
       }
+
+      // La clase de plata la define el rubro y la heredan sus hijas: una
+      // subcategoría de Plantación no puede ser costo operativo.
+      if (datos.tipo_plata && !txt(fd, "padre_id")) {
+        await supabase
+          .from("categorias")
+          .update({ tipo_plata: datos.tipo_plata })
+          .eq("padre_id", id);
+      }
     }
   } else {
+    // Una categoría nueva hereda la clase de plata de su rubro; si es un
+    // rubro nuevo, arranca como costo operativo.
+    const padreId = txt(fd, "padre_id");
+    let heredado = tipoPlata ?? "operativo";
+    if (padreId) {
+      const { data: padre } = await supabase
+        .from("categorias")
+        .select("tipo_plata")
+        .eq("id", padreId)
+        .maybeSingle();
+      heredado = padre?.tipo_plata ?? heredado;
+    }
+
     await supabase.from("categorias").insert({
       nombre: txt(fd, "nombre"),
-      padre_id: txt(fd, "padre_id"),
+      padre_id: padreId,
       tipo: tipo ?? "ambos",
+      tipo_plata: heredado,
       orden: num(fd, "orden") ?? 999,
     });
   }

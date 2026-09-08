@@ -55,14 +55,14 @@ export default async function ReportesPage({
         .order("fecha", { ascending: false }),
       supabase
         .from("v_movimientos")
-        .select("categoria, subcategoria, monto")
+        .select("categoria, subcategoria, monto, tipo_plata")
         .eq("tipo", "E")
         .gte("fecha", rango.desde)
         .lte("fecha", rango.hasta),
       supabase.from("v_cuenta_clientes").select("saldo"),
       supabase
         .from("v_movimientos")
-        .select("categoria, monto")
+        .select("categoria, monto, tipo_plata")
         .eq("tipo", "E")
         .gte("fecha", desde12),
       supabase.from("v_resumen_mes").select("m2_cosechados").gte("mes", desde12.slice(0, 7) + "-01"),
@@ -111,18 +111,19 @@ export default async function ReportesPage({
 
   const facturado = entregadas.reduce((a, v: any) => a + Number(v.facturado ?? 0), 0);
 
-  // Tres cosas salen de la caja pero no son costo de producir un metro:
-  // los dividendos son reparto de la ganancia, la plata prestada vuelve,
-  // y un ajuste de saldo corrige un arrastre viejo. Si entran en la
-  // cuenta, el metro parece más caro de lo que es.
-  const NO_ES_COSTO = ["Cobros", "Préstamos", "Ajustes"];
+  // Cada rubro dice qué clase de plata mueve (migración 0028). Solo el
+  // costo operativo entra en el resultado: plantar el campo o comprar el
+  // Tigre son inversión, un dividendo es reparto de la ganancia, y la
+  // cobranza de una venta ya está contada en Facturado.
   const egresos = (pagos ?? []) as any[];
-  const gastado = egresos
-    .filter((p) => !NO_ES_COSTO.includes(p.categoria))
-    .reduce((a, p) => a + Number(p.monto ?? 0), 0);
-  const fueraDeCosto = egresos
-    .filter((p) => NO_ES_COSTO.includes(p.categoria))
-    .reduce((a, p) => a + Number(p.monto ?? 0), 0);
+  const suman = (xs: any[], tipo: string) =>
+    xs.filter((x) => (x.tipo_plata ?? "operativo") === tipo).reduce((a, x) => a + Number(x.monto ?? 0), 0);
+
+  const gastado = suman(egresos, "operativo");
+  const invertido = suman(egresos, "inversion");
+  const fueraDeCosto = egresos.length
+    ? egresos.reduce((a, x) => a + Number(x.monto ?? 0), 0) - gastado
+    : 0;
 
   const precioProm = vendidos > 0 ? facturado / vendidos : 0;
 
@@ -135,9 +136,7 @@ export default async function ReportesPage({
   // septiembre, el pasto que vendés hoy se plantó hace meses— así que en
   // una ventana corta el cociente no mide nada. En septiembre daba
   // $ 11.290 con un solo pago cargado.
-  const gastado12 = ((egresos12 ?? []) as any[])
-    .filter((p) => !NO_ES_COSTO.includes(p.categoria))
-    .reduce((a, p) => a + Number(p.monto ?? 0), 0);
+  const gastado12 = suman((egresos12 ?? []) as any[], "operativo");
   const m2Doce = ((meses12 ?? []) as any[]).reduce(
     (a, r) => a + Number(r.m2_cosechados ?? 0),
     0,
@@ -201,10 +200,11 @@ export default async function ReportesPage({
               : "Últimos 12 meses"
           }
         />
+        <Stat label="Costo operativo" valor={pesos(gastado)} detalle="Producir y vender" />
         <Stat
-          label="Gastado"
-          valor={pesos(gastado)}
-          detalle="Del período, sin dividendos ni ajustes"
+          label="Invertido"
+          valor={pesos(invertido)}
+          detalle="Plantación, riego y máquinas"
         />
         <Stat
           label="m² regalados"
@@ -241,8 +241,9 @@ export default async function ReportesPage({
           {fueraDeCosto > 0 && (
             <p className="mt-3 text-xs text-tinta-3">
               Acá está todo lo que salió de la caja. {pesos(fueraDeCosto)} de eso no es costo de
-              producir —dividendos, préstamos y ajustes de saldo— así que no entra en el resultado
-              ni en el costo por m².
+              producir —inversión en el campo, dividendos, dólares, aportes y ajustes— así que no
+              entra en el resultado ni en el costo por m². Qué es cada rubro se define en Ajustes →
+              Datos.
             </p>
           )}
         </Card>

@@ -12,6 +12,20 @@ const LADOS = [
   { value: "ambos", label: "Las dos" },
 ];
 
+const PLATA = [
+  { value: "operativo", label: "Costo operativo" },
+  { value: "inversion", label: "Inversión" },
+  { value: "cobranza", label: "Cobranza" },
+  { value: "financiero", label: "Financiero" },
+];
+
+const CHIP_PLATA: Record<string, { texto: string; tono: "verde" | "azul" | "neutro" | "ambar" }> = {
+  operativo: { texto: "operativo", tono: "ambar" },
+  inversion: { texto: "inversión", tono: "azul" },
+  cobranza: { texto: "cobranza", tono: "verde" },
+  financiero: { texto: "financiero", tono: "neutro" },
+};
+
 const CHIP = {
   E: { texto: "Sale", tono: "ambar" as const },
   I: { texto: "Entra", tono: "verde" as const },
@@ -43,11 +57,32 @@ export default async function ConfigDatosPage() {
       )}
 
       <Card titulo="Categorías">
-        <p className="mb-4 text-sm text-tinta-2">
+        <p className="mb-3 text-sm text-tinta-2">
           Cada categoría dice para qué lado sirve. Al cargar un movimiento, el desplegable trae
           solo las que corresponden: si marcás Entra, no te va a ofrecer &laquo;Cosecha ·
           Combustible&raquo;. Cuando cambiás un rubro a un solo lado, sus subcategorías lo siguen.
         </p>
+        <div className="mb-4 rounded-2xl bg-crema p-3 text-sm text-tinta-2">
+          <p className="mb-1.5 font-bold text-tinta">Y qué clase de plata mueve:</p>
+          <ul className="space-y-1">
+            <li>
+              <strong>Costo operativo</strong> — producir y vender esta temporada. Es el único que
+              entra en el resultado y en el costo por m².
+            </li>
+            <li>
+              <strong>Inversión</strong> — lo que montó el campo. Se hizo una vez y se paga con las
+              temporadas que vienen.
+            </li>
+            <li>
+              <strong>Cobranza</strong> — plata que entra por una venta que ya está contada en
+              Facturado. Sumarla sería contarla dos veces.
+            </li>
+            <li>
+              <strong>Financiero</strong> — plata que cambia de lugar sin ser ganancia ni costo:
+              dividendos, dólares, aportes, préstamos y ajustes.
+            </li>
+          </ul>
+        </div>
 
         {admin && (
         <form
@@ -91,11 +126,12 @@ export default async function ConfigDatosPage() {
                   <Chip tono={CHIP[(r.tipo ?? "ambos") as keyof typeof CHIP].tono}>
                     {CHIP[(r.tipo ?? "ambos") as keyof typeof CHIP].texto}
                   </Chip>
-                  {admin && (
-                  <form action={guardarCategoria} className="ml-auto flex items-center gap-2">
+                  {admin ? (
+                  <form action={guardarCategoria} className="ml-auto flex flex-wrap items-center gap-2">
                     <input type="hidden" name="id" value={r.id} />
                     <select
                       name="tipo"
+                      aria-label={`Para qué lado sirve ${r.nombre}`}
                       defaultValue={r.tipo ?? "ambos"}
                       className="h-9 rounded-lg border-[1.5px] border-borde bg-white px-2 text-sm text-tinta"
                     >
@@ -105,10 +141,28 @@ export default async function ConfigDatosPage() {
                         </option>
                       ))}
                     </select>
-                    <button className="text-sm font-semibold text-pasto hover:underline">
+                    <select
+                      name="tipo_plata"
+                      aria-label={`Qué clase de plata mueve ${r.nombre}`}
+                      defaultValue={r.tipo_plata ?? "operativo"}
+                      className="h-9 rounded-lg border-[1.5px] border-borde bg-white px-2 text-sm text-tinta"
+                    >
+                      {PLATA.map((x) => (
+                        <option key={x.value} value={x.value}>
+                          {x.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button className="shrink-0 whitespace-nowrap text-sm font-bold text-pasto hover:underline">
                       Guardar
                     </button>
                   </form>
+                  ) : (
+                    <span className="ml-auto">
+                      <Chip tono={CHIP_PLATA[r.tipo_plata ?? "operativo"].tono}>
+                        {CHIP_PLATA[r.tipo_plata ?? "operativo"].texto}
+                      </Chip>
+                    </span>
                   )}
                 </div>
 
