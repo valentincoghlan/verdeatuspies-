@@ -22,6 +22,19 @@ export function resolverRango(sp: { p?: string; desde?: string; hasta?: string }
 
   const primeroDeEsteMes = `${hoy.slice(0, 7)}-01`;
 
+  // Una temporada es el año calendario. La del año en curso corta en hoy:
+  // no tiene sentido dividir por meses que todavía no pasaron.
+  const temporada = sp.p?.match(/^t(\d{4})$/);
+  if (temporada) {
+    const anio = temporada[1];
+    const enCurso = anio === hoy.slice(0, 4);
+    return {
+      desde: `${anio}-01-01`,
+      hasta: enCurso ? hoy : `${anio}-12-31`,
+      etiqueta: `Temporada ${anio}`,
+    };
+  }
+
   switch (sp.p) {
     case "anterior": {
       // El último día del mes pasado es el día antes del primero de este.
@@ -32,18 +45,23 @@ export function resolverRango(sp: { p?: string; desde?: string; hasta?: string }
         etiqueta: "Mes pasado",
       };
     }
-    case "anio":
-      return { desde: `${hoy.slice(0, 4)}-01-01`, hasta: hoy, etiqueta: "Este año" };
     default:
       return { desde: primeroDeEsteMes, hasta: hoy, etiqueta: "Este mes" };
   }
 }
 
-const ATAJOS = [
-  { p: "mes", label: "Este mes" },
-  { p: "anterior", label: "Mes pasado" },
-  { p: "anio", label: "Este año" },
-];
+/** Desde cuándo hay datos cargados. Antes de esto no hubo temporada. */
+const PRIMERA_TEMPORADA = 2024;
+
+function atajos(hoy: string) {
+  const esteAnio = Number(hoy.slice(0, 4));
+  const temporadas: { p: string; label: string }[] = [];
+  for (let a = esteAnio; a >= PRIMERA_TEMPORADA; a--) {
+    temporadas.push({ p: `t${a}`, label: `Temporada ${a}` });
+  }
+  // "Este año" no está: es la temporada del año en curso.
+  return [{ p: "mes", label: "Este mes" }, { p: "anterior", label: "Mes pasado" }, ...temporadas];
+}
 
 export function FiltroFechas({
   base,
@@ -55,6 +73,7 @@ export function FiltroFechas({
   rango: Rango;
 }) {
   const actual = activo ?? "mes";
+  const ATAJOS = atajos(hoyISO());
 
   return (
     <div className="card">
