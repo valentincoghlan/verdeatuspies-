@@ -110,12 +110,12 @@ export default async function CosechaPage() {
               { titulo: "Fecha", desde: "sm" },
               { titulo: "Lote" },
               { titulo: "Objetivo", desde: "sm" },
-              { titulo: "Cortado" },
+              { titulo: "Avance" },
               { titulo: "Falta", desde: "sm" },
               { titulo: "Pilas", desde: "sm" },
               { titulo: "Líneas", desde: "sm" },
               { titulo: "Estado" },
-              { titulo: "", ancho: "w-16 sm:w-auto" },
+              { titulo: "", ancho: "w-11 sm:w-auto" },
             ]}
             vacio="Todavía no empezaste ninguna cosecha."
           >
@@ -137,18 +137,22 @@ export default async function CosechaPage() {
                       </span>
                     </span>
                   </td>
-                  <td className="td tabular-nums">{numero(objetivo)}</td>
+                  <td className="td hidden tabular-nums sm:table-cell">{numero(objetivo)}</td>
                   <td className="td tabular-nums font-semibold text-pasto">
                     <Dato
                       principal={`${numero(cortado)} de ${numero(objetivo)}`}
                       secundario={`${numero(pct)}%`}
                     />
                   </td>
-                  <td className="td tabular-nums">{falta > 0 ? numero(falta) : "—"}</td>
-                  <td className="td tabular-nums text-tinta-2">
+                  <td className="td hidden tabular-nums sm:table-cell">
+                    {falta > 0 ? numero(falta) : "—"}
+                  </td>
+                  <td className="td hidden tabular-nums text-tinta-2 sm:table-cell">
                     {numero(c.pilas_cargadas)} / {numero(c.pilas_objetivo)}
                   </td>
-                  <td className="td tabular-nums text-tinta-2">{numero(c.lineas)}</td>
+                  <td className="td hidden tabular-nums text-tinta-2 sm:table-cell">
+                    {numero(c.lineas)}
+                  </td>
                   <td className="td">
                     <Chip tono={c.estado === "cerrada" ? "verde" : "ambar"}>{c.estado}</Chip>
                   </td>

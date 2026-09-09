@@ -134,6 +134,22 @@ export default async function VentasPage() {
               defaultValue={precioDefault}
             />
             <Campo label="Fecha de entrega" name="fecha_entrega" type="date" />
+            {/* Los dos vuelven como opcionales. El lote de una venta con
+                cosecha sale de las cargas; estos son para las que se
+                cargan sueltas, sin cosecha detrás. */}
+            <Selector
+              label="Lote de origen"
+              name="lote_id"
+              vacio="Sale de la cosecha"
+              opciones={(lotes ?? []).map((l: any) => ({ value: l.id, label: l.nombre }))}
+              className="col-span-2 sm:col-span-1"
+            />
+            <Campo
+              label="Cliente final"
+              name="cliente_final"
+              placeholder="Quién recibe, si lo sabés"
+              className="col-span-2 sm:col-span-1"
+            />
             <Nota className="col-span-2 sm:col-span-4" />
             <div className="col-span-2 sm:col-span-4">
               <button className="btn btn-alto sm:w-auto">Guardar venta</button>

@@ -617,6 +617,8 @@ export async function crearVenta(fd: FormData) {
     // El canal dice qué es el comprador: si revende o si usa el pasto.
     canal: txt(fd, "canal") ?? "directa",
     lote_id: txt(fd, "lote_id"),
+    vinculante_id: txt(fd, "vinculante_id"),
+    cliente_final: txt(fd, "cliente_final"),
     fecha: txt(fd, "fecha") ?? hoyISO(),
     fecha_entrega: txt(fd, "fecha_entrega"),
     m2: metros,
@@ -1193,6 +1195,8 @@ export async function crearCosecha(fd: FormData) {
   const { supabase, user } = await sesion();
 
   // Si la cosecha sale de un pedido, el objetivo son los m² de ese pedido.
+  // El pedido queda además en cosecha_ventas, que es donde vive el
+  // reparto cuando la cosecha abastece a más de uno.
   const ventaId = txt(fd, "venta_id");
   let objetivo = dec(fd, "objetivo_m2");
   if (ventaId && objetivo === null) {
@@ -1221,6 +1225,17 @@ export async function crearCosecha(fd: FormData) {
     })
     .select("id")
     .single();
+
+  if (data?.id && ventaId) {
+    const { data: pedido } = await supabase
+      .from("ventas")
+      .select("m2")
+      .eq("id", ventaId)
+      .maybeSingle();
+    await supabase
+      .from("cosecha_ventas")
+      .insert({ cosecha_id: data.id, venta_id: ventaId, m2: Number(pedido?.m2 ?? 0) });
+  }
 
   if (data?.id && lotes.length > 0) {
     const { error } = await supabase
@@ -1251,16 +1266,22 @@ export async function guardarCarga(fd: FormData) {
   const hasta = num(fd, "hasta") ?? desde;
   if (hasta < desde) return;
 
-  await supabase.from("cosecha_cargas").upsert(
+  // De qué lote salió esta carga. Si la cosecha toca un solo lote no se
+  // pregunta: viene puesto desde la pantalla.
+  const loteCarga = txt(fd, "lote_id");
+
+  const { error } = await supabase.from("cosecha_cargas").upsert(
     {
       cosecha_id: cosechaId,
       linea_desde: desde,
       linea_hasta: hasta,
       pilas: num(fd, "pilas") ?? 0,
+      lote_id: loteCarga,
       notas: txt(fd, "notas"),
     },
     { onConflict: "cosecha_id,linea_desde,linea_hasta" },
   );
+  if (error) throw new Error(`No se pudo guardar la carga: ${error.message}`);
 
   bump("/mantenimiento/cosecha", `/mantenimiento/cosecha/${cosechaId}`);
 }
@@ -1280,6 +1301,42 @@ export async function cambiarEstadoCosecha(fd: FormData) {
     .update({ estado: txt(fd, "estado") ?? "cerrada" })
     .eq("id", id);
   bump("/mantenimiento/cosecha", `/mantenimiento/cosecha/${id}`);
+}
+
+/**
+ * Reparte lo cosechado entre los pedidos y cierra la cosecha.
+ *
+ * Una cosecha de 100 m² puede ir a tres pedidos. El formulario manda un
+ * campo `m2_<venta_id>` por cada uno; los que van en cero se sacan del
+ * reparto. Lo que sobra queda sin asignar: es stock.
+ */
+export async function repartirCosecha(fd: FormData) {
+  const { supabase } = await sesion();
+  const id = txt(fd, "id")!;
+
+  const reparto: { cosecha_id: string; venta_id: string; m2: number }[] = [];
+  for (const [campo, valor] of fd.entries()) {
+    if (!campo.startsWith("m2_")) continue;
+    const ventaId = campo.slice(3);
+    const m2 = Number(String(valor).replace(",", "."));
+    if (Number.isFinite(m2) && m2 > 0) {
+      reparto.push({ cosecha_id: id, venta_id: ventaId, m2 });
+    }
+  }
+
+  // Se rehace entero: si sacaste un pedido del reparto, tiene que
+  // desaparecer, no quedar con el valor viejo.
+  await supabase.from("cosecha_ventas").delete().eq("cosecha_id", id);
+  if (reparto.length) {
+    const { error } = await supabase.from("cosecha_ventas").insert(reparto);
+    if (error) throw new Error(`No se pudo repartir la cosecha: ${error.message}`);
+  }
+
+  if (txt(fd, "cerrar") === "1") {
+    await supabase.from("cosechas").update({ estado: "cerrada" }).eq("id", id);
+  }
+
+  bump("/mantenimiento/cosecha", `/mantenimiento/cosecha/${id}`, "/ventas/pedidos", "/ventas");
 }
 
 export async function borrarCosecha(fd: FormData) {

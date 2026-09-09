@@ -4,15 +4,13 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, PageHeader, Stat } from "@/components/ui";
 import { Confirmar } from "@/components/confirmar";
 import {
-  anularPedido,
   borrarCarga,
   borrarCosecha,
   cambiarEstadoCosecha,
-  confirmarEntrega,
   guardarCarga,
-  reprogramarPedido,
+  repartirCosecha,
 } from "@/lib/actions";
-import { ConfirmarEntrega } from "@/components/confirmar-entrega";
+import { CerrarCosecha } from "@/components/cerrar-cosecha";
 import { fechaLarga, m2, numero } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -35,13 +33,19 @@ export default async function ContarCosechaPage({
   // C4 a C6 - si la cosecha cubre un pedido, cuando ya cortaste algo la
   // app te ofrece cerrar la entrega ahi mismo, en vez de mandarte a
   // Inicio a buscar la alerta.
-  const { data: pedido } = c.venta_id
-    ? await supabase
+  const [{ data: porLote }, { data: lotesCosecha }, { data: pendientes }, { data: yaReparto }] =
+    await Promise.all([
+      supabase.from("v_cosecha_lotes").select("*").eq("cosecha_id", id),
+      supabase.from("cosechas_lotes").select("lote_id, lotes(nombre)").eq("cosecha_id", id),
+      // Los pedidos que puede abastecer, en orden de entrega: el que sale
+      // antes se llena primero.
+      supabase
         .from("ventas")
-        .select("id, m2, fecha_entrega, estado, clientes!cliente_id(nombre)")
-        .eq("id", c.venta_id)
-        .maybeSingle()
-    : { data: null };
+        .select("id, m2, precio_m2, fecha_entrega, clientes!cliente_id(nombre)")
+        .in("estado", ["pedido", "confirmada"])
+        .order("fecha_entrega", { ascending: true, nullsFirst: false }),
+      supabase.from("cosecha_ventas").select("venta_id, m2").eq("cosecha_id", id),
+    ]);
 
   const objetivo = Number(c.objetivo_m2 ?? 0);
   const cortado = Number(c.m2_cosechados ?? 0);
@@ -57,17 +61,27 @@ export default async function ContarCosechaPage({
   const proxima = Number(c.ultima_linea ?? 0) + 1;
   const cerrada = c.estado === "cerrada";
 
-  // El excedente va a cortesia: si cosechaste 31 sobre un pedido de 30,
-  // se facturan 30 y uno se regala. Si cosechaste menos, se factura lo
-  // cortado y no hay cortesia.
-  const m2Pedido = Number((pedido as any)?.m2 ?? 0);
-  const compradorPedido = (pedido as any)?.clientes?.nombre ?? "el comprador";
-  const sugerido = {
-    facturados: Math.min(cortado, m2Pedido) || cortado,
-    cortesia: Math.max(0, cortado - m2Pedido),
-  };
-  const pedidoAbierto =
-    !!pedido && cortado > 0 && ["pedido", "confirmada", "presupuesto"].includes((pedido as any).estado);
+  const desglose = ((porLote ?? []) as any[])
+    .filter((x) => x.lote)
+    .map((x) => ({ lote: String(x.lote), m2: Number(x.m2 ?? 0), panes: Number(x.panes ?? 0) }));
+
+  const asignados = new Map(
+    ((yaReparto ?? []) as any[]).map((x) => [x.venta_id, Number(x.m2 ?? 0)]),
+  );
+  const paraRepartir = ((pendientes ?? []) as any[]).map((v) => ({
+    id: v.id as string,
+    comprador: (v.clientes as any)?.nombre ?? "Sin comprador",
+    fechaEntrega: (v.fecha_entrega ?? null) as string | null,
+    m2Pedido: Number(v.m2 ?? 0),
+    precioM2: Number(v.precio_m2 ?? 0),
+    asignado: asignados.get(v.id) ?? 0,
+  }));
+
+  // Los lotes que la cosecha va a tocar: son los que ofrece el selector
+  // de cada carga. Con uno solo no se pregunta.
+  const lotesDeLaCosecha = ((lotesCosecha ?? []) as any[])
+    .map((x) => ({ id: x.lote_id as string, nombre: (x.lotes as any)?.nombre as string }))
+    .filter((x) => x.nombre);
 
   const tramo = (f: any) =>
     f.linea_desde === f.linea_hasta ? `L${f.linea_desde}` : `L${f.linea_desde}–${f.linea_hasta}`;
@@ -88,39 +102,21 @@ export default async function ContarCosechaPage({
         }
       />
 
-      {pedidoAbierto && (
-        <div className="mb-3 rounded-2xl border border-pasto/30 bg-hecho-bg p-3.5">
-          <p className="text-sm font-bold text-pasto-oscuro">
-            Cortaste {m2(cortado)} para el pedido de {compradorPedido}
+      {desglose.length > 1 && (
+        <div className="mb-3 rounded-2xl border border-borde bg-crema p-3.5">
+          <p className="text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
+            De dónde salió
           </p>
-          <p className="mt-0.5 text-sm text-tinta-2">
-            {sugerido.cortesia > 0
-              ? `El pedido era de ${m2(m2Pedido)}: se facturan ${m2(sugerido.facturados)} y ${m2(sugerido.cortesia)} van de cortesía.`
-              : sugerido.facturados < m2Pedido
-                ? `El pedido era de ${m2(m2Pedido)}, así que la entrega queda por ${m2(sugerido.facturados)}.`
-                : `Justo lo que pedía: ${m2(m2Pedido)}.`}
-          </p>
-
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <ConfirmarEntrega
-              pedidoId={pedido!.id}
-              comprador={compradorPedido}
-              m2={m2Pedido}
-              m2Facturados={sugerido.facturados}
-              m2Cortesia={sugerido.cortesia}
-              fecha={pedido!.fecha_entrega ?? c.fecha}
-              etiqueta="Confirmar la entrega"
-              nota={`Cosechaste ${m2(cortado)} sobre un pedido de ${m2(m2Pedido)}.`}
-              confirmar={confirmarEntrega}
-              reprogramar={reprogramarPedido}
-              anular={anularPedido}
-            />
-            {/* C5 - si el cliente pasa a retirar despues, la cosecha se
-                guarda igual y el pedido queda esperando. */}
-            <span className="text-xs text-tinta-2">
-              O dejalo para después: el pedido queda pendiente en Inicio.
-            </span>
-          </div>
+          <ul className="mt-1.5 space-y-1 text-sm">
+            {desglose.map((l) => (
+              <li key={l.lote} className="flex justify-between gap-2">
+                <span className="font-semibold text-tinta">{l.lote}</span>
+                <span className="tabular-nums text-tinta-2">
+                  {numero(l.panes)} panes · {m2(l.m2)}
+                </span>
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -156,6 +152,27 @@ export default async function ContarCosechaPage({
                 celular queda muy poca pantalla y hay que verlos todos juntos. */}
             <form action={guardarCarga}>
               <input type="hidden" name="cosecha_id" value={c.id} />
+              {/* De qué lote sale este tramo. Con un solo lote va
+                  puesto y no se pregunta. */}
+              {lotesDeLaCosecha.length > 1 ? (
+                <div className="mb-2 sm:max-w-lg">
+                  <label className="label" htmlFor="lote_carga">
+                    De qué lote
+                  </label>
+                  <select id="lote_carga" name="lote_id" className="input" required>
+                    {lotesDeLaCosecha.map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.nombre}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : (
+                lotesDeLaCosecha[0] && (
+                  <input type="hidden" name="lote_id" value={lotesDeLaCosecha[0].id} />
+                )
+              )}
+
               <div className="grid grid-cols-3 gap-2 sm:max-w-lg">
                 <div>
                   <label className="label" htmlFor="desde">
@@ -216,13 +233,25 @@ export default async function ContarCosechaPage({
         <Card
           titulo="Historial"
           accion={
-            <form action={cambiarEstadoCosecha}>
-              <input type="hidden" name="id" value={c.id} />
-              <input type="hidden" name="estado" value={cerrada ? "abierta" : "cerrada"} />
-              <button className="text-sm font-semibold text-pasto hover:underline">
-                {cerrada ? "Reabrir" : "Cerrar cosecha"}
-              </button>
-            </form>
+            cerrada ? (
+              <form action={cambiarEstadoCosecha}>
+                <input type="hidden" name="id" value={c.id} />
+                <input type="hidden" name="estado" value="abierta" />
+                <button className="whitespace-nowrap text-sm font-bold text-pasto hover:underline">
+                  Reabrir
+                </button>
+              </form>
+            ) : (
+              <CerrarCosecha
+                cosechaId={c.id}
+                cosechado={cortado}
+                objetivo={objetivo}
+                pedidos={paraRepartir}
+                porLote={desglose}
+                accion={repartirCosecha}
+                yaCerrada={false}
+              />
+            )
           }
         >
           {filas.length === 0 ? (
