@@ -366,9 +366,14 @@ export default async function Dashboard() {
 
           <Card titulo="Estado de los lotes">
             <Tabla
-              cabeceras={["Lote", "Corte", "Riego", "Fertiliz.", "Próxima fert."]}
-              soloEnCompu={[4]}
-            >
+            columnas={[
+              { titulo: "Lote" },
+              { titulo: "Corte" },
+              { titulo: "Riego" },
+              { titulo: "Fertiliz." },
+              { titulo: "Próxima fert.", desde: "sm" },
+            ]}
+          >
               {(lotes ?? []).map((l: any) => {
                 const d = diasDesde(l.ultimo_corte);
                 const atrasado = d !== null && d >= Number(l.dias_objetivo_corte ?? 14);

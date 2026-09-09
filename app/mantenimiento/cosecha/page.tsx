@@ -106,9 +106,17 @@ export default async function CosechaPage() {
 
         <Card titulo="Cosechas">
           <Tabla
-            cabeceras={["Fecha", "Lote", "Objetivo", "Cortado", "Falta", "Pilas", "Líneas", "Estado", ""]}
-            soloEnCompu={[0, 2, 4, 5, 6]}
-            anchos={[undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined, "w-16 sm:w-auto"]}
+            columnas={[
+              { titulo: "Fecha", desde: "sm" },
+              { titulo: "Lote" },
+              { titulo: "Objetivo", desde: "sm" },
+              { titulo: "Cortado" },
+              { titulo: "Falta", desde: "sm" },
+              { titulo: "Pilas", desde: "sm" },
+              { titulo: "Líneas", desde: "sm" },
+              { titulo: "Estado" },
+              { titulo: "", ancho: "w-16 sm:w-auto" },
+            ]}
             vacio="Todavía no empezaste ninguna cosecha."
           >
             {lista.map((c) => {

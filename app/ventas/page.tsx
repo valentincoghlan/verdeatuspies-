@@ -159,9 +159,15 @@ export default async function VentasPage() {
               debajo, el total con el precio por m² debajo, y el estado con
               el lapiz al lado. En la compu siguen todas separadas. */}
           <Tabla
-            cabeceras={["Fecha", "Cliente", "m²", "$/m²", "Total", "Estado", ""]}
-            soloEnCompu={[0, 2, 3]}
-            anchos={[undefined, undefined, undefined, undefined, undefined, undefined, "w-11 sm:w-auto"]}
+            columnas={[
+              { titulo: "Fecha", desde: "sm" },
+              { titulo: "Cliente" },
+              { titulo: "m²", desde: "sm" },
+              { titulo: "$/m²", desde: "sm" },
+              { titulo: "Total" },
+              { titulo: "Estado" },
+              { titulo: "", ancho: "w-11 sm:w-auto" },
+            ]}
             vacio="Todavía no cargaste ventas."
           >
             {(ventas ?? []).map((v: any) => (

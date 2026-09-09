@@ -106,9 +106,14 @@ export default async function DisponibilidadesPage({
       <div className="mt-3 space-y-3">
         <Card titulo="Saldo por cuenta">
           <Tabla
-            cabeceras={["Cuenta", "Tipo", "Movimientos", "Último", "Saldo", ""]}
-            anchos={["", undefined, undefined, undefined, "text-right sm:text-left", undefined]}
-            soloEnCompu={[1, 2, 3, 5]}
+            columnas={[
+              { titulo: "Cuenta" },
+              { titulo: "Tipo", desde: "sm" },
+              { titulo: "Movimientos", desde: "sm" },
+              { titulo: "Último", desde: "sm" },
+              { titulo: "Saldo", align: "right" },
+              { titulo: "", desde: "sm" },
+            ]}
             vacio="Sin cuentas cargadas."
           >
             {lista.map((c) => {
@@ -157,7 +162,12 @@ export default async function DisponibilidadesPage({
 
         <Card titulo="Aportes de los socios (US$)">
           <Tabla
-            cabeceras={["Socio", "Puso", "Recuperó", "Pendiente"]}
+            columnas={[
+              { titulo: "Socio" },
+              { titulo: "Puso" },
+              { titulo: "Recuperó" },
+              { titulo: "Pendiente" },
+            ]}
             vacio="Sin socios cargados."
           >
             {socios.map((s: any) => {
@@ -195,8 +205,12 @@ export default async function DisponibilidadesPage({
 
         <Card titulo="Préstamos a cobrar">
           <Tabla
-            cabeceras={["Persona", "Desde", "Debe", "En dólares"]}
-            soloEnCompu={[3]}
+            columnas={[
+              { titulo: "Persona" },
+              { titulo: "Desde" },
+              { titulo: "Debe" },
+              { titulo: "En dólares", desde: "sm" },
+            ]}
             vacio="No hay préstamos sin devolver."
           >
             {debenPlata.map((p: any) => (
@@ -221,8 +235,12 @@ export default async function DisponibilidadesPage({
 
         <Card titulo="Saldos por cliente">
           <Tabla
-            cabeceras={["Cliente", "Facturado", "Cobrado", "Saldo"]}
-            soloEnCompu={[2]}
+            columnas={[
+              { titulo: "Cliente" },
+              { titulo: "Facturado" },
+              { titulo: "Cobrado", desde: "sm" },
+              { titulo: "Saldo" },
+            ]}
             vacio="Sin movimientos."
           >
             {(cuentasCli ?? [])

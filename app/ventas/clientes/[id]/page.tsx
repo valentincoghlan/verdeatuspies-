@@ -72,7 +72,11 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
       <div className="mt-3">
         <Card titulo="Sus compras">
           <Tabla
-            cabeceras={["Entrega", "Valor", "Estado"]}
+            columnas={[
+              { titulo: "Entrega" },
+              { titulo: "Valor" },
+              { titulo: "Estado" },
+            ]}
             vacio="Todavía no compró nada."
           >
             {compras.map((v) => (

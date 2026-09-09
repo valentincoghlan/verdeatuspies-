@@ -34,9 +34,13 @@ export default async function ConfigLotesPage() {
           </div>
         </form>
         <Tabla
-          cabeceras={["Lote", "Superficie (m²)", "Cortar cada (días)", ""]}
-          anchos={[undefined, undefined, undefined, "w-16 sm:w-auto"]}
-        >
+            columnas={[
+              { titulo: "Lote" },
+              { titulo: "Superficie (m²)" },
+              { titulo: "Cortar cada (días)" },
+              { titulo: "", ancho: "w-16 sm:w-auto" },
+            ]}
+          >
           {(lotes ?? []).map((l: any) => (
             <tr key={l.id}>
               <td className="td font-medium">
@@ -103,8 +107,12 @@ export default async function ConfigLotesPage() {
         </form>
         <form action={asignarZonas}>
           <Tabla
-            cabeceras={["Zona", "Hydrawise", "Lote", "mm por hora"]}
-            soloEnCompu={[1]}
+            columnas={[
+              { titulo: "Zona" },
+              { titulo: "Hydrawise", desde: "sm" },
+              { titulo: "Lote" },
+              { titulo: "mm por hora" },
+            ]}
             vacio="Sin zonas. Se crean solas cuando sincronizás Hydrawise."
           >
             {(zonas ?? []).map((z: any) => (

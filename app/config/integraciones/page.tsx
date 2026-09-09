@@ -48,7 +48,14 @@ export default async function ConfigIntegracionesPage() {
       </Card>
 
       <Card titulo="Últimas sincronizaciones">
-        <Tabla cabeceras={["Cuándo", "Riegos nuevos", "Error"]} vacio="Todavía no se sincronizó.">
+        <Tabla
+            columnas={[
+              { titulo: "Cuándo" },
+              { titulo: "Riegos nuevos" },
+              { titulo: "Error" },
+            ]}
+            vacio="Todavía no se sincronizó."
+          >
           {(snapshots ?? []).map((s: any) => (
             <tr key={s.id}>
               <td className="td whitespace-nowrap">

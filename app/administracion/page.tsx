@@ -170,9 +170,15 @@ export default async function CajaPage({
             </p>
           )}
           <Tabla
-            cabeceras={["Fecha", "Categoría", "Persona y monto", "Detalle", "Cuenta", "Monto", ""]}
-            soloEnCompu={[3, 4, 5]}
-            anchos={["w-[3.6rem] sm:w-auto", undefined, undefined, undefined, undefined, undefined, "w-11 sm:w-auto"]}
+            columnas={[
+              { titulo: "Fecha", ancho: "w-[3.6rem] sm:w-auto" },
+              { titulo: "Categoría" },
+              { titulo: "Persona y monto" },
+              { titulo: "Detalle", desde: "sm" },
+              { titulo: "Cuenta", desde: "sm" },
+              { titulo: "Monto", desde: "sm" },
+              { titulo: "", ancho: "w-11 sm:w-auto" },
+            ]}
             vacio="No hay movimientos en este período."
           >
             {lista.map((m) => (

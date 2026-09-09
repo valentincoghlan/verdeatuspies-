@@ -69,8 +69,15 @@ export default async function CortesPage() {
 
         <Card titulo="Historial de cortes">
           <Tabla
-            cabeceras={["Fecha", "Lote", "Altura", "Superficie", "Horas", "Quién", ""]}
-            soloEnCompu={[3, 4, 5]}
+            columnas={[
+              { titulo: "Fecha" },
+              { titulo: "Lote" },
+              { titulo: "Altura" },
+              { titulo: "Superficie", desde: "sm" },
+              { titulo: "Horas", desde: "sm" },
+              { titulo: "Quién", desde: "sm" },
+              { titulo: "" },
+            ]}
             vacio="Todavía no cargaste cortes."
           >
             {(cortes ?? []).map((c: any) => (

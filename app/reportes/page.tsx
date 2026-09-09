@@ -304,7 +304,12 @@ export default async function ReportesPage({
         <div className="lg:col-span-2">
         <Card titulo="Por canal de venta">
           <Tabla
-            cabeceras={["Canal", "m\u00b2", "Vendido", "Margen"]}
+            columnas={[
+              { titulo: "Canal" },
+              { titulo: "m²" },
+              { titulo: "Vendido" },
+              { titulo: "Margen" },
+            ]}
             vacio="No hay entregas confirmadas en este período."
           >
             {porCanal
@@ -344,7 +349,12 @@ export default async function ReportesPage({
           {/* RP5 a RP8 - cuatro columnas: el canal baja debajo del
               comprador, los m\u00b2 debajo de lo vendido y los gastos salen. */}
           <Tabla
-            cabeceras={["Entrega", "Comprador", "Vendido", "Margen"]}
+            columnas={[
+              { titulo: "Entrega" },
+              { titulo: "Comprador" },
+              { titulo: "Vendido" },
+              { titulo: "Margen" },
+            ]}
             vacio="No hay entregas confirmadas en este período."
           >
             {mejores.map((v: any) => {

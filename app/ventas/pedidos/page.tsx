@@ -289,18 +289,16 @@ export default async function PedidosPage() {
 
         <Card titulo="Margen por operación">
           <Tabla
-            cabeceras={[
-              "Entrega",
-              "Comprador",
-              "m²",
-              "Cortesía",
-              "Facturado",
-              "Gastos",
-              "Margen",
-              "Pendiente",
+            columnas={[
+              { titulo: "Entrega", ancho: "w-[4.3rem] sm:w-auto" },
+              { titulo: "Comprador" },
+              { titulo: "m²", ancho: "w-[3.2rem] sm:w-auto" },
+              { titulo: "Cortesía", desde: "sm" },
+              { titulo: "Facturado", ancho: "w-[5.4rem] sm:w-auto" },
+              { titulo: "Gastos", desde: "sm" },
+              { titulo: "Margen", desde: "sm" },
+              { titulo: "Pendiente", desde: "sm" },
             ]}
-            soloEnCompu={[3, 5, 6, 7]}
-            anchos={["w-[4.3rem] sm:w-auto", undefined, "w-[3.2rem] sm:w-auto", undefined, "w-[5.4rem] sm:w-auto"]}
             vacio="Todavía no hay entregas confirmadas."
           >
             {entregadas.map((v: any) => {

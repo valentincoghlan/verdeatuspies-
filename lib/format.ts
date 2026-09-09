@@ -77,6 +77,17 @@ export function fechaCorta(iso: string | null | undefined) {
 }
 
 /** Fecha ISO a dd/mm/aa. Para tablas, donde el espacio manda. */
+/**
+ * Solo dia y mes: 03/09.
+ *
+ * Para las tablas que ya declaran el período arriba, donde el año es
+ * ruido y además hacía que la fecha se cortara a media cifra ("03/09/2").
+ */
+export function fechaDM(iso: string | null | undefined) {
+  if (!iso) return "—";
+  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+}
+
 export function fechaBreve(iso: string | null | undefined) {
   if (!iso) return "—";
   const [y, m, d] = iso.slice(0, 10).split("-");

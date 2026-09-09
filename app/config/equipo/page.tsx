@@ -38,10 +38,14 @@ export default async function ConfigEquipoPage() {
         )}
 
         <Tabla
-          cabeceras={["Mail habilitado", "Nombre", "Rol", "Estado", ""]}
-          soloEnCompu={[1, 3]}
-          anchos={[undefined, undefined, undefined, undefined, "w-14 sm:w-auto"]}
-        >
+            columnas={[
+              { titulo: "Mail habilitado" },
+              { titulo: "Nombre", desde: "sm" },
+              { titulo: "Rol" },
+              { titulo: "Estado", desde: "sm" },
+              { titulo: "", ancho: "w-14 sm:w-auto" },
+            ]}
+          >
           {(miembros ?? []).map((m: any) => {
             const p = (perfiles ?? []).find(
               (x: any) => x.email?.toLowerCase() === m.email.toLowerCase(),
@@ -114,7 +118,13 @@ export default async function ConfigEquipoPage() {
       </Card>
 
       <Card titulo="Qué puede hacer cada rol">
-        <Tabla cabeceras={["Tarea", "Operador", "Dueño"]}>
+        <Tabla
+            columnas={[
+              { titulo: "Tarea" },
+              { titulo: "Operador" },
+              { titulo: "Dueño" },
+            ]}
+          >
           {PERMISOS.map((x) => (
             <tr key={x.tarea}>
               <td className="td">{x.tarea}</td>

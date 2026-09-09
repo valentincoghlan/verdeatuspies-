@@ -1,5 +1,5 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { Children, isValidElement, type ReactNode } from "react";
 
 export function PageHeader({
   titulo,
@@ -160,30 +160,53 @@ export function Card({
   );
 }
 
+export type Columna = {
+  titulo: string;
+  /** Desde qué ancho se muestra. Sin esto, se ve siempre. */
+  desde?: "sm";
+  /** Ancho en el celular, como clase de Tailwind. */
+  ancho?: string;
+  align?: "left" | "right" | "center";
+};
+
 /**
- * Tabla que nunca obliga a scrollear de costado en el celular.
+ * Cuántas celdas trae la primera fila. Sirve para avisar en desarrollo
+ * cuando una tabla tiene más columnas de datos que encabezados, que es
+ * la causa real de los headers corridos y del sombreado que corta a
+ * mitad de tabla (G10). Solo mira la primera fila: alcanza, porque todas
+ * salen del mismo map.
+ */
+function celdasDeLaPrimeraFila(children: ReactNode) {
+  const filas = Children.toArray(children);
+  const primera = filas[0];
+  if (!isValidElement(primera)) return null;
+  const celdas = Children.toArray((primera.props as any)?.children).filter((c) =>
+    isValidElement(c),
+  );
+  return celdas.length || null;
+}
+
+/**
+ * Tabla que nunca obliga a scrollear de costado. Ni en el celular ni en
+ * la compu.
  *
- * `soloEnCompu` esconde columnas en pantallas chicas; las que quedan se
- * reparten el ancho disponible y el texto largo se corta en vez de
- * empujar la fila.
+ * Las columnas se declaran en una sola lista y no en tres arrays
+ * paralelos: antes había que contar índices a mano para esconder una
+ * columna o darle ancho, y ahí se colaban las columnas de datos sin
+ * encabezado. `desde: "sm"` esconde la columna en pantallas chicas.
+ *
+ * Cuando el contenido no entra hay dos salidas y ninguna otra: sacar la
+ * columna, o apilar el dato secundario debajo del principal con <Dato>.
+ * Estirar la tabla no es una de ellas.
  */
 export function Tabla({
-  cabeceras,
+  columnas,
   children,
   vacio,
-  soloEnCompu = [],
-  anchos,
 }: {
-  cabeceras: string[];
+  columnas: Columna[];
   children: ReactNode;
   vacio?: string;
-  /** Índices de columnas que se esconden en el celular. */
-  soloEnCompu?: number[];
-  /**
-   * Ancho de cada columna en el celular, como clase de Tailwind.
-   * Lo que quede vacío se reparte el resto del espacio.
-   */
-  anchos?: (string | undefined)[];
 }) {
   const sinFilas = !children || (Array.isArray(children) && children.length === 0);
 
@@ -195,30 +218,36 @@ export function Tabla({
     );
   }
 
+  if (process.env.NODE_ENV !== "production") {
+    const celdas = celdasDeLaPrimeraFila(children);
+    if (celdas && celdas !== columnas.length) {
+      console.warn(
+        `[Tabla] ${columnas.length} encabezados y ${celdas} celdas por fila ` +
+          `(${columnas.map((c) => c.titulo || "«sin título»").join(" · ")}). ` +
+          "Cada columna visible tiene que tener su encabezado.",
+      );
+    }
+  }
+
+  const alineado = (c: Columna) =>
+    c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "";
+
   return (
-    // En el celular la tabla ocupa exactamente el ancho disponible y se
-    // recorta a las columnas que entran. El margen negativo —que la hace
-    // sangrar hasta el borde de la tarjeta— y el ancho mínimo son solo
-    // de la compu, donde hay un overflow que los contiene.
-    <div className="w-full overflow-hidden sm:-mx-4 sm:w-auto sm:overflow-x-auto sm:px-4">
-      <table
-        className={
-          "w-full table-fixed border-collapse overflow-hidden rounded-xl sm:table-auto " +
-          (soloEnCompu.length ? "" : "sm:min-w-[520px]")
-        }
-      >
+    <div className="w-full overflow-hidden">
+      <table className="w-full table-fixed border-collapse overflow-hidden rounded-xl sm:table-auto">
         <thead>
           <tr>
-            {cabeceras.map((c, i) => (
+            {columnas.map((c, i) => (
               <th
-                key={c}
+                key={`${c.titulo}-${i}`}
                 className={
                   "th " +
-                  (soloEnCompu.includes(i) ? "hidden sm:table-cell " : "") +
-                  (anchos?.[i] ?? "")
+                  (c.desde === "sm" ? "hidden sm:table-cell " : "") +
+                  (c.ancho ? c.ancho + " " : "") +
+                  alineado(c)
                 }
               >
-                {c}
+                {c.titulo}
               </th>
             ))}
           </tr>

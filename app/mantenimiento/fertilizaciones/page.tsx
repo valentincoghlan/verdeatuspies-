@@ -103,8 +103,15 @@ export default async function FertilizacionesPage() {
 
         <Card titulo="Agendadas">
           <Tabla
-            cabeceras={["Fecha", "Lote", "Producto", "Dosis", "Costo", "Acciones", ""]}
-            soloEnCompu={[3, 4]}
+            columnas={[
+              { titulo: "Fecha" },
+              { titulo: "Lote" },
+              { titulo: "Producto" },
+              { titulo: "Dosis", desde: "sm" },
+              { titulo: "Costo", desde: "sm" },
+              { titulo: "Acciones" },
+              { titulo: "" },
+            ]}
             vacio="No hay fertilizaciones agendadas."
           >
             {(programadas ?? []).map((f: any) => (
@@ -158,8 +165,14 @@ export default async function FertilizacionesPage() {
 
         <Card titulo="Historial">
           <Tabla
-            cabeceras={["Aplicada", "Lote", "Producto", "Dosis", "Costo", "Estado"]}
-            soloEnCompu={[3, 4]}
+            columnas={[
+              { titulo: "Aplicada" },
+              { titulo: "Lote" },
+              { titulo: "Producto" },
+              { titulo: "Dosis", desde: "sm" },
+              { titulo: "Costo", desde: "sm" },
+              { titulo: "Estado" },
+            ]}
             vacio="Todavía no hay fertilizaciones aplicadas."
           >
             {(historial ?? []).map((f: any) => (
@@ -189,7 +202,14 @@ export default async function FertilizacionesPage() {
               <button className="btn-ghost">Agregar producto</button>
             </div>
           </form>
-          <Tabla cabeceras={["Producto", "Tipo", "Dosis/ha", "Unidad"]} soloEnCompu={[1]}>
+          <Tabla
+            columnas={[
+              { titulo: "Producto" },
+              { titulo: "Tipo", desde: "sm" },
+              { titulo: "Dosis/ha" },
+              { titulo: "Unidad" },
+            ]}
+          >
             {(fertilizantes ?? []).map((f: any) => (
               <tr key={f.id}>
                 <td className="td font-medium">{f.nombre}</td>

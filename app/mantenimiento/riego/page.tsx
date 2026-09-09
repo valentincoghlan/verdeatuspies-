@@ -379,8 +379,15 @@ export default async function AguaPage({
 
         <Plegable titulo="Últimos riegos" detalle={`${listaRiegos.length} registros`}>
           <Tabla
-            cabeceras={["Fecha", "Lote", "Zona", "Minutos", "mm", "Origen", ""]}
-            soloEnCompu={[2, 3, 5]}
+            columnas={[
+              { titulo: "Fecha" },
+              { titulo: "Lote" },
+              { titulo: "Zona", desde: "sm" },
+              { titulo: "Minutos", desde: "sm" },
+              { titulo: "mm" },
+              { titulo: "Origen", desde: "sm" },
+              { titulo: "" },
+            ]}
             vacio="Todavía no hay riegos cargados."
           >
             {listaRiegos.map((r) => (
@@ -413,8 +420,13 @@ export default async function AguaPage({
 
         <Plegable titulo="Historial de lluvias" detalle={`${listaLluvias.length} registros`}>
           <Tabla
-            cabeceras={["Fecha", "mm", "Lote", "Origen", ""]}
-            soloEnCompu={[3]}
+            columnas={[
+              { titulo: "Fecha" },
+              { titulo: "mm" },
+              { titulo: "Lote" },
+              { titulo: "Origen", desde: "sm" },
+              { titulo: "" },
+            ]}
             vacio="Todavía no cargaste lluvias."
           >
             {listaLluvias.map((l) => (

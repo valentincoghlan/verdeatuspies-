@@ -132,8 +132,16 @@ export default async function ClientesPage({
           }
         >
           <Tabla
-            cabeceras={["Cliente", "Teléfono", "m² comprados", "Vendido", "Cobrado", "Saldo", "Última compra", ""]}
-            soloEnCompu={[1, 2, 3, 4]}
+            columnas={[
+              { titulo: "Cliente" },
+              { titulo: "Teléfono", desde: "sm" },
+              { titulo: "m² comprados", desde: "sm" },
+              { titulo: "Vendido", desde: "sm" },
+              { titulo: "Cobrado", desde: "sm" },
+              { titulo: "Saldo" },
+              { titulo: "Última compra" },
+              { titulo: "" },
+            ]}
             vacio={
               vista === "cuenta"
                 ? "Todavía no hay distribuidores cargados."

@@ -183,11 +183,19 @@ textarea.input {
 }
 
 /* --- 3 · Tabla ---------------------------------------------- */
+/* El encabezado NO lleva overflow-hidden: con eso los títulos salían
+   cortados a mitad de palabra ("LOTI COR EST"). Si no entra, envuelve. */
 .th {
-  @apply overflow-hidden bg-beige px-2 py-2 sm:px-3 text-left text-[11px] font-bold uppercase tracking-[.06em] text-tinta-2;
+  @apply bg-beige px-2 py-2 sm:px-3 text-left text-[11px] font-bold uppercase tracking-[.06em] text-tinta-2;
+  hyphens: none;
 }
+/* La celda corta con puntos suspensivos, no a mitad de palabra. Lo que
+   tenga que envolver lleva .td-envuelve. */
 .td {
-  @apply overflow-hidden px-2 py-2 text-sm text-tinta sm:px-3;
+  @apply overflow-hidden text-ellipsis whitespace-nowrap px-2 py-2 text-sm text-tinta sm:px-3;
+}
+.td-envuelve {
+  @apply whitespace-normal;
   overflow-wrap: anywhere;
 }
 
