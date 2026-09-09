@@ -523,16 +523,37 @@ export async function generarAlertas() {
     .pop() as string | undefined;
 
   if (ultimoAgua && diasEntre(ultimoAgua, hoy) >= 4) {
+    const dias = diasEntre(ultimoAgua, hoy);
+    const titulo = `Hace ${dias} días sin riego ni lluvia registrados`;
+
+    // La clave es la racha, no el día: mientras siga sin llover es la
+    // misma alerta, y lo único que cambia es cuántos días lleva.
     const creada = await noti(sb, {
       tipo: "sin_agua",
-      titulo: `Hace ${diasEntre(ultimoAgua, hoy)} días sin riego ni lluvia registrados`,
+      titulo,
       mensaje: "Revisá si falta cargar algún riego o si el campo necesita agua.",
       severidad: "aviso",
       requiere_accion: false,
       accion_url: "/mantenimiento/riego",
-      clave_unica: `sin_agua:${ultimoAgua}:${hoy}`,
+      clave_unica: `sin_agua:${ultimoAgua}`,
     });
     if (creada) nuevas.push("sin_agua");
+    else {
+      await sb
+        .from("notificaciones")
+        .update({ titulo })
+        .eq("clave_unica", `sin_agua:${ultimoAgua}`)
+        .eq("resuelta", false);
+    }
+
+    // Y si quedó abierta una racha anterior, se cierra: el campo no
+    // puede llevar dos rachas sin agua al mismo tiempo.
+    await sb
+      .from("notificaciones")
+      .update({ resuelta: true, resuelta_at: new Date().toISOString() })
+      .eq("tipo", "sin_agua")
+      .eq("resuelta", false)
+      .neq("clave_unica", `sin_agua:${ultimoAgua}`);
   }
 
   /* --- 3f. Entregas de pedidos -------------------------------------- */

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Refrescar } from "@/components/refrescar";
 import { ConfirmarEntrega } from "@/components/confirmar-entrega";
+import { Alerta } from "@/components/alerta";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { diasDesde, fechaCorta, fechaLarga, hoyISO, m2, mm, numero, pesos, sumarDiasISO } from "@/lib/format";
 import {
@@ -10,6 +11,7 @@ import {
   descartarAlertaLluvia,
   registrarLluvia,
   reprogramarPedido,
+  resolverNotificacion,
 } from "@/lib/actions";
 
 export const dynamic = "force-dynamic";
@@ -85,13 +87,6 @@ export default async function Dashboard() {
   const vendidoMes = (ventasMes ?? []).reduce((a, v: any) => a + Number(v.total ?? 0), 0);
   const cobradoMes = (cobrosMes ?? []).reduce((a, c: any) => a + Number(c.monto ?? 0), 0);
   const pagadoMes = (pagosMes ?? []).reduce((a, p: any) => a + Number(p.monto ?? 0), 0);
-
-  const franja = (s: string) =>
-    s === "urgente"
-      ? "bg-urgente-bg text-urgente-tx"
-      : s === "aviso"
-        ? "bg-atencion-bg text-atencion-tx"
-        : "bg-info-bg text-info-tx";
 
   // Una fertilización del mismo día con el mismo producto en los dos lotes
   // son dos registros, pero para el que la lee es una sola tarea: va en una
@@ -290,41 +285,25 @@ export default async function Dashboard() {
             ) : (
               <ul className="space-y-2.5">
                 {alertas.map((n: any) => (
-                  <li
+                  <Alerta
                     key={n.id}
-                    className="overflow-hidden rounded-2xl border border-borde bg-white shadow-[0_1px_2px_rgba(26,29,24,.05)]"
+                    id={n.id}
+                    titulo={n.titulo}
+                    mensaje={n.mensaje}
+                    fecha={n.fecha_referencia ? fechaCorta(n.fecha_referencia) : null}
+                    severidad={n.severidad}
+                    // Las que piden hacer algo no se van por leerlas: las
+                    // cierra la acción. Un roce no puede sacar de la
+                    // lista un pedido que todavía no se entregó.
+                    requiereAccion={n.requiere_accion || notiPedido.has(n.tipo)}
+                    resolver={resolverNotificacion}
                   >
-                    <div className="flex flex-col gap-2.5 p-3.5">
-                      <div className="min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span
-                            className={
-                              "rounded-full px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[.08em] " +
-                              franja(n.severidad)
-                            }
-                          >
-                            {n.severidad}
-                          </span>
-                          {n.fecha_referencia && (
-                            <span className="text-[11.5px] font-semibold text-tinta-3">
-                              {fechaCorta(n.fecha_referencia)}
-                            </span>
-                          )}
-                        </div>
-                        <p className="mt-1.5 text-[16px] font-bold leading-snug text-pasto-oscuro">
-                          {n.titulo}
-                        </p>
-                        {n.mensaje && (
-                          <p className="mt-0.5 text-[13px] leading-snug text-tinta-2">{n.mensaje}</p>
-                        )}
-                      </div>
-
                     {n.tipo === "confirmar_lluvia" && (
-                      <div className="flex flex-wrap items-end gap-2">
+                      <>
                         <form action={registrarLluvia} className="flex flex-wrap items-end gap-2">
                           <input type="hidden" name="notificacion_id" value={n.id} />
                           <input type="hidden" name="fecha" value={n.fecha_referencia ?? hoy} />
-                          <div>
+                          <div className="min-w-0">
                             <label className="label">mm del pluviómetro</label>
                             <input
                               name="mm"
@@ -342,7 +321,7 @@ export default async function Dashboard() {
                           <input type="hidden" name="id" value={n.id} />
                           <button className="btn-ghost">No llovió</button>
                         </form>
-                      </div>
+                      </>
                     )}
 
                     {notiPedido.has(n.tipo) && pedidoPorId.get(n.entidad_id) && (
@@ -356,9 +335,7 @@ export default async function Dashboard() {
                         anular={anularPedido}
                       />
                     )}
-
-                    </div>
-                  </li>
+                  </Alerta>
                 ))}
               </ul>
             )}
