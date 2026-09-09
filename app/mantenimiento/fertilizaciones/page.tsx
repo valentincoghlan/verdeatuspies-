@@ -95,7 +95,7 @@ export default async function FertilizacionesPage() {
               <button className="btn">Agendar y avisar por mail</button>
             </div>
           </form>
-          <p className="mt-3 text-xs text-tierra-400">
+          <p className="mt-3 text-xs text-tinta-3">
             Podés marcar varios lotes y varios productos: se agenda una fertilización por cada
             combinación, para aplicarlas o cancelarlas por separado. El aviso sale en la corrida
             diaria, con la anticipación que definís en Ajustes (por defecto 3 días), y se repite

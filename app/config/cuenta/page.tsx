@@ -140,7 +140,7 @@ export default async function ConfigCuentaPage({
       </Card>
 
       <Card titulo="Mi contraseña">
-        <p className="mb-3 text-sm text-tierra-600">
+        <p className="mb-3 text-sm text-tinta-2">
           Entrás con <strong>{user?.email}</strong>. Con una contraseña entrás directo, sin esperar
           el link por mail.
         </p>
@@ -152,26 +152,26 @@ export default async function ConfigCuentaPage({
           </div>
         </form>
         {resultado === "ok" && (
-          <p className="mt-3 text-xs font-semibold text-hoja-700">
+          <p className="mt-3 text-xs font-semibold text-pasto">
             Listo. La próxima vez entrá con tu mail y esta contraseña.
           </p>
         )}
         {resultado === "corta" && (
-          <p className="mt-3 text-xs font-semibold text-red-600">
+          <p className="mt-3 text-xs font-semibold text-urgente-tx">
             Tiene que tener al menos 8 caracteres.
           </p>
         )}
         {resultado === "distintas" && (
-          <p className="mt-3 text-xs font-semibold text-red-600">
+          <p className="mt-3 text-xs font-semibold text-urgente-tx">
             Las dos contraseñas no coinciden.
           </p>
         )}
         {resultado === "error" && (
-          <p className="mt-3 text-xs font-semibold text-red-600">
+          <p className="mt-3 text-xs font-semibold text-urgente-tx">
             No se pudo guardar. Probá de nuevo.
           </p>
         )}
-        <p className="mt-3 text-xs text-tierra-600">
+        <p className="mt-3 text-xs text-tinta-2">
           Cada uno cambia solo la suya. Si te la olvidás, entrás con el link por mail y la volvés a
           poner acá.
         </p>
@@ -184,14 +184,14 @@ export default async function ConfigCuentaPage({
             name="notificar_mail"
             type="checkbox"
             defaultChecked={miPerfil?.notificar_mail ?? true}
-            className="h-4 w-4 rounded border-tierra-200"
+            className="h-4 w-4 rounded border-borde"
           />
           <label htmlFor="notificar_mail" className="text-sm">
             Quiero recibir las alertas por mail
           </label>
           <button className="btn-ghost">Guardar</button>
         </form>
-        <p className="mt-3 text-xs text-tierra-600">
+        <p className="mt-3 text-xs text-tinta-2">
           Las alertas del día se juntan en un solo mail: entregas, lluvias a confirmar,
           fertilizaciones y cortes atrasados.
         </p>

@@ -148,7 +148,7 @@ export default async function PedidosPage() {
             </div>
           </form>
           {clientesOpc.length === 0 && (
-            <p className="mt-3 text-xs text-amber-700">
+            <p className="mt-3 text-xs text-atencion-tx">
               Primero cargá un comprador en{" "}
               <Link href="/ventas/clientes" className="font-semibold underline">
                 Clientes
@@ -160,7 +160,7 @@ export default async function PedidosPage() {
 
         <Card titulo="Pedidos pendientes">
           {lista.length === 0 ? (
-            <p className="py-6 text-center text-sm text-tierra-400">No hay pedidos pendientes.</p>
+            <p className="py-6 text-center text-sm text-tinta-3">No hay pedidos pendientes.</p>
           ) : (
             <ul className="space-y-3">
               {lista.map((p) => {

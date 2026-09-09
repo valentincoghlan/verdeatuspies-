@@ -156,7 +156,7 @@ export default async function VentasPage() {
             </div>
           </form>
           {(clientes ?? []).length === 0 && (
-            <p className="mt-3 text-xs text-amber-700">
+            <p className="mt-3 text-xs text-atencion-tx">
               Primero cargá un cliente en{" "}
               <Link href="/ventas/clientes" className="font-semibold underline">
                 Clientes

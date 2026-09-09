@@ -188,7 +188,7 @@ export function BorrarBtn({
   return (
     <form action={action}>
       <input type="hidden" name="id" value={id} />
-      <button className="text-xs font-semibold text-tierra-400 hover:text-red-600">
+      <button className="text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
         {label}
       </button>
     </form>

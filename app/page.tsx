@@ -421,7 +421,7 @@ export default async function Dashboard() {
                       <span className="text-sm font-medium">
                         {d.fecha === hoy ? "Hoy" : fechaCorta(d.fecha)}
                       </span>
-                      <span className="text-xs text-tierra-600">
+                      <span className="text-xs text-tinta-2">
                         {numero(d.temp_min, 0)}° / {numero(d.temp_max, 0)}°
                       </span>
                       <span

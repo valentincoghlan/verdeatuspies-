@@ -64,7 +64,7 @@ export default function LoginForm() {
 
   if (estado === "listo") {
     return (
-      <p className="text-sm text-tierra-800">
+      <p className="text-sm text-tinta">
         Listo, te mandamos el link a <strong>{email}</strong>. Abrilo desde este mismo
         dispositivo.
       </p>
@@ -170,12 +170,12 @@ export default function LoginForm() {
             : "Enviarme el link"}
       </button>
 
-      {error && <p className="text-xs text-red-600">{error}</p>}
+      {error && <p className="text-xs text-urgente-tx">{error}</p>}
 
       <button
         type="button"
         onClick={() => cambiarModo(modo === "clave" ? "link" : "clave")}
-        className="w-full text-center text-xs font-semibold text-tierra-600 hover:text-tierra-900"
+        className="w-full text-center text-xs font-semibold text-tinta-2 hover:text-tinta"
       >
         {modo === "clave"
           ? "No tengo contraseña, mandame un link por mail"

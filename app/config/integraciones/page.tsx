@@ -36,12 +36,12 @@ export default async function ConfigIntegracionesPage() {
             <button className="btn btn-alto sm:w-auto">Guardar</button>
           </div>
         </form>
-        <p className="mt-3 text-xs text-tierra-600">
+        <p className="mt-3 text-xs text-tinta-2">
           La key se saca de Hydrawise: <strong>Menú ☰ → Account Details → Account Settings →
           Generate API Key</strong>. Después tocá <strong>Sincronizar ahora</strong> y la app crea
           sola las zonas de tu controlador; asignales el lote en <strong>Lotes y zonas</strong>.
         </p>
-        <p className="mt-2 text-xs text-tierra-400">
+        <p className="mt-2 text-xs text-tinta-3">
           Hydrawise no deja bajar el historial completo de riegos: la API da las zonas, el próximo
           riego programado y las que están corriendo en ese momento. Con la corrida diaria queda
           registrado si cada zona regó ese día, y los minutos son los del ciclo programado.
