@@ -219,6 +219,16 @@ export async function syncHydrawise() {
         // las 5:59.
         const referencia = Number(estado.time) || Math.floor(ahora.getTime() / 1000);
 
+        // Lo que el controlador decía la última vez, ANTES de pisarlo.
+        // De ahí sale si regó: si ayer avisó "Zona 1 riega a las 8:45" y
+        // esa hora ya pasó, regó.
+        const { data: antes } = await sb
+          .from("riego_zonas")
+          .select("id, lote_id, proximo_riego_at, proximo_minutos, suspendida_hasta")
+          .eq("hydrawise_controller_id", String(c.controller_id))
+          .eq("hydrawise_relay_id", relayId)
+          .maybeSingle();
+
         const { data: zona } = await sb
           .from("riego_zonas")
           .upsert(
@@ -239,16 +249,55 @@ export async function syncHydrawise() {
         zonasTocadas++;
         if (!zona) continue;
 
-        // ¿Corrió hoy? Por zona corriendo ahora o por último riego informado.
+        // ¿Regó? Hay tres formas de saberlo, de la más firme a la más
+        // indirecta:
+        //
+        // 1. La zona está corriendo justo ahora.
+        // 2. El controlador informa `lastwater`. El plan gratis de Hunter
+        //    no lo manda, pero si algún día aparece, se usa.
+        // 3. El riego que el controlador tenía agendado la última vez que
+        //    miramos ya pasó. Es lo único que queda con esta API, que no
+        //    expone historial, y alcanza: el cron corre todos los días y
+        //    cada zona riega cada tres.
         const estaCorriendo = corriendo.has(relayId);
-        const ultimo = estaCorriendo ? ahora : parsearUltimoRiego(relay.lastwater, ahora);
+
+        let ultimo: Date | null = null;
+        let comoSeSupo = "";
+
+        if (estaCorriendo) {
+          ultimo = ahora;
+          comoSeSupo = "Detectado corriendo por Hydrawise";
+        } else {
+          const porLastwater = parsearUltimoRiego(relay.lastwater, ahora);
+          if (porLastwater) {
+            ultimo = porLastwater;
+            comoSeSupo = "Importado de Hydrawise — minutos estimados del ciclo programado";
+          } else if (antes?.proximo_riego_at) {
+            const agendado = new Date(antes.proximo_riego_at);
+            const yaPaso = agendado.getTime() <= referencia * 1000;
+            // Si estaba frenada en ese momento, no regó.
+            const frenada =
+              antes.suspendida_hasta && new Date(antes.suspendida_hasta) > agendado;
+            if (yaPaso && !frenada) {
+              ultimo = agendado;
+              comoSeSupo = "Estaba agendado y la hora ya pasó — minutos del ciclo programado";
+            }
+          }
+        }
+
         if (!ultimo) continue;
 
         const fecha = fechaArgentina(ultimo);
         if (diasEntre(fecha, hoyAR()) > 7) continue; // no reescribimos historia vieja
 
         const key = `${c.controller_id}:${relayId}:${fecha}`;
-        const minutos = relay.run ? Math.round(Number(relay.run) / 60) || null : null;
+        // Los minutos del ciclo que estaba agendado, no los del próximo:
+        // pueden ser distintos si cambiaste el programa en el medio.
+        const minutos = estaCorriendo || !antes?.proximo_minutos
+          ? relay.run
+            ? Math.round(Number(relay.run) / 60) || null
+            : null
+          : antes.proximo_minutos;
 
         const { data: creado } = await sb
           .from("riegos")
@@ -261,9 +310,7 @@ export async function syncHydrawise() {
               hora: horaArgentina(ultimo),
               minutos,
               origen: "hydrawise",
-              notas: estaCorriendo
-                ? "Detectado corriendo por Hydrawise"
-                : "Importado de Hydrawise — minutos estimados del ciclo programado",
+              notas: comoSeSupo,
             },
             { onConflict: "hydrawise_key", ignoreDuplicates: true },
           )
