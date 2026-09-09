@@ -429,17 +429,17 @@ export default async function Dashboard() {
         <div className="min-w-0 space-y-4">
           <Card titulo="Clima en Cardales" className="hidden sm:block">
             {(clima ?? []).length === 0 ? (
-              <p className="py-4 text-sm text-tierra-400">
+              <p className="py-4 text-sm text-tinta-3">
                 Todavía sin datos. Tocá “Sincronizar ahora”.
               </p>
             ) : (
               <ul className="space-y-2">
-                {(clima ?? []).map((d: any) => {
+                {((clima ?? []) as any[]).slice(0, 5).map((d: any) => {
                   const mmDia = Number(d.precipitacion_mm ?? 0);
                   return (
                     <li
                       key={d.fecha}
-                      className="flex items-center justify-between gap-2 rounded-xl bg-tierra-50 px-3 py-2"
+                      className="flex items-center justify-between gap-2 rounded-xl bg-crema px-3 py-2"
                     >
                       <span className="text-sm font-medium">
                         {d.fecha === hoy ? "Hoy" : fechaCorta(d.fecha)}
@@ -450,7 +450,13 @@ export default async function Dashboard() {
                       <span
                         className={
                           "text-sm font-semibold tabular-nums " +
-                          (mmDia >= 2 ? "text-blue-700" : "text-tierra-400")
+                          // Los 0,0 se apagan: lo que importa es el día
+                          // que llueve, no los seis que no.
+                          (mmDia >= 2
+                            ? "font-bold text-info-tx"
+                            : mmDia > 0
+                              ? "text-tinta-2"
+                              : "text-tinta-3/50")
                         }
                       >
                         {mm(mmDia)}
@@ -464,7 +470,7 @@ export default async function Dashboard() {
 
           <Card titulo="Próximas fertilizaciones">
             {fertAgenda.length === 0 ? (
-              <p className="py-4 text-sm text-tierra-400">Nada agendado.</p>
+              <p className="py-4 text-sm text-tinta-3">Nada agendado.</p>
             ) : (
               <ul className="divide-y divide-beige text-sm">
                 {fertAgenda.map((f) => (
@@ -479,7 +485,7 @@ export default async function Dashboard() {
             )}
             <Link
               href="/mantenimiento/fertilizaciones"
-              className="mt-3 inline-block text-xs font-semibold text-hoja-700 hover:underline"
+              className="mt-3 inline-flex min-h-11 items-center text-sm font-bold text-pasto hover:underline sm:min-h-0"
             >
               Agendar una fertilización →
             </Link>

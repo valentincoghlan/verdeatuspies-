@@ -8,7 +8,7 @@ import { Confirmar } from "@/components/confirmar";
 import { FiltroFechas, resolverRango } from "@/components/filtro-fechas";
 import { borrarMovimiento, crearMovimiento, crearPersona } from "@/lib/actions";
 import { esAdmin } from "@/lib/rol";
-import { fechaBreve, hoyISO, numero, pesos } from "@/lib/format";
+import { fechaBreve, fechaDM, hoyISO, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -171,7 +171,7 @@ export default async function CajaPage({
           )}
           <Tabla
             columnas={[
-              { titulo: "Fecha", ancho: "w-[3.6rem] sm:w-auto" },
+              { titulo: "Fecha", ancho: "w-[2.9rem] sm:w-auto" },
               { titulo: "Categoría" },
               { titulo: "Persona y monto" },
               { titulo: "Detalle", desde: "sm" },
@@ -184,10 +184,13 @@ export default async function CajaPage({
             {lista.map((m) => (
               <tr key={m.id}>
                 <td className="td whitespace-nowrap text-[11px] sm:text-sm">
-                  {fechaBreve(m.fecha)}
+                  {/* Sin año: la tarjeta ya dice de qué período es, y con
+                      el año la fecha salía cortada ("03/09/2"). */}
+                  <span className="sm:hidden">{fechaDM(m.fecha)}</span>
+                  <span className="hidden sm:inline">{fechaBreve(m.fecha)}</span>
                 </td>
                 <td className="td">
-                  <span className="block text-[13px] font-semibold leading-tight sm:text-sm">
+                  <span className="td-envuelve block text-[13px] font-semibold leading-tight sm:text-sm">
                     {m.categoria ?? "—"}
                   </span>
                   {m.subcategoria && (

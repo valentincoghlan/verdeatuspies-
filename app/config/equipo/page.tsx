@@ -3,6 +3,7 @@ import { Card, Chip, Tabla } from "@/components/ui";
 import { Campo, Selector } from "@/components/campos";
 import { agregarMiembro, cambiarRol, quitarMiembro } from "@/lib/actions";
 import { esAdmin, PERMISOS } from "@/lib/rol";
+import { Acciones } from "@/components/acciones";
 
 export const dynamic = "force-dynamic";
 
@@ -43,7 +44,7 @@ export default async function ConfigEquipoPage() {
               { titulo: "Nombre", desde: "sm" },
               { titulo: "Rol" },
               { titulo: "Estado", desde: "sm" },
-              { titulo: "", ancho: "w-14 sm:w-auto" },
+              { titulo: "", ancho: "w-11 sm:w-auto" },
             ]}
           >
           {(miembros ?? []).map((m: any) => {
@@ -52,37 +53,48 @@ export default async function ConfigEquipoPage() {
             );
             return (
               <tr key={m.email}>
-                <td className="td font-medium">
-                  <span className="block break-all">{m.email}</span>
-                  <span className="block text-xs font-normal text-tinta-3 sm:hidden">
+                <td className="td max-w-0 font-medium">
+                  <span className="block truncate" title={m.email}>
+                    {m.email}
+                  </span>
+                  <span className="block truncate text-xs font-normal text-tinta-3 sm:hidden">
+                    {m.nombre ? `${m.nombre} · ` : ""}
                     {p?.activo ? "activo" : "sin entrar"}
                   </span>
                 </td>
                 <td className="td">{m.nombre ?? "—"}</td>
                 <td className="td">
-                  {admin ? (
-                    // El rol se cambia acá mismo: antes había que sacar a
-                    // la persona y volver a cargarla para moverla de lugar.
-                    <form action={cambiarRol} className="flex items-center gap-2">
-                      <input type="hidden" name="email" value={m.email} />
-                      <select
-                        name="rol"
-                        defaultValue={m.rol}
-                        aria-label={`Rol de ${m.email}`}
-                        className="input w-full min-w-0 sm:w-32"
-                      >
-                        <option value="operador">Operador</option>
-                        <option value="admin">Dueño</option>
-                      </select>
-                      <button className="shrink-0 whitespace-nowrap text-xs font-bold text-pasto hover:underline">
-                        Cambiar
-                      </button>
-                    </form>
-                  ) : (
+                  {/* En el celular solo el chip: el select con su botón al
+                      lado no entra y salía como "Ca…". Se cambia desde el
+                      menú de acciones. */}
+                  <span className="sm:hidden">
                     <Chip tono={m.rol === "admin" ? "verde" : "neutro"}>
                       {m.rol === "admin" ? "dueño" : "operador"}
                     </Chip>
-                  )}
+                  </span>
+                  <span className="hidden sm:block">
+                    {admin ? (
+                      <form action={cambiarRol} className="flex items-center gap-2">
+                        <input type="hidden" name="email" value={m.email} />
+                        <select
+                          name="rol"
+                          defaultValue={m.rol}
+                          aria-label={`Rol de ${m.email}`}
+                          className="input w-32 min-w-0"
+                        >
+                          <option value="operador">Operador</option>
+                          <option value="admin">Dueño</option>
+                        </select>
+                        <button className="shrink-0 whitespace-nowrap text-xs font-bold text-pasto hover:underline">
+                          Cambiar
+                        </button>
+                      </form>
+                    ) : (
+                      <Chip tono={m.rol === "admin" ? "verde" : "neutro"}>
+                        {m.rol === "admin" ? "dueño" : "operador"}
+                      </Chip>
+                    )}
+                  </span>
                 </td>
                 <td className="td">
                   {p?.activo ? (
@@ -93,12 +105,29 @@ export default async function ConfigEquipoPage() {
                 </td>
                 <td className="td text-right">
                   {admin && (
-                    <form action={quitarMiembro}>
-                      <input type="hidden" name="email" value={m.email} />
-                      <button className="flex min-h-11 items-center whitespace-nowrap px-1 text-xs font-semibold text-tinta-3 hover:text-urgente-tx sm:min-h-8">
-                        Quitar
-                      </button>
-                    </form>
+                    <Acciones titulo={m.nombre ?? m.email}>
+                      <form action={cambiarRol} className="flex items-center gap-2 sm:hidden">
+                        <input type="hidden" name="email" value={m.email} />
+                        <select
+                          name="rol"
+                          defaultValue={m.rol}
+                          aria-label={`Rol de ${m.email}`}
+                          className="input min-w-0 flex-1"
+                        >
+                          <option value="operador">Operador</option>
+                          <option value="admin">Dueño</option>
+                        </select>
+                        <button className="shrink-0 whitespace-nowrap text-sm font-bold text-pasto">
+                          Cambiar
+                        </button>
+                      </form>
+                      <form action={quitarMiembro}>
+                        <input type="hidden" name="email" value={m.email} />
+                        <button className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
+                          Quitar
+                        </button>
+                      </form>
+                    </Acciones>
                   )}
                 </td>
               </tr>
@@ -127,7 +156,7 @@ export default async function ConfigEquipoPage() {
           >
           {PERMISOS.map((x) => (
             <tr key={x.tarea}>
-              <td className="td">{x.tarea}</td>
+              <td className="td td-envuelve">{x.tarea}</td>
               <td className={"td text-center " + (x.admin ? "text-tinta-3" : "text-pasto")}>
                 {x.admin ? "—" : "sí"}
               </td>

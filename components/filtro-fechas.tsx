@@ -57,7 +57,8 @@ function atajos(hoy: string) {
   const esteAnio = Number(hoy.slice(0, 4));
   const temporadas: { p: string; label: string }[] = [];
   for (let a = esteAnio; a >= PRIMERA_TEMPORADA; a--) {
-    temporadas.push({ p: `t${a}`, label: `Temporada ${a}` });
+    // Solo el año: "Temporada 2026" ocupaba el doble para decir lo mismo.
+    temporadas.push({ p: `t${a}`, label: String(a) });
   }
   // "Este año" no está: es la temporada del año en curso.
   return [{ p: "mes", label: "Este mes" }, { p: "anterior", label: "Mes pasado" }, ...temporadas];

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { SECCIONES, rutaActiva } from "./navegacion";
+import { Icono } from "./iconos";
 
 /**
  * Menú completo: hoja que ocupa toda la pantalla.
@@ -130,6 +131,7 @@ export default function MenuCompleto({
                     : "text-tinta hover:bg-beige")
                 }
               >
+                <Icono nombre="inicio" className="mr-3 size-5" />
                 Inicio
               </Link>
 
@@ -152,6 +154,7 @@ export default function MenuCompleto({
                               : "text-tinta hover:bg-beige")
                           }
                         >
+                          <Icono nombre={i.icono} className="mr-3 size-5" />
                           {i.label}
                         </Link>
                       </li>

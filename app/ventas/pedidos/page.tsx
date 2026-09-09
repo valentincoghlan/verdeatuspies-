@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota, Opciones, Selector } from "@/components/campos";
 import { CanalYComprador } from "@/components/comprador";
+import { Dato } from "@/components/dato";
 import { ConfirmarEntrega } from "@/components/confirmar-entrega";
 import {
   anularPedido,
@@ -12,7 +13,7 @@ import {
   crearPedido,
   reprogramarPedido,
 } from "@/lib/actions";
-import { diasEntre, fechaBreve, fechaCorta, fechaLarga, hoyISO, m2, mm, numero, pesos } from "@/lib/format";
+import { diasEntre, fechaBreve, fechaCorta, fechaDM, fechaLarga, hoyISO, m2, mm, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -290,11 +291,11 @@ export default async function PedidosPage() {
         <Card titulo="Margen por operación">
           <Tabla
             columnas={[
-              { titulo: "Entrega", ancho: "w-[4.3rem] sm:w-auto" },
+              { titulo: "Entrega", ancho: "w-[3.2rem] sm:w-auto" },
               { titulo: "Comprador" },
-              { titulo: "m²", ancho: "w-[3.2rem] sm:w-auto" },
+              { titulo: "m²", desde: "sm" },
               { titulo: "Cortesía", desde: "sm" },
-              { titulo: "Facturado", ancho: "w-[5.4rem] sm:w-auto" },
+              { titulo: "Facturado", align: "right" },
               { titulo: "Gastos", desde: "sm" },
               { titulo: "Margen", desde: "sm" },
               { titulo: "Pendiente", desde: "sm" },
@@ -308,7 +309,8 @@ export default async function PedidosPage() {
               return (
                 <tr key={v.venta_id}>
                   <td className="td whitespace-nowrap text-[11px] sm:text-sm">
-                    {fechaBreve(v.fecha_entrega)}
+                    <span className="sm:hidden">{fechaDM(v.fecha_entrega)}</span>
+                    <span className="hidden sm:inline">{fechaBreve(v.fecha_entrega)}</span>
                   </td>
                   <td className="td font-medium">
                     <span className="block truncate">{v.comprador}</span>
@@ -318,21 +320,22 @@ export default async function PedidosPage() {
                       </span>
                     )}
                   </td>
-                  <td className="td whitespace-nowrap text-right tabular-nums text-[11px] sm:text-left sm:text-sm">
-                    {numero(Number(v.m2))}
-                  </td>
+                  <td className="td hidden tabular-nums sm:table-cell">{numero(Number(v.m2))}</td>
                   <td className="td hidden tabular-nums text-tinta-2 sm:table-cell">
                     {Number(v.m2_cortesia) > 0 ? numero(Number(v.m2_cortesia)) : "—"}
                   </td>
-                  <td className="td whitespace-nowrap text-right tabular-nums text-[11px] font-semibold sm:text-left sm:text-sm">
-                    {pesos(facturado)}
+                  <td className="td text-right tabular-nums font-semibold sm:text-left">
+                    <Dato
+                      principal={pesos(facturado)}
+                      secundario={<span className="sm:hidden">{numero(Number(v.m2))} m&sup2;</span>}
+                    />
                   </td>
                   <td className="td hidden tabular-nums text-atencion-tx sm:table-cell">
                     {Number(v.gastos) > 0 ? pesos(Number(v.gastos)) : "—"}
                   </td>
                   <td className="td hidden tabular-nums font-semibold text-pasto sm:table-cell">
                     {pesos(margen)}
-                    <span className="ml-1 text-xs font-normal text-tierra-400">{numero(pct)}%</span>
+                    <span className="ml-1 whitespace-nowrap text-xs font-normal text-tinta-3">{numero(pct)}%</span>
                   </td>
                   <td
                     className={

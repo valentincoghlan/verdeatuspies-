@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, PageHeader, Stat, Tabla } from "@/components/ui";
+import { Dato } from "@/components/dato";
+import { Acciones } from "@/components/acciones";
 import { Campo, Nota, Selector } from "@/components/campos";
 import { borrarCorte, crearCorte } from "@/lib/actions";
-import { diasDesde, fechaBreve, fechaLarga, hoyISO, numero } from "@/lib/format";
+import { diasDesde, fechaBreve, fechaDM, fechaLarga, hoyISO, numero } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -70,31 +72,49 @@ export default async function CortesPage() {
         <Card titulo="Historial de cortes">
           <Tabla
             columnas={[
-              { titulo: "Fecha" },
+              { titulo: "Fecha", ancho: "w-[3.4rem] sm:w-auto" },
               { titulo: "Lote" },
-              { titulo: "Altura" },
+              { titulo: "Altura", align: "right" },
               { titulo: "Superficie", desde: "sm" },
               { titulo: "Horas", desde: "sm" },
               { titulo: "Quién", desde: "sm" },
-              { titulo: "" },
+              { titulo: "", ancho: "w-11 sm:w-auto" },
             ]}
             vacio="Todavía no cargaste cortes."
           >
             {(cortes ?? []).map((c: any) => (
               <tr key={c.id}>
-                <td className="td whitespace-nowrap">{fechaBreve(c.fecha)}</td>
-                <td className="td font-medium">{c.lotes?.nombre ?? "—"}</td>
-                <td className="td tabular-nums">{c.altura_mm ? `${c.altura_mm} mm` : "—"}</td>
-                <td className="td tabular-nums">{numero(c.superficie_m2)}</td>
-                <td className="td tabular-nums">{numero(c.horas_maquina, 1)}</td>
-                <td className="td">{c.responsable_texto ?? "—"}</td>
+                <td className="td whitespace-nowrap">
+                  <span className="sm:hidden">{fechaDM(c.fecha)}</span>
+                  <span className="hidden sm:inline">{fechaBreve(c.fecha)}</span>
+                </td>
+                <td className="td font-medium">
+                  <Dato
+                    principal={c.lotes?.nombre ?? "—"}
+                    secundario={
+                      c.responsable_texto ? (
+                        <span className="sm:hidden">{c.responsable_texto}</span>
+                      ) : null
+                    }
+                  />
+                </td>
+                <td className="td text-right tabular-nums sm:text-left">
+                  {c.altura_mm ? `${c.altura_mm} mm` : "—"}
+                </td>
+                <td className="td hidden tabular-nums sm:table-cell">{numero(c.superficie_m2)}</td>
+                <td className="td hidden tabular-nums sm:table-cell">
+                  {numero(c.horas_maquina, 1)}
+                </td>
+                <td className="td hidden sm:table-cell">{c.responsable_texto ?? "—"}</td>
                 <td className="td text-right">
-                  <form action={borrarCorte}>
-                    <input type="hidden" name="id" value={c.id} />
-                    <button className="text-xs font-semibold text-tierra-400 hover:text-red-600">
-                      Borrar
-                    </button>
-                  </form>
+                  <Acciones titulo={`Corte del ${fechaBreve(c.fecha)}`}>
+                    <form action={borrarCorte}>
+                      <input type="hidden" name="id" value={c.id} />
+                      <button className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
+                        Borrar
+                      </button>
+                    </form>
+                  </Acciones>
                 </td>
               </tr>
             ))}

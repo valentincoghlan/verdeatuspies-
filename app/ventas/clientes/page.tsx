@@ -4,7 +4,7 @@ import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Selector } from "@/components/campos";
 import { crearCliente, saldarCliente } from "@/lib/actions";
 import { SaldarCliente } from "@/components/saldar-cliente";
-import { fechaBreve, m2, numero, pesos } from "@/lib/format";
+import { fechaBreve, fechaDM, m2, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -138,9 +138,9 @@ export default async function ClientesPage({
               { titulo: "m² comprados", desde: "sm" },
               { titulo: "Vendido", desde: "sm" },
               { titulo: "Cobrado", desde: "sm" },
-              { titulo: "Saldo" },
-              { titulo: "Última compra" },
-              { titulo: "" },
+              { titulo: "Saldo", align: "right" },
+              { titulo: "Última compra", ancho: "w-[3.6rem] sm:w-auto" },
+              { titulo: "", ancho: "w-11 sm:w-auto" },
             ]}
             vacio={
               vista === "cuenta"
@@ -169,20 +169,33 @@ export default async function ClientesPage({
                       </span>
                     </Link>
                   </td>
-                  <td className="td text-xs text-tinta-2">{c.telefono ?? "—"}</td>
-                  <td className="td tabular-nums">{numero(cta.m2_vendidos)}</td>
-                  <td className="td tabular-nums">{pesos(Number(cta.total_vendido ?? 0))}</td>
-                  <td className="td tabular-nums">{pesos(Number(cta.total_cobrado ?? 0))}</td>
+                  <td className="td hidden text-xs text-tinta-2 sm:table-cell">
+                    {c.telefono ?? "—"}
+                  </td>
+                  <td className="td hidden tabular-nums sm:table-cell">
+                    {numero(cta.m2_vendidos)}
+                  </td>
+                  <td className="td hidden tabular-nums sm:table-cell">
+                    {pesos(Number(cta.total_vendido ?? 0))}
+                  </td>
+                  <td className="td hidden tabular-nums sm:table-cell">
+                    {pesos(Number(cta.total_cobrado ?? 0))}
+                  </td>
                   <td
                     className={
-                      "td whitespace-nowrap tabular-nums font-semibold " +
+                      "td whitespace-nowrap text-right tabular-nums font-semibold sm:text-left " +
                       (saldo > 0 ? "text-atencion-tx" : saldo < 0 ? "text-info-tx" : "text-tinta-3")
                     }
                   >
                     {pesos(saldo)}
                   </td>
                   <td className="td whitespace-nowrap text-xs text-tinta-2">
-                    {cta.ultima_venta ? fechaBreve(cta.ultima_venta) : "—"}
+                    <span className="sm:hidden">
+                      {cta.ultima_venta ? fechaDM(cta.ultima_venta) : "—"}
+                    </span>
+                    <span className="hidden sm:inline">
+                      {cta.ultima_venta ? fechaBreve(cta.ultima_venta) : "—"}
+                    </span>
                   </td>
                   <td className="td text-right">
                     {esAdmin && saldo > 0 && (

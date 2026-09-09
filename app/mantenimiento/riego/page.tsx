@@ -15,7 +15,9 @@ import { BalanceAgua } from "@/components/balance-agua";
 import { RiegosProgramados } from "@/components/riegos-programados";
 import { CancelarRiegos } from "@/components/cancelar-riegos";
 import { Refrescar } from "@/components/refrescar";
-import { fechaBreve, fechaCorta, fechaLarga, hoyISO, mm, numero, sumarDiasISO } from "@/lib/format";
+import { Dato } from "@/components/dato";
+import { Acciones } from "@/components/acciones";
+import { fechaBreve, fechaCorta, fechaDM, fechaLarga, hoyISO, mm, numero, sumarDiasISO } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -380,38 +382,59 @@ export default async function AguaPage({
         <Plegable titulo="Últimos riegos" detalle={`${listaRiegos.length} registros`}>
           <Tabla
             columnas={[
-              { titulo: "Fecha" },
+              { titulo: "Fecha", ancho: "w-[3.4rem] sm:w-auto" },
               { titulo: "Lote" },
               { titulo: "Zona", desde: "sm" },
               { titulo: "Minutos", desde: "sm" },
-              { titulo: "mm" },
+              { titulo: "mm", align: "right" },
               { titulo: "Origen", desde: "sm" },
-              { titulo: "" },
+              { titulo: "", ancho: "w-11 sm:w-auto" },
             ]}
             vacio="Todavía no hay riegos cargados."
           >
             {listaRiegos.map((r) => (
               <tr key={r.id}>
                 <td className="td whitespace-nowrap">
-                  {fechaBreve(r.fecha)}
+                  <span className="sm:hidden">{fechaDM(r.fecha)}</span>
+                  <span className="hidden sm:inline">{fechaBreve(r.fecha)}</span>
                   {r.hora && <span className="ml-1 text-xs text-tinta-3">{r.hora.slice(0, 5)}</span>}
                 </td>
-                <td className="td">{r.lotes?.nombre ?? "—"}</td>
-                <td className="td">{r.riego_zonas?.nombre ?? "Todo el lote"}</td>
-                <td className="td tabular-nums">{numero(r.minutos)}</td>
-                <td className="td tabular-nums">{r.mm ? mm(Number(r.mm)) : "—"}</td>
+                {/* La zona baja debajo del lote: en su propia columna se
+                    partía en tres renglones ("Lin / ea / 9"). */}
                 <td className="td">
+                  <Dato
+                    principal={r.lotes?.nombre ?? "—"}
+                    secundario={
+                      <span className="sm:hidden">{r.riego_zonas?.nombre ?? "Todo el lote"}</span>
+                    }
+                  />
+                </td>
+                <td className="td hidden sm:table-cell">
+                  {r.riego_zonas?.nombre ?? "Todo el lote"}
+                </td>
+                <td className="td hidden tabular-nums sm:table-cell">{numero(r.minutos)}</td>
+                <td className="td text-right tabular-nums sm:text-left">
+                  <Dato
+                    principal={r.mm ? mm(Number(r.mm)) : "—"}
+                    secundario={
+                      <span className="sm:hidden">{numero(r.minutos)} min</span>
+                    }
+                  />
+                </td>
+                <td className="td hidden sm:table-cell">
                   <Chip tono={r.origen === "hydrawise" ? "azul" : "neutro"}>
                     {r.origen === "hydrawise" ? "Hydrawise" : "Manual"}
                   </Chip>
                 </td>
                 <td className="td text-right">
-                  <form action={borrarRiego}>
-                    <input type="hidden" name="id" value={r.id} />
-                    <button className="text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
-                      Borrar
-                    </button>
-                  </form>
+                  <Acciones titulo={`Riego del ${fechaBreve(r.fecha)}`}>
+                    <form action={borrarRiego}>
+                      <input type="hidden" name="id" value={r.id} />
+                      <button className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
+                        Borrar
+                      </button>
+                    </form>
+                  </Acciones>
                 </td>
               </tr>
             ))}
@@ -421,18 +444,23 @@ export default async function AguaPage({
         <Plegable titulo="Historial de lluvias" detalle={`${listaLluvias.length} registros`}>
           <Tabla
             columnas={[
-              { titulo: "Fecha" },
-              { titulo: "mm" },
+              { titulo: "Fecha", ancho: "w-[3.4rem] sm:w-auto" },
+              { titulo: "mm", align: "right" },
               { titulo: "Lote" },
               { titulo: "Origen", desde: "sm" },
-              { titulo: "" },
+              { titulo: "", ancho: "w-11 sm:w-auto" },
             ]}
             vacio="Todavía no cargaste lluvias."
           >
             {listaLluvias.map((l) => (
               <tr key={l.id}>
-                <td className="td whitespace-nowrap">{fechaBreve(l.fecha)}</td>
-                <td className="td tabular-nums font-semibold">{mm(Number(l.mm))}</td>
+                <td className="td whitespace-nowrap">
+                  <span className="sm:hidden">{fechaDM(l.fecha)}</span>
+                  <span className="hidden sm:inline">{fechaBreve(l.fecha)}</span>
+                </td>
+                <td className="td text-right tabular-nums font-semibold sm:text-left">
+                  {mm(Number(l.mm))}
+                </td>
                 <td className="td">{l.lotes?.nombre ?? "Todo el campo"}</td>
                 <td className="td">
                   <Chip tono={l.origen === "confirmada_alerta" ? "azul" : "neutro"}>

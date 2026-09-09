@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, Tabla } from "@/components/ui";
+import { TextoLargo } from "@/components/texto-largo";
 import { Campo } from "@/components/campos";
 import { guardarConfig } from "@/lib/actions";
-import { fechaLarga, numero } from "@/lib/format";
+import { fechaBreve, fechaDM, numero } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -50,8 +51,8 @@ export default async function ConfigIntegracionesPage() {
       <Card titulo="Últimas sincronizaciones">
         <Tabla
             columnas={[
-              { titulo: "Cuándo" },
-              { titulo: "Riegos nuevos" },
+              { titulo: "Cuándo", ancho: "w-[5.2rem] sm:w-auto" },
+              { titulo: "Riegos", align: "right", ancho: "w-14 sm:w-auto" },
               { titulo: "Error" },
             ]}
             vacio="Todavía no se sincronizó."
@@ -59,8 +60,9 @@ export default async function ConfigIntegracionesPage() {
           {(snapshots ?? []).map((s: any) => (
             <tr key={s.id}>
               <td className="td whitespace-nowrap">
-                {fechaLarga(s.created_at?.slice(0, 10))}{" "}
-                <span className="text-xs text-tierra-400">
+                <span className="sm:hidden">{fechaDM(s.created_at?.slice(0, 10))}</span>
+                <span className="hidden sm:inline">{fechaBreve(s.created_at?.slice(0, 10))}</span>{" "}
+                <span className="text-xs text-tinta-3">
                   {new Date(s.created_at).toLocaleTimeString("es-AR", {
                     timeZone: "America/Argentina/Buenos_Aires",
                     hour: "2-digit",
@@ -68,8 +70,16 @@ export default async function ConfigIntegracionesPage() {
                   })}
                 </span>
               </td>
-              <td className="td tabular-nums">{numero(s.creados)}</td>
-              <td className="td text-xs text-red-600">{s.error ?? "—"}</td>
+              <td className="td text-right tabular-nums sm:text-left">{numero(s.creados)}</td>
+              <td className="td">
+                {s.error ? (
+                  <span className="text-urgente-tx">
+                    <TextoLargo texto={s.error} titulo="Error de la sincronización" />
+                  </span>
+                ) : (
+                  <span className="text-xs text-tinta-3">—</span>
+                )}
+              </td>
             </tr>
           ))}
         </Tabla>

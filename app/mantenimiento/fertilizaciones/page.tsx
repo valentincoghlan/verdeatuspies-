@@ -1,5 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
+import { Dato } from "@/components/dato";
+import { Acciones } from "@/components/acciones";
 import { Campo, Nota, Selector } from "@/components/campos";
 import { Checks } from "@/components/checks";
 import {
@@ -9,7 +11,7 @@ import {
   crearFertilizante,
   marcarFertilizacionAplicada,
 } from "@/lib/actions";
-import { fechaBreve, fechaLarga, hoyISO, numero, pesos } from "@/lib/format";
+import { fechaBreve, fechaDM, fechaLarga, hoyISO, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -104,34 +106,45 @@ export default async function FertilizacionesPage() {
         <Card titulo="Agendadas">
           <Tabla
             columnas={[
-              { titulo: "Fecha" },
+              { titulo: "Fecha", ancho: "w-[3.4rem] sm:w-auto" },
               { titulo: "Lote" },
               { titulo: "Producto" },
               { titulo: "Dosis", desde: "sm" },
               { titulo: "Costo", desde: "sm" },
-              { titulo: "Acciones" },
-              { titulo: "" },
+              { titulo: "", ancho: "w-11 sm:w-auto" },
             ]}
             vacio="No hay fertilizaciones agendadas."
           >
             {(programadas ?? []).map((f: any) => (
               <tr key={f.id}>
                 <td className="td whitespace-nowrap">
-                  {fechaLarga(f.fecha_programada)}
+                  <span className="sm:hidden">{fechaDM(f.fecha_programada)}</span>
+                  <span className="hidden sm:inline">{fechaBreve(f.fecha_programada)}</span>
                   {f.fecha_programada < hoy && (
-                    <span className="ml-2">
-                      <Chip tono="rojo">atrasada</Chip>
-                    </span>
+                    <span className="block text-[11px] font-bold text-urgente-tx">atrasada</span>
                   )}
                 </td>
                 <td className="td font-medium">{f.lotes?.nombre}</td>
-                <td className="td">{f.fertilizantes?.nombre}</td>
-                <td className="td tabular-nums">
+                {/* La dosis baja debajo del producto: era una columna
+                    entera para decir "150 kg". */}
+                <td className="td">
+                  <Dato
+                    principal={f.fertilizantes?.nombre}
+                    secundario={
+                      f.dosis ? (
+                        <span className="sm:hidden">{`${numero(f.dosis, 1)} ${f.unidad ?? "kg"}`}</span>
+                      ) : null
+                    }
+                  />
+                </td>
+                <td className="td hidden tabular-nums sm:table-cell">
                   {f.dosis ? `${numero(f.dosis, 1)} ${f.unidad ?? "kg"}` : "—"}
                 </td>
-                <td className="td tabular-nums">{f.costo ? pesos(Number(f.costo)) : "—"}</td>
-                <td className="td">
-                  <div className="flex flex-wrap items-end gap-2">
+                <td className="td hidden tabular-nums sm:table-cell">
+                  {f.costo ? pesos(Number(f.costo)) : "—"}
+                </td>
+                <td className="td text-right">
+                  <Acciones titulo={`${f.fertilizantes?.nombre} en ${f.lotes?.nombre}`}>
                     <form action={marcarFertilizacionAplicada} className="flex items-end gap-1">
                       <input type="hidden" name="id" value={f.id} />
                       <input
@@ -140,23 +153,21 @@ export default async function FertilizacionesPage() {
                         defaultValue={hoy}
                         className="input w-full min-w-0 sm:w-36"
                       />
-                      <button className="btn px-3 py-1.5">Aplicada</button>
+                      <button className="btn whitespace-nowrap px-3 py-1.5">Aplicada</button>
                     </form>
                     <form action={cancelarFertilizacion}>
                       <input type="hidden" name="id" value={f.id} />
-                      <button className="text-xs font-semibold text-tierra-400 hover:text-tierra-900">
+                      <button className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-tinta">
                         Cancelar
                       </button>
                     </form>
-                  </div>
-                </td>
-                <td className="td text-right">
-                  <form action={borrarFertilizacion}>
-                    <input type="hidden" name="id" value={f.id} />
-                    <button className="text-xs font-semibold text-tierra-400 hover:text-red-600">
-                      Borrar
-                    </button>
-                  </form>
+                    <form action={borrarFertilizacion}>
+                      <input type="hidden" name="id" value={f.id} />
+                      <button className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
+                        Borrar
+                      </button>
+                    </form>
+                  </Acciones>
                 </td>
               </tr>
             ))}
@@ -166,7 +177,7 @@ export default async function FertilizacionesPage() {
         <Card titulo="Historial">
           <Tabla
             columnas={[
-              { titulo: "Aplicada" },
+              { titulo: "Aplicada", ancho: "w-[3.4rem] sm:w-auto" },
               { titulo: "Lote" },
               { titulo: "Producto" },
               { titulo: "Dosis", desde: "sm" },
@@ -177,13 +188,27 @@ export default async function FertilizacionesPage() {
           >
             {(historial ?? []).map((f: any) => (
               <tr key={f.id}>
-                <td className="td whitespace-nowrap">{fechaBreve(f.fecha_aplicada)}</td>
+                <td className="td whitespace-nowrap">
+                  <span className="sm:hidden">{fechaDM(f.fecha_aplicada)}</span>
+                  <span className="hidden sm:inline">{fechaBreve(f.fecha_aplicada)}</span>
+                </td>
                 <td className="td font-medium">{f.lotes?.nombre}</td>
-                <td className="td">{f.fertilizantes?.nombre}</td>
-                <td className="td tabular-nums">
+                <td className="td">
+                  <Dato
+                    principal={f.fertilizantes?.nombre}
+                    secundario={
+                      f.dosis ? (
+                        <span className="sm:hidden">{`${numero(f.dosis, 1)} ${f.unidad ?? "kg"}`}</span>
+                      ) : null
+                    }
+                  />
+                </td>
+                <td className="td hidden tabular-nums sm:table-cell">
                   {f.dosis ? `${numero(f.dosis, 1)} ${f.unidad ?? "kg"}` : "—"}
                 </td>
-                <td className="td tabular-nums">{f.costo ? pesos(Number(f.costo)) : "—"}</td>
+                <td className="td hidden tabular-nums sm:table-cell">
+                  {f.costo ? pesos(Number(f.costo)) : "—"}
+                </td>
                 <td className="td">
                   <Chip tono={f.estado === "aplicada" ? "verde" : "neutro"}>{f.estado}</Chip>
                 </td>
@@ -199,14 +224,14 @@ export default async function FertilizacionesPage() {
             <Campo label="Unidad" name="unidad" defaultValue="kg" />
             <Campo label="Dosis por ha" name="dosis_por_ha" type="number" step="0.5" />
             <div className="col-span-2 sm:col-span-4">
-              <button className="btn-ghost">Agregar producto</button>
+              <button className="btn-ghost btn-alto sm:w-auto">Agregar producto</button>
             </div>
           </form>
           <Tabla
             columnas={[
               { titulo: "Producto" },
               { titulo: "Tipo", desde: "sm" },
-              { titulo: "Dosis/ha" },
+              { titulo: "Dosis/ha", align: "right" },
               { titulo: "Unidad" },
             ]}
           >
