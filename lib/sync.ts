@@ -522,6 +522,17 @@ export async function generarAlertas() {
     .sort()
     .pop() as string | undefined;
 
+  // Si volvió a caer agua, la alerta de la racha anterior se cierra. Sin
+  // esto quedaba abierta para siempre: el bloque de abajo solo corre
+  // mientras la racha dura, así que nadie la daba por terminada.
+  if (!ultimoAgua || diasEntre(ultimoAgua, hoy) < 4) {
+    await sb
+      .from("notificaciones")
+      .update({ resuelta: true, resuelta_at: new Date().toISOString() })
+      .eq("tipo", "sin_agua")
+      .eq("resuelta", false);
+  }
+
   if (ultimoAgua && diasEntre(ultimoAgua, hoy) >= 4) {
     const dias = diasEntre(ultimoAgua, hoy);
     const titulo = `Hace ${dias} días sin riego ni lluvia registrados`;
