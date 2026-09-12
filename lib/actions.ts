@@ -1150,6 +1150,58 @@ export async function crearCobro(fd: FormData) {
   bump("/administracion", "/ventas", "/ventas/pedidos", "/reportes");
 }
 
+/**
+ * Un cobro que puede tapar varias ventas.
+ *
+ * El formulario manda un campo `cobro_<venta_id>` por cada venta con
+ * algo asignado. Cada uno se guarda como un movimiento de entrada
+ * colgado de su venta: de ahí sale lo cobrado y lo que queda pendiente.
+ * Van separados y no como un solo movimiento porque el pendiente se
+ * calcula por venta, no por cliente.
+ */
+export async function cobrarVentas(fd: FormData) {
+  const { supabase, user } = await sesion();
+  const mep = await mepActual(supabase);
+  const fecha = txt(fd, "fecha") ?? hoyISO();
+  const cuentaId = txt(fd, "cuenta_id");
+
+  const filas: Record<string, unknown>[] = [];
+  for (const [campo, valor] of fd.entries()) {
+    if (!campo.startsWith("cobro_")) continue;
+    const ventaId = campo.slice(6);
+    const monto = Number(String(valor).replace(/\./g, "").replace(",", "."));
+    if (!Number.isFinite(monto) || monto <= 0) continue;
+
+    const { data: venta } = await supabase
+      .from("ventas")
+      .select("cliente_id")
+      .eq("id", ventaId)
+      .maybeSingle();
+
+    filas.push({
+      fecha,
+      tipo: "I",
+      cuenta_id: cuentaId,
+      venta_id: ventaId,
+      cliente_id: venta?.cliente_id ?? null,
+      monto,
+      moneda: "ARS",
+      cotizacion: mep,
+      monto_usd: mep ? Math.round((monto / mep) * 100) / 100 : null,
+      detalle: "Cobro de venta",
+      origen: "venta",
+      created_by: user.id,
+    });
+  }
+
+  if (!filas.length) return;
+
+  const { error } = await supabase.from("movimientos").insert(filas);
+  if (error) throw new Error(`No se pudo registrar el cobro: ${error.message}`);
+
+  bump("/administracion", "/administracion/disponibilidades", "/ventas", "/ventas/pedidos", "/ventas/clientes", "/reportes", "/");
+}
+
 /** Gasto imputado a una venta puntual: flete, mano de obra, lo que sea. */
 export async function crearGastoVenta(fd: FormData) {
   const { supabase, user } = await sesion();
@@ -1159,7 +1211,7 @@ export async function crearGastoVenta(fd: FormData) {
     tipo: "E",
     origen: "pedido",
   });
-  bump("/ventas/pedidos", "/administracion", "/reportes");
+  bump("/ventas/pedidos", "/ventas", "/administracion", "/reportes");
 }
 
 /** Alta rápida de una persona o empresa desde la pantalla de caja. */

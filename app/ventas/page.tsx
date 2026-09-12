@@ -3,10 +3,11 @@ import { createClient } from "@/lib/supabase/server";
 import { BarrasTiempo } from "@/components/barras-tiempo";
 import { EditarVenta } from "@/components/editar-venta";
 import { Dato } from "@/components/dato";
+import { Cobrar } from "@/components/cobrar";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota, Selector } from "@/components/campos";
-import { borrarVenta, crearVenta, editarVenta } from "@/lib/actions";
-import { fechaBreve, fechaCorta, fechaLarga, hoyISO, m2, numero, pesos } from "@/lib/format";
+import { borrarVenta, cobrarVentas, crearVenta, editarVenta } from "@/lib/actions";
+import { fechaBreve, fechaCorta, fechaDM, fechaLarga, hoyISO, m2, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -23,10 +24,25 @@ export default async function VentasPage() {
   const hoy = hoyISO();
   const inicioMes = `${hoy.slice(0, 7)}-01`;
 
-  const [{ data: clientes }, { data: lotes }, { data: ventas }, { data: porMes }, { data: config }] =
-    await Promise.all([
+  const [
+    { data: clientes },
+    { data: lotes },
+    { data: porCobrar },
+    { data: cuentas },
+    { data: ventas },
+    { data: porMes },
+    { data: config },
+  ] = await Promise.all([
       supabase.from("clientes").select("id, nombre").eq("activo", true).order("nombre"),
       supabase.from("lotes").select("id, nombre").eq("activo", true).order("nombre"),
+      // Lo entregado que todavía no se cobró, y dónde puede entrar la plata.
+      supabase
+        .from("v_margen_ventas")
+        .select("venta_id, comprador, cliente_id, fecha, fecha_entrega, facturado, cobrado, pendiente")
+        .eq("estado", "entregada")
+        .gt("pendiente", 0)
+        .order("fecha_entrega", { ascending: true, nullsFirst: false }),
+      supabase.from("cuentas").select("id, nombre").eq("activa", true).order("orden"),
       supabase
         .from("ventas")
         .select("*, clientes!cliente_id(nombre), vinculante:clientes!vinculante_id(nombre), lotes(nombre)")
@@ -55,6 +71,17 @@ export default async function VentasPage() {
     .slice()
     .reverse()
     .map((r: any) => ({ mes: String(r.mes).slice(0, 7), valor: Number(r.m2 ?? 0) }));
+
+  const aCobrar = ((porCobrar ?? []) as any[]).map((v) => ({
+    id: v.venta_id as string,
+    comprador: (v.comprador ?? "Sin comprador") as string,
+    clienteId: v.cliente_id as string,
+    fecha: (v.fecha_entrega ?? v.fecha) as string,
+    facturado: Number(v.facturado ?? 0),
+    pendiente: Number(v.pendiente ?? 0),
+  }));
+  const totalPorCobrar = aCobrar.reduce((a, v) => a + v.pendiente, 0);
+  const cuentasOpc = ((cuentas ?? []) as any[]).map((c) => ({ id: c.id, nombre: c.nombre }));
 
   const tonoEstado = (e: string) =>
     e === "entregada"
@@ -166,6 +193,63 @@ export default async function VentasPage() {
           )}
         </Card>
 
+        {/* Lo entregado que todavía no se cobró. Queda acá hasta que
+            entre la plata, y desde acá se carga el pago. */}
+        <Card
+          titulo="Pendiente de cobro"
+          accion={
+            aCobrar.length > 0 ? (
+              <Cobrar ventas={aCobrar} cuentas={cuentasOpc} accion={cobrarVentas} />
+            ) : undefined
+          }
+        >
+          {aCobrar.length === 0 ? (
+            <p className="rounded-xl bg-crema py-6 text-center text-sm text-tinta-2">
+              No te deben nada. Todo lo entregado está cobrado.
+            </p>
+          ) : (
+            <>
+              <p className="mb-3 text-sm text-tinta-2">
+                {aCobrar.length} entrega{aCobrar.length === 1 ? "" : "s"} sin cobrar por{" "}
+                <strong className="text-atencion-tx">{pesos(totalPorCobrar)}</strong>.
+              </p>
+              <Tabla
+                columnas={[
+                  { titulo: "Entrega", ancho: "w-[3.4rem] sm:w-auto" },
+                  { titulo: "Comprador" },
+                  { titulo: "Facturado", desde: "sm" },
+                  { titulo: "Debe", align: "right" },
+                ]}
+              >
+                {aCobrar.map((v) => (
+                  <tr key={v.id}>
+                    <td className="td whitespace-nowrap">
+                      <span className="sm:hidden">{fechaDM(v.fecha)}</span>
+                      <span className="hidden sm:inline">{fechaBreve(v.fecha)}</span>
+                    </td>
+                    <td className="td max-w-0 truncate font-medium">
+                      <Link href={`/ventas/${v.id}`} className="hover:underline">
+                        {v.comprador}
+                      </Link>
+                    </td>
+                    <td className="td hidden tabular-nums sm:table-cell">{pesos(v.facturado)}</td>
+                    <td className="td text-right tabular-nums font-semibold text-atencion-tx sm:text-left">
+                      <Dato
+                        principal={pesos(v.pendiente)}
+                        secundario={
+                          v.pendiente < v.facturado ? (
+                            <span className="sm:hidden">de {pesos(v.facturado)}</span>
+                          ) : null
+                        }
+                      />
+                    </td>
+                  </tr>
+                ))}
+              </Tabla>
+            </>
+          )}
+        </Card>
+
         <Card titulo="m² vendidos">
           <BarrasTiempo datos={serie} />
         </Card>
@@ -189,8 +273,14 @@ export default async function VentasPage() {
             {(ventas ?? []).map((v: any) => (
               <tr key={v.id}>
                 <td className="td whitespace-nowrap">{fechaBreve(v.fecha)}</td>
-                <td className="td max-w-0 truncate font-medium">
-                  {v.clientes?.nombre}
+                <td className="td max-w-0 font-medium">
+                  <Link
+                    href={`/ventas/${v.id}`}
+                    className="block truncate hover:underline"
+                    title={`Ver el detalle de la venta de ${v.clientes?.nombre}`}
+                  >
+                    {v.clientes?.nombre}
+                  </Link>
                   {(v.vinculante || v.cliente_final) && (
                     <span className="block text-xs font-normal text-tinta-3">
                       {v.vinculante ? `vía ${v.vinculante.nombre}` : ""}

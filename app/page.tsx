@@ -31,6 +31,7 @@ export default async function Dashboard() {
     { data: fertProx },
     { data: pedidosPend },
     { data: saldos },
+    { data: sinCobrar },
     { data: dolar },
   ] = await Promise.all([
     supabase
@@ -74,6 +75,13 @@ export default async function Dashboard() {
       .limit(5),
     supabase.from("v_pedidos_pendientes").select("*").order("fecha_entrega"),
     supabase.from("v_saldos_cuentas").select("*"),
+    // Lo entregado que todavía no se cobró.
+    supabase
+      .from("v_margen_ventas")
+      .select("venta_id, comprador, fecha, fecha_entrega, pendiente")
+      .eq("estado", "entregada")
+      .gt("pendiente", 0)
+      .order("fecha_entrega", { ascending: true, nullsFirst: false }),
     supabase
       .from("cotizaciones")
       .select("*")
@@ -128,6 +136,9 @@ export default async function Dashboard() {
     return true;
   });
   const tresDias = ((clima ?? []) as any[]).slice(0, 3);
+
+  const deudas = (sinCobrar ?? []) as any[];
+  const totalACobrar = deudas.reduce((a, v) => a + Number(v.pendiente ?? 0), 0);
 
   return (
     <>
@@ -201,6 +212,69 @@ export default async function Dashboard() {
               </span>
             </div>
           </div>
+
+          {/* Lo que más se carga, a un toque desde la pantalla de entrada. */}
+          <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+            <Link
+              href="/administracion"
+              className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl bg-pasto px-3 text-sm font-bold text-crema transition active:scale-[.98]"
+            >
+              <span aria-hidden className="text-lg leading-none">
+                +
+              </span>
+              Cargar movimiento
+            </Link>
+            <Link
+              href="/ventas/pedidos"
+              className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-borde-boton bg-white px-3 text-sm font-bold text-pasto transition active:scale-[.98]"
+            >
+              <span aria-hidden className="text-lg leading-none">
+                +
+              </span>
+              Cargar pedido
+            </Link>
+          </div>
+
+          {/* Lo entregado que todavía no cobraste: la plata que está en
+              la calle. El detalle y la carga del pago, en Ventas. */}
+          {totalACobrar > 0 && (
+            <div className="rounded-2xl border border-borde bg-white">
+              <div className="flex items-center gap-2 px-3.5 pt-3.5">
+                <h2 className="flex-1 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
+                  Pendiente de cobro
+                </h2>
+                <Link href="/ventas" className="text-xs font-bold text-pasto">
+                  Ver todo
+                </Link>
+              </div>
+              <p className="px-3.5 pt-1 text-xl font-bold leading-tight tabular-nums text-atencion-tx">
+                {pesos(totalACobrar)}
+              </p>
+              <ul className="mt-2 divide-y divide-beige">
+                {deudas.slice(0, 3).map((v: any) => (
+                  <li key={v.venta_id} className="flex items-center gap-3 px-3.5 py-2.5">
+                    <span className="w-14 shrink-0 text-sm font-bold tabular-nums text-tinta">
+                      {fechaCorta(v.fecha_entrega ?? v.fecha)}
+                    </span>
+                    <Link
+                      href={`/ventas/${v.venta_id}`}
+                      className="min-w-0 flex-1 truncate text-sm text-tinta hover:underline"
+                    >
+                      {v.comprador}
+                    </Link>
+                    <span className="shrink-0 text-sm font-semibold tabular-nums text-atencion-tx">
+                      {pesos(Number(v.pendiente))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              {deudas.length > 3 && (
+                <p className="px-3.5 pb-3 pt-2 text-xs text-tinta-3">
+                  y {deudas.length - 3} entrega{deudas.length - 3 === 1 ? "" : "s"} más.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Lo que se mira todos los días, sin abrir el menú. */}
           <div className="sm:hidden">

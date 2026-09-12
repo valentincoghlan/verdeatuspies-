@@ -4,9 +4,8 @@ import { Campo, Nota, Opciones, Selector } from "@/components/campos";
 import { Elegir } from "@/components/elegir";
 import { CuentaYMonto } from "@/components/plata";
 import { QuePaso } from "@/components/que-paso";
-import { Confirmar } from "@/components/confirmar";
 import { FiltroFechas, resolverRango } from "@/components/filtro-fechas";
-import { borrarMovimiento, crearMovimiento, crearPersona } from "@/lib/actions";
+import { crearMovimiento, crearPersona } from "@/lib/actions";
 import { esAdmin } from "@/lib/rol";
 import { fechaBreve, fechaDM, hoyISO, numero, pesos } from "@/lib/format";
 
@@ -35,6 +34,7 @@ export default async function CajaPage({
     { data: categorias },
     { data: personas },
     { data: lotes },
+    { data: ventas },
     { data: movs },
     { data: totales },
     { data: cotizacion },
@@ -44,6 +44,12 @@ export default async function CajaPage({
     supabase.from("categorias").select("*").eq("activa", true).order("orden"),
     supabase.from("personas").select("*").eq("activa", true).order("nombre"),
     supabase.from("lotes").select("id, nombre").eq("activo", true).order("nombre"),
+    // Las últimas ventas, para poder colgarles un cobro o un gasto.
+    supabase
+      .from("v_margen_ventas")
+      .select("venta_id, comprador, fecha, fecha_entrega, facturado")
+      .order("fecha_entrega", { ascending: false, nullsFirst: false })
+      .limit(60),
     supabase
       .from("v_movimientos")
       .select("*")
@@ -99,6 +105,10 @@ export default async function CajaPage({
   }));
   const nombresPersona = (personas ?? []).map((p: any) => p.nombre as string);
   const opcionesLote = (lotes ?? []).map((l: any) => ({ value: l.id, label: l.nombre }));
+  const ventasOpc = ((ventas ?? []) as any[]).map((v) => ({
+    value: v.venta_id as string,
+    label: `${v.comprador} · ${fechaBreve(v.fecha_entrega ?? v.fecha)} · ${pesos(Number(v.facturado ?? 0))}`,
+  }));
 
   return (
     <>
@@ -149,6 +159,16 @@ export default async function CajaPage({
               placeholder="Qué se compró o por qué se cobró"
               className="col-span-2 sm:col-span-1"
             />
+            {/* Cualquier movimiento se puede colgar de una venta: un
+                cobro, un flete, la mano de obra de esa cosecha. De ahí
+                sale el margen real de cada operación. */}
+            <Selector
+              label="¿Es de alguna venta?"
+              name="venta_id"
+              vacio="No, es general"
+              opciones={ventasOpc}
+              className="col-span-2 sm:col-span-3"
+            />
 
             <div className="col-span-2 sm:col-span-3">
               <button className="btn btn-alto sm:w-auto">Guardar movimiento</button>
@@ -177,7 +197,6 @@ export default async function CajaPage({
               { titulo: "Detalle", desde: "sm" },
               { titulo: "Cuenta", desde: "sm" },
               { titulo: "Monto", desde: "sm" },
-              { titulo: "", ancho: "w-11 sm:w-auto" },
             ]}
             vacio="No hay movimientos en este período."
           >
@@ -228,19 +247,6 @@ export default async function CajaPage({
                   }
                 >
                   {m.tipo === "I" ? "+" : "−"} {pesos(Number(m.monto))}
-                </td>
-                <td className="td text-right">
-                  {/* Borrar un movimiento le mueve el saldo a todos: solo
-                      lo hace el dueño. */}
-                  {admin && (
-                    <Confirmar
-                      action={borrarMovimiento}
-                      campos={{ id: m.id }}
-                      etiqueta="×"
-                      pregunta="¿Borrar este movimiento?"
-                      compacto
-                    />
-                  )}
                 </td>
               </tr>
             ))}
