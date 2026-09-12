@@ -51,6 +51,7 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
   const cobrado = Number(v.cobrado ?? 0);
   const pendiente = Number(v.pendiente ?? 0);
   const gastos = Number(v.gastos ?? 0);
+  const gastosImputados = Number(v.gastos_imputados ?? 0);
   const margen = facturado - gastos;
   const pct = facturado > 0 ? (margen / facturado) * 100 : 0;
 
@@ -184,6 +185,34 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
             ]}
             vacio="Todavía no hay ningún movimiento colgado de esta venta."
           >
+            {Number(v.costo_cosecha) > 0 && (
+              <tr>
+                <td className="td whitespace-nowrap text-tinta-3">—</td>
+                <td className="td">
+                  <span className="block font-medium">Cosecha</span>
+                  <span className="block text-xs text-tinta-3">Viene cargado en la venta</span>
+                </td>
+                <td className="td hidden text-tinta-3 sm:table-cell">—</td>
+                <td className="td whitespace-nowrap text-right tabular-nums font-semibold text-atencion-tx sm:text-left">
+                  − {pesos(Number(v.costo_cosecha))}
+                </td>
+                <td className="td" />
+              </tr>
+            )}
+            {Number(v.costo_envio) > 0 && (
+              <tr>
+                <td className="td whitespace-nowrap text-tinta-3">—</td>
+                <td className="td">
+                  <span className="block font-medium">Envío</span>
+                  <span className="block text-xs text-tinta-3">Viene cargado en la venta</span>
+                </td>
+                <td className="td hidden text-tinta-3 sm:table-cell">—</td>
+                <td className="td whitespace-nowrap text-right tabular-nums font-semibold text-atencion-tx sm:text-left">
+                  − {pesos(Number(v.costo_envio))}
+                </td>
+                <td className="td" />
+              </tr>
+            )}
             {lista.map((m) => (
               <tr key={m.id}>
                 <td className="td whitespace-nowrap">{fechaBreve(m.fecha)}</td>
@@ -220,14 +249,16 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
             ))}
           </Tabla>
 
-          {lista.length > 0 && (
-            <p className="mt-3 text-sm text-tinta-2">
-              {ingresos.length} cobro{ingresos.length === 1 ? "" : "s"} por{" "}
-              <strong className="text-pasto">{pesos(cobrado)}</strong> y {egresos.length} gasto
-              {egresos.length === 1 ? "" : "s"} por{" "}
-              <strong className="text-atencion-tx">{pesos(gastos)}</strong>.
-            </p>
-          )}
+          <p className="mt-3 text-sm text-tinta-2">
+            {ingresos.length} cobro{ingresos.length === 1 ? "" : "s"} por{" "}
+            <strong className="text-pasto">{pesos(cobrado)}</strong> y{" "}
+            <strong className="text-atencion-tx">{pesos(gastos)}</strong> de gastos
+            {Number(v.costo_cosecha) > 0 && (
+              <> —{pesos(Number(v.costo_cosecha))} de cosecha</>
+            )}
+            {Number(v.costo_envio) > 0 && <> y {pesos(Number(v.costo_envio))} de envío</>}
+            {gastosImputados > 0 && <> más {pesos(gastosImputados)} imputados</>}.
+          </p>
         </Card>
 
         <Card titulo="Cargarle un gasto">

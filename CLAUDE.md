@@ -138,3 +138,17 @@ y carga de datos reales (superficie de los lotes, precio por m², clientes).
 - Costo por m² producido (pagos por lote / m² vendidos).
 - Fotos en cada registro (Supabase Storage).
 - Avisos por WhatsApp.
+
+---
+
+## Cierre obligatorio de cada tarea (regla del usuario)
+
+Terminá SIEMPRE la respuesta con estas dos secciones, en español:
+
+**QUÉ HICE** — bullets con lo que efectivamente hiciste (archivos, comandos,
+resultados reales). Si algo falló o quedó a medias, decilo acá.
+
+**TU TURNO** — bullets con lo que queda del lado del usuario (revisar, aprobar,
+configurar, probar, decidir). Si no queda nada: "Nada, podés seguir con lo próximo."
+
+Aplica aunque la tarea haya sido chica o hayas solo respondido una pregunta.
