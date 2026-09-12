@@ -14,6 +14,7 @@ const TRAZOS: Record<string, string> = {
   riego: "M12 3s5.5 6 5.5 9.5a5.5 5.5 0 1 1-11 0C6.5 9 12 3 12 3Z",
   cortes: "M6 4v6m12-6v6M4 12h16M7 12v8m10-8v8",
   fertilizacion: "M12 21c0-5 3-9 8-10-1 6-4 9-8 10ZM12 21c0-5-3-9-8-10 1 6 4 9 8 10ZM12 21v-6",
+  pulverizacion: "M12 3v3.5M9.5 6.5h5l-1.3 3h-2.4ZM11 12l-2.5 8M12.5 12v8m1.5-8 2.5 8",
   pedidos: "M4 7h16l-1.5 12h-13Zm4 0V5a4 4 0 0 1 8 0v2",
   ventas: "M4 19 10 12l3.5 3.5L20 8m0 0h-5m5 0v5",
   clientes: "M12 12a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7ZM5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5",

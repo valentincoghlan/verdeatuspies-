@@ -24,6 +24,7 @@ export const SECCIONES: Seccion[] = [
       { href: "/mantenimiento/riego", label: "Riego y lluvias", icono: "riego" },
       { href: "/mantenimiento/cortes", label: "Cortes", icono: "cortes" },
       { href: "/mantenimiento/fertilizaciones", label: "Fertilización", icono: "fertilizacion" },
+      { href: "/mantenimiento/pulverizacion", label: "Pulverización", icono: "pulverizacion" },
     ],
   },
   {
