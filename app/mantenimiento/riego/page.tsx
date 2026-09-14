@@ -502,7 +502,7 @@ export default async function AguaPage({
                           required
                           defaultValue={Number(l.mm)}
                           aria-label={`mm reales del ${fechaBreve(l.fecha)}`}
-                          className="input w-24 min-w-0 text-center"
+                          className="input input-medio min-w-0 text-center"
                         />
                         <button className="btn whitespace-nowrap px-3 py-1.5">Confirmar</button>
                       </form>

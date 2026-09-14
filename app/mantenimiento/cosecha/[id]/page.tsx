@@ -33,8 +33,13 @@ export default async function ContarCosechaPage({
   // C4 a C6 - si la cosecha cubre un pedido, cuando ya cortaste algo la
   // app te ofrece cerrar la entrega ahi mismo, en vez de mandarte a
   // Inicio a buscar la alerta.
-  const [{ data: porLote }, { data: lotesCosecha }, { data: pendientes }, { data: yaReparto }] =
-    await Promise.all([
+  const [
+    { data: porLote },
+    { data: lotesCosecha },
+    { data: pendientes },
+    { data: yaReparto },
+    { data: todoElReparto },
+  ] = await Promise.all([
       supabase.from("v_cosecha_lotes").select("*").eq("cosecha_id", id),
       supabase.from("cosechas_lotes").select("lote_id, lotes(nombre)").eq("cosecha_id", id),
       // Los pedidos que puede abastecer, en orden de entrega: el que sale
@@ -45,6 +50,10 @@ export default async function ContarCosechaPage({
         .in("estado", ["pedido", "confirmada"])
         .order("fecha_entrega", { ascending: true, nullsFirst: false }),
       supabase.from("cosecha_ventas").select("venta_id, m2").eq("cosecha_id", id),
+      // Lo que TODAS las cosechas ya le asignaron a cada pedido. Sin
+      // esto, un pedido ya cubierto por otra cosecha volvía a aparecer
+      // acá pidiendo sus metros de nuevo.
+      supabase.from("cosecha_ventas").select("venta_id, m2"),
     ]);
 
   const objetivo = Number(c.objetivo_m2 ?? 0);
@@ -68,14 +77,29 @@ export default async function ContarCosechaPage({
   const asignados = new Map(
     ((yaReparto ?? []) as any[]).map((x) => [x.venta_id, Number(x.m2 ?? 0)]),
   );
-  const paraRepartir = ((pendientes ?? []) as any[]).map((v) => ({
-    id: v.id as string,
-    comprador: (v.clientes as any)?.nombre ?? "Sin comprador",
-    fechaEntrega: (v.fecha_entrega ?? null) as string | null,
-    m2Pedido: Number(v.m2 ?? 0),
-    precioM2: Number(v.precio_m2 ?? 0),
-    asignado: asignados.get(v.id) ?? 0,
-  }));
+  // Lo que le cubrieron las OTRAS cosechas: la propia no cuenta, porque
+  // si se está reabriendo esta, sus metros se vuelven a repartir acá.
+  const cubiertoPorOtras = new Map<string, number>();
+  for (const r of (todoElReparto ?? []) as any[]) {
+    cubiertoPorOtras.set(r.venta_id, (cubiertoPorOtras.get(r.venta_id) ?? 0) + Number(r.m2 ?? 0));
+  }
+  for (const [ventaId, m2Propio] of asignados) {
+    const id = ventaId as string;
+    cubiertoPorOtras.set(id, Math.max(0, (cubiertoPorOtras.get(id) ?? 0) - Number(m2Propio)));
+  }
+
+  const paraRepartir = ((pendientes ?? []) as any[])
+    .map((v) => ({
+      id: v.id as string,
+      comprador: (v.clientes as any)?.nombre ?? "Sin comprador",
+      fechaEntrega: (v.fecha_entrega ?? null) as string | null,
+      m2Pedido: Number(v.m2 ?? 0),
+      precioM2: Number(v.precio_m2 ?? 0),
+      asignado: asignados.get(v.id) ?? 0,
+      yaCubierto: cubiertoPorOtras.get(v.id) ?? 0,
+    }))
+    // Un pedido ya cubierto no se ofrece: no le falta nada.
+    .filter((p) => p.asignado > 0 || p.m2Pedido - p.yaCubierto > 0.05);
 
   // Los lotes que la cosecha va a tocar: son los que ofrece el selector
   // de cada carga. Con uno solo no se pregunta.

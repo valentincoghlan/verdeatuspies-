@@ -130,7 +130,7 @@ export function Cobrar({
         onClick={(e) => {
           if (e.target === dialogo.current) dialogo.current?.close();
         }}
-        className="m-auto max-h-[88vh] w-[22rem] overflow-y-auto rounded-[20px] border border-borde bg-white p-0 text-tinta backdrop:bg-tinta/40 sm:w-[30rem]"
+        className="m-auto max-h-[88vh] w-[calc(100vw-1.5rem)] max-w-[22rem] sm:max-w-[30rem] overflow-y-auto rounded-[20px] border border-borde bg-white p-0 text-tinta backdrop:bg-tinta/40 sm:w-[30rem]"
       >
         <div className="p-5">
           <p className="text-base font-bold">Registrar un cobro</p>
@@ -212,7 +212,7 @@ export function Cobrar({
                           setReparto((r) => ({ ...r, [v.id]: e.target.value }));
                         }}
                         placeholder="0"
-                        className="input w-28 shrink-0 text-right"
+                        className="input input-medio shrink-0 text-right"
                       />
                     </li>
                   ))}

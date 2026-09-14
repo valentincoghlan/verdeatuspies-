@@ -1,16 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Checks } from "@/components/checks";
+import { FechaDeCarga, ProveedorCarga, useCarga } from "@/components/carga";
+import { PedidosDeCarga, type PedidoElegible } from "@/components/pedidos-de-carga";
 import { QuePaso, type Rubro } from "@/components/que-paso";
 import { Renglon, Renglones, renglonVacio, renglonesValidos, totalDe } from "@/components/renglones";
 import { repartirProporcional } from "@/lib/reparto";
-
-export type PedidoDeTanda = {
-  id: string;
-  label: string;
-  m2: number;
-};
 
 const pesos = (v: number) =>
   v.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
@@ -20,8 +15,8 @@ const metros = (v: number) => `${v.toLocaleString("es-AR", { maximumFractionDigi
 /**
  * Cargar varios pagos de una, y repartirlos entre varios pedidos.
  *
- * Es la pantalla del día de cosecha. Arriba va lo que comparten todos:
- * la categoría, la fecha, y a qué pedidos les corresponde. Abajo, un
+ * Es la pantalla del día de cosecha. Arriba va lo que comparten: la
+ * categoría, la fecha, y a qué pedidos les corresponde. Abajo, un
  * renglón por persona con su cuenta y su monto.
  *
  * El reparto entre pedidos se muestra antes de guardar, con los números
@@ -29,7 +24,28 @@ const metros = (v: number) => `${v.toLocaleString("es-AR", { maximumFractionDigi
  * se ve cómo, el margen de cada venta pasa a ser un número que apareció
  * de la nada.
  */
-export function Tanda({
+export function Tanda(props: Parametros) {
+  // El proveedor va afuera porque el formulario lo consume: qué pedidos
+  // se ofrecen depende de la categoría y la fecha que se elijan adentro.
+  return (
+    <ProveedorCarga hoy={props.hoy}>
+      <FormularioDeTanda {...props} />
+    </ProveedorCarga>
+  );
+}
+
+type Parametros = {
+  rubros: Rubro[];
+  admin: boolean;
+  cuentas: { id: string; nombre: string }[];
+  personas: string[];
+  lotes: { value: string; label: string }[];
+  pedidos: PedidoElegible[];
+  hoy: string;
+  accion: (fd: FormData) => Promise<void>;
+};
+
+function FormularioDeTanda({
   rubros,
   admin,
   cuentas,
@@ -38,31 +54,25 @@ export function Tanda({
   pedidos,
   hoy,
   accion,
-}: {
-  rubros: Rubro[];
-  admin: boolean;
-  cuentas: { id: string; nombre: string }[];
-  personas: string[];
-  lotes: { value: string; label: string }[];
-  pedidos: PedidoDeTanda[];
-  hoy: string;
-  accion: (fd: FormData) => Promise<void>;
-}) {
+}: Parametros) {
+  const carga = useCarga();
   const [renglones, setRenglones] = useState<Renglon[]>(() => [
     renglonVacio(cuentas[0]?.id ?? ""),
   ]);
-  const [elegidos, setElegidos] = useState<string[]>([]);
 
   const total = totalDe(renglones);
   const listos = renglonesValidos(renglones);
 
   // En el orden en que se fueron marcando: el mismo que usa el servidor.
-  const destinos = elegidos
+  const destinos = (carga?.elegidos ?? [])
     .map((id) => pedidos.find((p) => p.id === id))
-    .filter((p): p is PedidoDeTanda => !!p);
+    .filter((p): p is PedidoElegible => !!p);
 
   const reparto = destinos.length
-    ? repartirProporcional(total, destinos.map((d) => ({ id: d.id, peso: d.m2 })))
+    ? repartirProporcional(
+        total,
+        destinos.map((d) => ({ id: d.id, peso: d.m2 })),
+      )
     : [];
 
   const m2Totales = destinos.reduce((a, d) => a + d.m2, 0);
@@ -72,19 +82,7 @@ export function Tanda({
     <form action={accion} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:max-w-4xl">
       <QuePaso rubros={rubros} admin={admin} />
 
-      <div className="col-span-1 min-w-0">
-        <label className="label" htmlFor="tanda-fecha">
-          Fecha
-        </label>
-        <input
-          id="tanda-fecha"
-          name="fecha"
-          type="date"
-          required
-          defaultValue={hoy}
-          className="input"
-        />
-      </div>
+      <FechaDeCarga hoy={hoy} className="col-span-1" />
 
       <div className="col-span-1 min-w-0">
         <label className="label" htmlFor="tanda-lote">
@@ -104,20 +102,13 @@ export function Tanda({
         <label className="label" htmlFor="tanda-detalle">
           Detalle
         </label>
-        <input
-          id="tanda-detalle"
-          name="detalle"
-          placeholder="Por qué se pagó"
-          className="input"
-        />
+        <input id="tanda-detalle" name="detalle" placeholder="Por qué se pagó" className="input" />
       </div>
 
-      <Checks
-        label="¿A qué pedidos va?"
-        name="venta_id"
-        opciones={pedidos.map((p) => ({ value: p.id, label: p.label }))}
-        resumenVacio="A ninguno, es general"
-        onChange={setElegidos}
+      <PedidosDeCarga
+        pedidos={pedidos}
+        hoy={hoy}
+        multiple
         className="col-span-2 sm:col-span-3"
       />
 
@@ -144,7 +135,7 @@ export function Tanda({
               const pct = m2Totales > 0 ? (d.m2 / m2Totales) * 100 : 100 / destinos.length;
               return (
                 <li key={d.id} className="flex items-baseline justify-between gap-3">
-                  <span className="min-w-0 flex-1 truncate text-tinta">{d.label}</span>
+                  <span className="min-w-0 flex-1 truncate text-tinta">{d.comprador}</span>
                   <span className="shrink-0 text-xs tabular-nums text-tinta-3">
                     {metros(d.m2)} · {Math.round(pct)}%
                   </span>
@@ -157,18 +148,14 @@ export function Tanda({
           </ul>
           {m2Totales === 0 && (
             <p className="mt-2 text-xs text-atencion-tx">
-              Ninguno de esos pedidos tiene metros cargados, así que se reparte en partes
-              iguales.
+              Ninguno de esos pedidos tiene metros cargados, así que se reparte en partes iguales.
             </p>
           )}
         </div>
       )}
 
       <div className="col-span-2 flex flex-wrap items-center gap-3 sm:col-span-3">
-        <button
-          disabled={listos.length === 0}
-          className="btn btn-alto disabled:opacity-40 sm:w-auto"
-        >
+        <button disabled={listos.length === 0} className="btn btn-alto disabled:opacity-40 sm:w-auto">
           Guardar {cuantos === 1 ? "el movimiento" : `los ${cuantos} movimientos`}
         </button>
         {listos.length > 0 && (

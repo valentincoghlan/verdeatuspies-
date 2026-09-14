@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Checks } from "@/components/checks";
 import { Dato } from "@/components/dato";
+import { Icono } from "@/components/iconos";
 import { PedidoYObjetivo } from "@/components/pedido-objetivo";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota } from "@/components/campos";
@@ -115,14 +116,14 @@ export default async function CosechaPage() {
           <Tabla
             columnas={[
               { titulo: "Fecha", desde: "sm" },
-              { titulo: "Lote" },
+              // Para quién es, y nada más: el lote ya se ve adentro de la
+              // cosecha y acá solo robaba ancho.
+              { titulo: "Cliente" },
               // Objetivo, avance y falta son el mismo hecho contado tres
-              // veces: "206 de 400" ya dice las tres cosas. Juntarlas es
-              // lo que le devuelve el ancho al lote, que se cortaba.
+              // veces: "404 de 400" ya lo dice entero.
               { titulo: "Avance", align: "right" },
-              { titulo: "Pilas", desde: "sm", align: "right" },
               { titulo: "Estado" },
-              { titulo: "", ancho: "w-11 sm:w-auto" },
+              { titulo: "", ancho: "w-11" },
             ]}
             vacio="Todavía no empezaste ninguna cosecha."
           >
@@ -139,41 +140,32 @@ export default async function CosechaPage() {
                   <td className="td hidden whitespace-nowrap sm:table-cell">
                     {fechaBreve(c.fecha)}
                   </td>
-                  {/* En el teléfono el ancho es prestado y el nombre se
-                      corta; en la compu sobra, así que se muestra entero. */}
                   <td className="td max-w-0 sm:max-w-none">
-                    <span className="block truncate">{c.lote ?? "—"}</span>
-                    <span className="block truncate text-xs text-tinta-3">
-                      {c.comprador ? `para ${c.comprador}` : null}
-                      <span className="sm:hidden">
-                        {c.comprador ? " · " : ""}
-                        {fechaBreve(c.fecha)}
-                      </span>
+                    <span className="block truncate">{c.comprador ?? "Sin pedido"}</span>
+                    <span className="block truncate text-xs text-tinta-3 sm:hidden">
+                      {fechaBreve(c.fecha)}
                     </span>
                   </td>
                   <td className="td text-right tabular-nums font-semibold text-pasto">
                     <Dato
-                      principal={`${numero(cortado)} de ${numero(objetivo)}`}
+                      principal={`${numero(cortado)}/${numero(objetivo)}`}
                       secundario={
-                        falta > 0 ? `${numero(pct)}% · faltan ${numero(falta)}` : "completa"
+                        falta > 0 ? `faltan ${numero(falta)}` : "completada"
                       }
-                    />
-                  </td>
-                  <td className="td hidden text-right tabular-nums text-tinta-2 sm:table-cell">
-                    <Dato
-                      principal={`${numero(c.pilas_cargadas)} / ${numero(c.pilas_objetivo)}`}
-                      secundario={`${numero(c.lineas)} ${Number(c.lineas) === 1 ? "línea" : "líneas"}`}
                     />
                   </td>
                   <td className="td">
                     <Chip tono={c.estado === "cerrada" ? "verde" : "ambar"}>{c.estado}</Chip>
                   </td>
+                  {/* El lápiz entra a la cosecha: ahí se sigue contando o
+                      se cierra, según cómo esté. */}
                   <td className="td text-right">
                     <Link
                       href={`/mantenimiento/cosecha/${c.id}`}
-                      className="text-sm font-semibold text-pasto hover:underline"
+                      aria-label={`Editar la cosecha del ${fechaBreve(c.fecha)}`}
+                      className="inline-flex size-11 items-center justify-center rounded-full text-tinta-2 transition hover:bg-beige hover:text-pasto"
                     >
-                      Contar
+                      <Icono nombre="editar" className="size-[18px]" />
                     </Link>
                   </td>
                 </tr>

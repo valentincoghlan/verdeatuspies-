@@ -10,6 +10,8 @@ export type PedidoDelReparto = {
   precioM2: number;
   /** Lo que ya tenía asignado de esta cosecha, si se está reabriendo. */
   asignado: number;
+  /** Lo que le cubrieron OTRAS cosechas. Lo que falta sale de restar. */
+  yaCubierto: number;
 };
 
 export type LoteCosechado = { lote: string; m2: number; panes: number };
@@ -72,13 +74,23 @@ export function CerrarCosecha({
     if (campoCerrar.current) campoCerrar.current.value = v;
   };
 
+  /**
+   * Lo que a un pedido todavía le falta.
+   *
+   * No es lo que pidió: si otra cosecha ya le cubrió 55 de sus 55 m², no
+   * le falta nada y no tiene por qué llevarse un metro de esta. Antes se
+   * miraba solo lo pedido y por eso un pedido ya cumplido volvía a
+   * aparecer pidiendo todo de nuevo.
+   */
+  const leFalta = (p: PedidoDelReparto) => Math.max(0, p.m2Pedido - p.yaCubierto);
+
   // El reparto arranca en orden de entrega: se llena el primero hasta
   // completarlo, después el siguiente.
   const inicial = () => {
     let queda = cosechado;
     const out: Record<string, string> = {};
     for (const p of pedidos) {
-      const toca = dosDecimales(Math.min(queda, p.asignado > 0 ? p.asignado : p.m2Pedido));
+      const toca = dosDecimales(Math.min(queda, p.asignado > 0 ? p.asignado : leFalta(p)));
       out[p.id] = toca > 0 ? String(toca) : "";
       queda -= toca;
     }
@@ -107,7 +119,7 @@ export function CerrarCosecha({
     const out: Record<string, string> = {};
     let ultimo = "";
     for (const p of pedidos) {
-      const toca = dosDecimales(Math.min(queda, p.m2Pedido));
+      const toca = dosDecimales(Math.min(queda, leFalta(p)));
       out[p.id] = toca > 0 ? String(toca) : "";
       if (toca > 0) ultimo = p.id;
       queda -= toca;
@@ -135,7 +147,7 @@ export function CerrarCosecha({
         onClick={(e) => {
           if (e.target === dialogo.current) dialogo.current?.close();
         }}
-        className="m-auto max-h-[88vh] w-[22rem] overflow-y-auto rounded-[20px] border border-borde bg-white p-0 text-tinta backdrop:bg-tinta/40 sm:w-[30rem]"
+        className="m-auto max-h-[88vh] w-[calc(100vw-1.5rem)] max-w-[22rem] sm:max-w-[30rem] overflow-y-auto rounded-[20px] border border-borde bg-white p-0 text-tinta backdrop:bg-tinta/40 sm:w-[30rem]"
       >
         <div className="p-5">
           <p className="text-base font-bold">
@@ -184,14 +196,15 @@ export function CerrarCosecha({
                 <p className="label">Para qué pedidos</p>
                 <ul className="space-y-2">
                   {pedidos.map((p) => (
-                    <li key={p.id} className="flex items-center gap-3">
+                    <li key={p.id} className="flex items-center gap-2">
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold">{p.comprador}</span>
-                        <span className="block text-xs text-tinta-3">
+                        <span className="block truncate text-xs text-tinta-3">
                           {p.fechaEntrega
-                            ? `entrega ${p.fechaEntrega.slice(8, 10)}/${p.fechaEntrega.slice(5, 7)} · `
+                            ? `${p.fechaEntrega.slice(8, 10)}/${p.fechaEntrega.slice(5, 7)} · `
                             : ""}
                           pidió {m2(p.m2Pedido)}
+                          {p.yaCubierto > 0 ? ` · ya tiene ${m2(p.yaCubierto)}` : ""}
                         </span>
                       </span>
                       <input
@@ -202,11 +215,9 @@ export function CerrarCosecha({
                         inputMode="decimal"
                         aria-label={`m² para ${p.comprador}`}
                         value={reparto[p.id] ?? ""}
-                        onChange={(e) =>
-                          setReparto((r) => ({ ...r, [p.id]: e.target.value }))
-                        }
+                        onChange={(e) => setReparto((r) => ({ ...r, [p.id]: e.target.value }))}
                         placeholder="0"
-                        className="input w-24 shrink-0 text-center"
+                        className="input input-medio shrink-0 text-right"
                       />
                     </li>
                   ))}

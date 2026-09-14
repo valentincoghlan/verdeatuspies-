@@ -80,7 +80,7 @@ export default async function ConfigEquipoPage() {
                           name="rol"
                           defaultValue={m.rol}
                           aria-label={`Rol de ${m.email}`}
-                          className="input w-32 min-w-0"
+                          className="input input-medio min-w-0"
                         >
                           <option value="operador">Operador</option>
                           <option value="admin">Dueño</option>

@@ -27,6 +27,8 @@ const TRAZOS: Record<string, string> = {
   integraciones: "M9 7V5a2 2 0 0 1 4 0v2m-7 0h10l-.8 12H6.8ZM15 12l3 3-3 3",
   equipo: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7 0a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM3 19c0-2.8 2.7-4.5 6-4.5s6 1.7 6 4.5m1-4.3c2.4.4 4 1.9 4 4.3",
   cuenta: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-8 8c0-3.9 3.6-6.5 8-6.5s8 2.6 8 6.5",
+  // No es del menú: es el lápiz que abre una fila para editarla.
+  editar: "M4 20h4L19 9l-4-4L4 16Zm11-15 4 4",
 };
 
 export function Icono({ nombre, className = "size-5" }: { nombre?: string; className?: string }) {

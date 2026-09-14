@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Elegir } from "@/components/elegir";
+import { useCarga } from "@/components/carga";
 
 export type SubRubro = { nombre: string; tipo: string };
 export type Rubro = { nombre: string; tipo: string; hijos: SubRubro[] };
@@ -22,6 +23,7 @@ const sirve = (t: string, lado: string) => t === "ambos" || t === lado;
  * que estabas cargando.
  */
 export function QuePaso({ rubros, admin }: { rubros: Rubro[]; admin: boolean }) {
+  const carga = useCarga();
   const [lado, setLado] = useState("E");
   const [rubro, setRubro] = useState("");
   const [sub, setSub] = useState("");
@@ -51,6 +53,9 @@ export function QuePaso({ rubros, admin }: { rubros: Rubro[]; admin: boolean }) 
   // Si cambiás de lado, lo elegido puede dejar de valer.
   const cambiarLado = (l: string) => {
     setLado(l);
+    // A qué pedidos se puede colgar esto depende de si entra o sale, y
+    // ese campo vive más abajo en el formulario.
+    carga?.setLado(l);
     const r = rubros.find((x) => x.nombre === rubro);
     if (r && !sirve(r.tipo, l)) {
       setRubro("");

@@ -140,6 +140,22 @@ body {
      siendo un objetivo de toque cómodo y ocupa cuatro píxeles menos. */
   @apply h-11 w-full rounded-xl border-[1.5px] border-borde bg-crema px-3 text-base text-tinta outline-none transition sm:h-9 sm:text-sm;
 }
+/*
+  Campos angostos: un número corto al lado de su etiqueta.
+
+  Van acá y no como una clase suelta de Tailwind porque .input fija
+  w-full en una regla común, fuera de las capas, y le gana a cualquier
+  w-24 puesto en el JSX. Eso hacía que los campos de dos dígitos se
+  estiraran a lo ancho de la fila y la etiqueta quedara espachurrada
+  contra el borde.
+*/
+.input-corto {
+  @apply w-[4.5rem] sm:w-20;
+}
+.input-medio {
+  @apply w-24 sm:w-28;
+}
+
 .input:focus,
 .input:focus-visible {
   background: #fff;
