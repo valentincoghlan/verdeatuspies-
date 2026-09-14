@@ -2,6 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { numero } from "@/lib/format";
+import { crearPulverizacion } from "@/lib/actions";
+import { Checks } from "@/components/checks";
+import { Nota } from "@/components/campos";
 
 /**
  * Cómo armar la pulverizadora.
@@ -48,12 +51,12 @@ const num = (v: number, d = 0) => numero(v, d);
  * normal en los productos de jardín).
  */
 const UNIDADES = [
-  { value: "l_ha", label: "litros por hectárea", base: 1000, solido: false, porHa: true },
-  { value: "cc_ha", label: "cc por hectárea", base: 1, solido: false, porHa: true },
-  { value: "kg_ha", label: "kilos por hectárea", base: 1000, solido: true, porHa: true },
-  { value: "g_ha", label: "gramos por hectárea", base: 1, solido: true, porHa: true },
-  { value: "cc_100", label: "cc por cada 100 L de agua", base: 1, solido: false, porHa: false },
-  { value: "g_100", label: "gramos por cada 100 L de agua", base: 1, solido: true, porHa: false },
+  { value: "l_ha", label: "litros por hectárea", corta: "l/ha", base: 1000, solido: false, porHa: true },
+  { value: "cc_ha", label: "cc por hectárea", corta: "cc/ha", base: 1, solido: false, porHa: true },
+  { value: "kg_ha", label: "kilos por hectárea", corta: "kg/ha", base: 1000, solido: true, porHa: true },
+  { value: "g_ha", label: "gramos por hectárea", corta: "g/ha", base: 1, solido: true, porHa: true },
+  { value: "cc_100", label: "cc por cada 100 L de agua", corta: "cc/100L", base: 1, solido: false, porHa: false },
+  { value: "g_100", label: "gramos por cada 100 L de agua", corta: "g/100L", base: 1, solido: true, porHa: false },
 ] as const;
 
 type Unidad = (typeof UNIDADES)[number]["value"];
@@ -70,7 +73,17 @@ function cantidad(v: number, solido: boolean) {
 
 const GUARDADO = "vatp:pulverizadora";
 
-export function CalculadoraPulverizacion({ lotes }: { lotes: Lote[] }) {
+export function CalculadoraPulverizacion({
+  lotes,
+  hoy,
+  productosUsados,
+}: {
+  lotes: Lote[];
+  /** Hoy en Argentina, calculado en el servidor para que las dos mitades coincidan. */
+  hoy: string;
+  /** Los productos que ya se pulverizaron alguna vez, para no volver a tipearlos. */
+  productosUsados: string[];
+}) {
   const [tanque, setTanque] = useState("");
   const [ancho, setAncho] = useState("");
   const [caudal, setCaudal] = useState("");
@@ -286,11 +299,19 @@ export function CalculadoraPulverizacion({ lotes }: { lotes: Lote[] }) {
             <input
               id="pul-producto"
               type="text"
+              list="pul-productos"
               value={producto}
               onChange={(e) => setProducto(e.target.value)}
               placeholder="Ej. Glifosato"
               className="input"
             />
+            {/* Los que ya se usaron alguna vez, para que el nombre no
+                quede escrito de tres formas distintas en el historial. */}
+            <datalist id="pul-productos">
+              {productosUsados.map((p) => (
+                <option key={p} value={p} />
+              ))}
+            </datalist>
           </div>
           {campo("pul-dosis", "Dosis", dosis, setDosis, "Ej. 3")}
           <div className="col-span-2 min-w-0 sm:col-span-1">
@@ -472,6 +493,68 @@ export function CalculadoraPulverizacion({ lotes }: { lotes: Lote[] }) {
           </p>
         )}
       </div>
+
+      {/* Anotar va último porque es lo último que pasa: calculás, cargás
+          el tanque, pulverizás y recién ahí queda anotado. El producto,
+          la dosis y la superficie no se vuelven a pedir: son los mismos
+          que cargaste arriba, y se muestran para poder repasarlos antes
+          de guardar. */}
+      <form action={crearPulverizacion} className="card">
+        <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
+          Anotar esta pulverización
+        </h2>
+
+        {producto.trim() && D > 0 ? (
+          <>
+            <div className="mb-3 rounded-xl bg-beige p-3 text-sm text-tinta">
+              Se anota <strong>{producto}</strong> a{" "}
+              <strong>
+                {num(D, Number.isInteger(D) ? 0 : 2)} {u.corta}
+              </strong>
+              {ha > 0 ? (
+                <>
+                  {" "}
+                  sobre <strong>{num(ha, 2)} ha</strong>
+                </>
+              ) : null}
+              .
+            </div>
+
+            <input type="hidden" name="producto" value={producto} />
+            <input type="hidden" name="dosis" value={dosis} />
+            <input type="hidden" name="unidad" value={u.corta} />
+            <input type="hidden" name="superficie_ha" value={superficie} />
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="min-w-0">
+                <label className="label" htmlFor="pul-fecha">
+                  Fecha
+                </label>
+                <input
+                  id="pul-fecha"
+                  name="fecha"
+                  type="date"
+                  defaultValue={hoy}
+                  className="input"
+                />
+              </div>
+              <Checks
+                label="Lotes"
+                name="lote_id"
+                resumenVacio="Cuál"
+                opciones={lotes.map((l) => ({ value: l.id, label: l.nombre }))}
+              />
+              <Nota className="col-span-2" />
+            </div>
+
+            <button className="btn btn-alto mt-3">Anotar la pulverización</button>
+          </>
+        ) : (
+          <p className="text-sm text-tinta-2">
+            Cargá el producto y la dosis acá arriba y te aparece el botón para anotarla.
+          </p>
+        )}
+      </form>
 
       <p className="px-1 pb-2 text-xs text-tinta-3">
         La cuenta sale de los números que cargaste: el caudal real cambia con la presión y con el

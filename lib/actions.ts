@@ -508,6 +508,44 @@ export async function crearFertilizante(fd: FormData) {
 }
 
 /* ------------------------------------------------------------------ */
+/* PULVERIZACIONES                                                     */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Anota una pulverización ya hecha, una por lote marcado.
+ *
+ * A diferencia de la fertilización, acá no se agenda nada: se registra
+ * lo que ya pasó. Por eso no hay estado ni aviso por mail, y la fecha
+ * por defecto es hoy.
+ */
+export async function crearPulverizacion(fd: FormData) {
+  const { supabase, user } = await sesion();
+
+  const lotes = marcados(fd, "lote_id");
+  const producto = txt(fd, "producto");
+  if (lotes.length === 0 || !producto) return;
+
+  const base = {
+    fecha: txt(fd, "fecha") ?? hoyISO(),
+    producto,
+    dosis: dec(fd, "dosis"),
+    unidad: txt(fd, "unidad") ?? "l/ha",
+    superficie_ha: dec(fd, "superficie_ha"),
+    notas: txt(fd, "notas"),
+    created_by: user.id,
+  };
+
+  await supabase.from("pulverizaciones").insert(lotes.map((lote_id) => ({ ...base, lote_id })));
+  bump("/mantenimiento/pulverizacion");
+}
+
+export async function borrarPulverizacion(fd: FormData) {
+  const { supabase } = await sesion();
+  await supabase.from("pulverizaciones").delete().eq("id", txt(fd, "id")!);
+  bump("/mantenimiento/pulverizacion");
+}
+
+/* ------------------------------------------------------------------ */
 /* LLUVIAS                                                             */
 /* ------------------------------------------------------------------ */
 
