@@ -1609,7 +1609,15 @@ export async function repartirCosecha(fd: FormData) {
   }
 
   if (txt(fd, "cerrar") === "1") {
-    await supabase.from("cosechas").update({ estado: "cerrada" }).eq("id", id);
+    // Con `count` y el error a la vista: un update que no encuentra la
+    // fila no es un error para Postgres, así que sin esto una cosecha
+    // que no se cierra se ve exactamente igual que una que sí.
+    const { error, count } = await supabase
+      .from("cosechas")
+      .update({ estado: "cerrada" }, { count: "exact" })
+      .eq("id", id);
+    if (error) throw new Error(`No se pudo cerrar la cosecha: ${error.message}`);
+    if (!count) throw new Error("No se pudo cerrar la cosecha: no se encontró o no tenés permiso.");
   }
 
   bump("/mantenimiento/cosecha", `/mantenimiento/cosecha/${id}`, "/ventas/pedidos", "/ventas");

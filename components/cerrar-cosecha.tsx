@@ -65,6 +65,12 @@ export function CerrarCosecha({
   yaCerrada: boolean;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
+  const campoCerrar = useRef<HTMLInputElement>(null);
+
+  /** Qué botón se apretó, escrito a mano en el campo oculto. */
+  const marcar = (v: "0" | "1") => {
+    if (campoCerrar.current) campoCerrar.current.value = v;
+  };
 
   // El reparto arranca en orden de entrega: se llena el primero hasta
   // completarlo, después el siguiente.
@@ -249,19 +255,31 @@ export function CerrarCosecha({
               )}
             </div>
 
+            {/*
+              Cuál de los dos botones se apretó viaja en este campo y no
+              en el `value` del botón.
+
+              Antes iba en el botón, y era el único lugar de la app que
+              dependía de eso: el reparto se guardaba —por eso parecía que
+              algo pasaba— pero el "cerrar" no llegaba nunca y la cosecha
+              se quedaba abierta. El click escribe el campo antes de que
+              el formulario se envíe, que es una sola cosa y siempre pasa.
+            */}
+            <input ref={campoCerrar} type="hidden" name="cerrar" defaultValue="1" />
+
             <div className="mt-5 flex gap-2">
               {/* C5 - se puede postergar: el reparto se guarda y el pedido
                   queda pendiente para confirmarlo cuando lo retiren. */}
               <button
-                name="cerrar"
-                value="0"
+                type="submit"
+                onClick={() => marcar("0")}
                 className="flex min-h-12 flex-1 items-center justify-center rounded-full border-[1.5px] border-borde bg-white text-sm font-bold text-tinta-2"
               >
                 Dejar pendiente
               </button>
               <button
-                name="cerrar"
-                value="1"
+                type="submit"
+                onClick={() => marcar("1")}
                 disabled={sePasa}
                 className="flex min-h-12 flex-[1.3] items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema disabled:opacity-40"
               >

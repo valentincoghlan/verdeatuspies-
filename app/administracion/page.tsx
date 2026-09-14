@@ -8,7 +8,7 @@ import { FiltroFechas, resolverRango } from "@/components/filtro-fechas";
 import { Tanda } from "@/components/tanda";
 import { crearMovimiento, crearPersona, crearTanda } from "@/lib/actions";
 import { esAdmin } from "@/lib/rol";
-import { fechaBreve, fechaDM, hoyISO, numero, pesos } from "@/lib/format";
+import { fechaBreve, fechaDM, hoyISO, numero, pesos, sumarDiasISO } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -45,12 +45,15 @@ export default async function CajaPage({
     supabase.from("categorias").select("*").eq("activa", true).order("orden"),
     supabase.from("personas").select("*").eq("activa", true).order("nombre"),
     supabase.from("lotes").select("id, nombre").eq("activo", true).order("nombre"),
-    // Las últimas ventas, para poder colgarles un cobro o un gasto.
+    // Los pedidos de los últimos días, para colgarles un cobro o un
+    // gasto. Con la lista entera la elección se vuelve un buscador: lo
+    // que se carga hoy es casi siempre de esta semana o la pasada.
     supabase
       .from("v_margen_ventas")
       .select("venta_id, comprador, fecha, fecha_entrega, facturado, m2")
+      .gte("fecha", sumarDiasISO(hoy, -30))
       .order("fecha_entrega", { ascending: false, nullsFirst: false })
-      .limit(60),
+      .limit(40),
     supabase
       .from("v_movimientos")
       .select("*")
