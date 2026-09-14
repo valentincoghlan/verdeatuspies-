@@ -20,6 +20,7 @@ export function Checks({
   className,
   required,
   todos,
+  onChange,
 }: {
   label: string;
   name: string;
@@ -30,15 +31,27 @@ export function Checks({
   required?: boolean;
   /** Texto del atajo que marca todos de una. Si no va, no se muestra. */
   todos?: string;
+  /**
+   * Avisa qué quedó marcado, en el orden en que se fue marcando.
+   * Lo usa quien necesita mostrar algo que depende de la elección —el
+   * reparto de una tanda entre pedidos, por ejemplo—. Sin esto el
+   * componente se maneja solo, como siempre.
+   */
+  onChange?: (elegidos: string[]) => void;
 }) {
   const [elegidos, setElegidos] = useState<string[]>([]);
   const [abierto, setAbierto] = useState(false);
 
+  const fijar = (xs: string[]) => {
+    setElegidos(xs);
+    onChange?.(xs);
+  };
+
   const alternar = (v: string) =>
-    setElegidos((xs) => (xs.includes(v) ? xs.filter((x) => x !== v) : [...xs, v]));
+    fijar(elegidos.includes(v) ? elegidos.filter((x) => x !== v) : [...elegidos, v]);
 
   const estanTodos = opciones.length > 0 && elegidos.length === opciones.length;
-  const alternarTodos = () => setElegidos(estanTodos ? [] : opciones.map((o) => o.value));
+  const alternarTodos = () => fijar(estanTodos ? [] : opciones.map((o) => o.value));
 
   const nombres = opciones.filter((o) => elegidos.includes(o.value)).map((o) => o.label);
 

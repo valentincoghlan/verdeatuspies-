@@ -5,7 +5,8 @@ import { Elegir } from "@/components/elegir";
 import { CuentaYMonto } from "@/components/plata";
 import { QuePaso } from "@/components/que-paso";
 import { FiltroFechas, resolverRango } from "@/components/filtro-fechas";
-import { crearMovimiento, crearPersona } from "@/lib/actions";
+import { Tanda } from "@/components/tanda";
+import { crearMovimiento, crearPersona, crearTanda } from "@/lib/actions";
 import { esAdmin } from "@/lib/rol";
 import { fechaBreve, fechaDM, hoyISO, numero, pesos } from "@/lib/format";
 
@@ -47,7 +48,7 @@ export default async function CajaPage({
     // Las últimas ventas, para poder colgarles un cobro o un gasto.
     supabase
       .from("v_margen_ventas")
-      .select("venta_id, comprador, fecha, fecha_entrega, facturado")
+      .select("venta_id, comprador, fecha, fecha_entrega, facturado, m2")
       .order("fecha_entrega", { ascending: false, nullsFirst: false })
       .limit(60),
     supabase
@@ -108,6 +109,18 @@ export default async function CajaPage({
   const ventasOpc = ((ventas ?? []) as any[]).map((v) => ({
     value: v.venta_id as string,
     label: `${v.comprador} · ${fechaBreve(v.fecha_entrega ?? v.fecha)} · ${pesos(Number(v.facturado ?? 0))}`,
+  }));
+
+  // Para la tanda hacen falta los metros: el reparto entre pedidos va
+  // por ahí, y las cuentas con su id, no con su nombre.
+  const pedidosDeTanda = ((ventas ?? []) as any[]).map((v) => ({
+    id: v.venta_id as string,
+    m2: Number(v.m2 ?? 0),
+    label: `${v.comprador} · ${fechaBreve(v.fecha_entrega ?? v.fecha)} · ${numero(Number(v.m2 ?? 0))} m²`,
+  }));
+  const cuentasConId = (cuentas ?? []).map((c: any) => ({
+    id: c.id as string,
+    nombre: c.nombre as string,
   }));
 
   return (
@@ -174,6 +187,37 @@ export default async function CajaPage({
               <button className="btn btn-alto sm:w-auto">Guardar movimiento</button>
             </div>
           </form>
+        </Card>
+
+        {/* El día de cosecha no es un movimiento: son cinco pagos que van
+            a tres pedidos. Va plegado para no tapar la carga de todos
+            los días, que sigue siendo la de arriba. */}
+        <Card className="p-0">
+          <details className="group">
+            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 sm:px-5">
+              <span>
+                <span className="block text-sm font-bold text-tinta">Cargar varios juntos</span>
+                <span className="block text-xs text-tinta-3">
+                  Un día de cosecha: varios pagos repartidos entre varios pedidos
+                </span>
+              </span>
+              <span aria-hidden className="text-xs text-tinta-3 group-open:rotate-180">
+                ▾
+              </span>
+            </summary>
+            <div className="border-t border-beige p-4 sm:p-5">
+              <Tanda
+                rubros={rubros}
+                admin={admin}
+                cuentas={cuentasConId}
+                personas={nombresPersona}
+                lotes={opcionesLote}
+                pedidos={pedidosDeTanda}
+                hoy={hoy}
+                accion={crearTanda}
+              />
+            </div>
+          </details>
         </Card>
 
         <Card titulo={`Del ${fechaBreve(rango.desde)} al ${fechaBreve(rango.hasta)}`}>

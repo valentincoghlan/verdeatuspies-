@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { montoDe, Renglon, Renglones, renglonVacio, totalDe } from "@/components/renglones";
 
 export type VentaACobrar = {
   id: string;
@@ -30,8 +31,13 @@ const dm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(
  * reparte de la más vieja a la más nueva, que es como se cancela una
  * cuenta corriente. Lo repartido se puede corregir renglón por renglón.
  *
- * Cada renglón se guarda como un movimiento de entrada colgado de su
- * venta: de ahí sale lo cobrado y lo que queda pendiente.
+ * Y un mismo pago tampoco entra por un solo lado: una parte cae al banco
+ * y el resto te lo dejan en mano. Por eso arriba va una lista de
+ * entradas, cada una con su cuenta, y lo que se reparte entre las ventas
+ * es la suma.
+ *
+ * Cada venta se guarda como un movimiento de entrada colgado de ella: de
+ * ahí sale lo cobrado y lo que queda pendiente.
  */
 export function Cobrar({
   ventas,
@@ -46,7 +52,7 @@ export function Cobrar({
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
   const [cliente, setCliente] = useState("");
-  const [monto, setMonto] = useState("");
+  const [entradas, setEntradas] = useState<Renglon[]>(() => [renglonVacio(cuentas[0]?.id ?? "")]);
   const [reparto, setReparto] = useState<Record<string, string>>({});
   const [tocado, setTocado] = useState(false);
 
@@ -93,18 +99,21 @@ export function Cobrar({
     const lista = ventas
       .filter((v) => v.clienteId === id)
       .sort((a, b) => a.fecha.localeCompare(b.fecha));
-    setReparto(repartirDesde(n(monto), lista));
+    setReparto(repartirDesde(totalDe(entradas), lista));
   };
 
-  const cambiarMonto = (v: string) => {
-    setMonto(v);
-    if (!tocado) setReparto(repartirDesde(n(v), suyas));
+  // Mientras no toques el reparto a mano, sigue lo que entró.
+  const cambiarEntradas = (rs: Renglon[]) => {
+    setEntradas(rs);
+    if (!tocado) setReparto(repartirDesde(totalDe(rs), suyas));
   };
 
   const asignado = suyas.reduce((a, v) => a + n(reparto[v.id] ?? ""), 0);
-  const total = n(monto);
+  const total = totalDe(entradas);
   const sinAsignar = Math.round((total - asignado) * 100) / 100;
   const sePasa = suyas.some((v) => n(reparto[v.id] ?? "") > v.pendiente + 0.01);
+  // Plata sin cuenta no se puede guardar: el saldo tiene que ir a algún lado.
+  const faltaCuenta = entradas.some((r) => montoDe(r) > 0 && !r.cuenta);
 
   return (
     <>
@@ -153,34 +162,6 @@ export function Cobrar({
                 </select>
               </div>
 
-              <div className="min-w-0">
-                <label className="label" htmlFor="cob-monto">
-                  Cuánto pagó
-                </label>
-                <input
-                  id="cob-monto"
-                  type="text"
-                  inputMode="decimal"
-                  value={monto}
-                  onChange={(e) => cambiarMonto(e.target.value)}
-                  placeholder="0"
-                  className="input"
-                />
-              </div>
-
-              <div className="min-w-0">
-                <label className="label" htmlFor="cob-cuenta">
-                  Dónde entró
-                </label>
-                <select id="cob-cuenta" name="cuenta_id" className="input" required>
-                  {cuentas.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.nombre}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               <div className="col-span-2 min-w-0">
                 <label className="label" htmlFor="cob-fecha">
                   Cuándo
@@ -192,6 +173,18 @@ export function Cobrar({
                   defaultValue={new Date().toISOString().slice(0, 10)}
                   className="input"
                   required
+                />
+              </div>
+
+              {/* Un pago puede entrar por varios lados: parte al banco y
+                  parte en mano. Lo que se reparte entre las ventas es la
+                  suma de todo esto. */}
+              <div className="col-span-2 min-w-0">
+                <span className="label">Cuánto pagó y dónde entró</span>
+                <Renglones
+                  renglones={entradas}
+                  onChange={cambiarEntradas}
+                  cuentas={cuentas}
                 />
               </div>
             </div>
@@ -248,6 +241,17 @@ export function Cobrar({
                     cargalo aparte como un anticipo desde Movimientos.
                   </p>
                 )}
+                {sinAsignar < -0.5 && (
+                  <p className="mt-2 rounded-xl bg-urgente-bg p-2.5 text-xs font-semibold text-urgente-tx">
+                    Estás repartiendo {pesos(Math.abs(sinAsignar))} más de lo que entró. Subí lo
+                    que pagó o bajá el reparto.
+                  </p>
+                )}
+                {faltaCuenta && (
+                  <p className="mt-2 rounded-xl bg-urgente-bg p-2.5 text-xs font-semibold text-urgente-tx">
+                    Falta decir a qué cuenta entró uno de los pagos.
+                  </p>
+                )}
                 {sePasa && (
                   <p className="mt-2 rounded-xl bg-urgente-bg p-2.5 text-xs font-semibold text-urgente-tx">
                     Le estás asignando a una venta más de lo que debe. Bajalo.
@@ -265,7 +269,7 @@ export function Cobrar({
                 Cerrar
               </button>
               <button
-                disabled={!cliente || asignado <= 0 || sePasa}
+                disabled={!cliente || asignado <= 0 || sePasa || faltaCuenta || sinAsignar < -0.5}
                 className="flex min-h-12 flex-[1.3] items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema disabled:opacity-40"
               >
                 Guardar el cobro

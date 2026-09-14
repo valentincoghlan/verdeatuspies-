@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fechaArgentina, horaArgentina, mandarZona } from "@/lib/hydrawise";
 import { enviarAviso, enviarPush } from "@/lib/push";
 import { caudalDeUnaZona } from "@/lib/caudal";
+import { repartirProporcional } from "@/lib/reparto";
 import { hoyISO } from "@/lib/format";
 
 /* ------------------------------------------------------------------ */
@@ -1044,6 +1045,139 @@ export async function crearMovimiento(fd: FormData) {
 }
 
 /**
+ * Una tanda: varios pagos de la misma categoría, repartidos entre varios
+ * pedidos.
+ *
+ * El caso que la pide es el día de cosecha. Se le paga a cinco personas,
+ * una en efectivo y el resto por transferencia, y ese trabajo no es de
+ * un pedido solo: abasteció a los tres que salieron esa semana. Cargarlo
+ * de a un movimiento por vez son quince pasos y una calculadora al lado.
+ *
+ * Adentro no hay nada nuevo: cada renglón sigue siendo un movimiento con
+ * su cuenta y su venta, que es lo que hace que los saldos y los márgenes
+ * cierren. Lo único que se agrega es el hilo que los ata (`tanda_id`).
+ *
+ * El reparto entre pedidos va por metros, y lo hace la misma función que
+ * dibuja la pantalla, así lo que se vio antes de guardar es exactamente
+ * lo que quedó guardado.
+ */
+export async function crearTanda(fd: FormData) {
+  const { supabase, user } = await sesion();
+  const mep = await mepActual(supabase);
+  const tipo = txt(fd, "tipo") === "I" ? "I" : "E";
+
+  // Los renglones llegan como r_<clave>_persona / _monto / _cuenta.
+  const porClave = new Map<string, { persona: string; monto: string; cuenta: string }>();
+  for (const [campo, valor] of fd.entries()) {
+    const m = /^r_(.+)_(persona|monto|cuenta)$/.exec(campo);
+    if (!m) continue;
+    const fila = porClave.get(m[1]) ?? { persona: "", monto: "", cuenta: "" };
+    fila[m[2] as "persona" | "monto" | "cuenta"] = String(valor);
+    porClave.set(m[1], fila);
+  }
+
+  const renglones = [...porClave.values()]
+    .map((r) => ({
+      ...r,
+      valor: Number(String(r.monto).replace(/\./g, "").replace(",", ".")),
+    }))
+    .filter((r) => r.cuenta && Number.isFinite(r.valor) && r.valor > 0);
+
+  if (!renglones.length) return;
+
+  // Los pedidos a los que se imputa. Sin ninguno, el gasto queda general
+  // y cada renglón es un movimiento y nada más.
+  const ventaIds = fd.getAll("venta_id").map(String).filter(Boolean);
+
+  const { data: ventasSel } = ventaIds.length
+    ? await supabase
+        .from("v_margen_ventas")
+        .select("venta_id, cliente_id, m2")
+        .in("venta_id", ventaIds)
+    : { data: [] as any[] };
+
+  // En el orden en que se eligieron, para que el reparto sea previsible.
+  const destinos = ventaIds
+    .map((id) => (ventasSel ?? []).find((v: any) => v.venta_id === id))
+    .filter(Boolean)
+    .map((v: any) => ({ id: v.venta_id as string, peso: Number(v.m2 ?? 0) }));
+
+  const clientePorVenta = new Map(
+    (ventasSel ?? []).map((v: any) => [v.venta_id as string, v.cliente_id as string | null]),
+  );
+
+  // La moneda la decide la cuenta, igual que en la carga de a uno.
+  const { data: cuentas } = await supabase
+    .from("cuentas")
+    .select("id, moneda")
+    .in("id", [...new Set(renglones.map((r) => r.cuenta))]);
+  const monedaDe = new Map((cuentas ?? []).map((c: any) => [c.id as string, c.moneda ?? "ARS"]));
+
+  const comun = {
+    fecha: txt(fd, "fecha") ?? hoyISO(),
+    tipo,
+    categoria_id:
+      txt(fd, "categoria_id") ??
+      (await idCategoria(
+        supabase,
+        txt(fd, "categoria"),
+        txt(fd, "categoria_crear") === "1" ? { tipo } : undefined,
+      )),
+    lote_id: txt(fd, "lote_id"),
+    detalle: txt(fd, "detalle"),
+    notas: txt(fd, "notas"),
+    origen: "manual" as const,
+    tanda_id: crypto.randomUUID(),
+    created_by: user.id,
+  };
+
+  const filas: Record<string, unknown>[] = [];
+
+  for (const r of renglones) {
+    const personaId = await idPorNombreOCrear(supabase, "personas", r.persona || null, {
+      tipo: "otro",
+    });
+
+    const enDolares = monedaDe.get(r.cuenta) === "USD";
+    // `monto` va siempre en pesos; en dólares se escribe la divisa y los
+    // pesos salen del MEP, como en movimientoDe().
+    const enPesos = enDolares && mep ? Number((r.valor * mep).toFixed(2)) : r.valor;
+
+    // Sin pedidos, el renglón entero es un solo movimiento.
+    const partes = destinos.length
+      ? repartirProporcional(enPesos, destinos)
+      : [{ id: "", monto: enPesos }];
+
+    for (const parte of partes) {
+      filas.push({
+        ...comun,
+        cuenta_id: r.cuenta,
+        persona_id: personaId,
+        venta_id: parte.id || null,
+        cliente_id: parte.id ? (clientePorVenta.get(parte.id) ?? null) : null,
+        monto: parte.monto,
+        moneda: enDolares ? "USD" : "ARS",
+        cotizacion: mep,
+        monto_usd: mep ? Number((parte.monto / mep).toFixed(2)) : null,
+      });
+    }
+  }
+
+  const { error } = await supabase.from("movimientos").insert(filas);
+  if (error) throw new Error(`No se pudo guardar la tanda: ${error.message}`);
+
+  bump(
+    "/administracion",
+    "/administracion/disponibilidades",
+    "/reportes",
+    "/ventas",
+    "/ventas/pedidos",
+    "/ventas/clientes",
+    "/",
+  );
+}
+
+/**
  * Solo para el dueño.
  *
  * Los ajustes mueven la plata de los libros sin que haya pasado nada en
@@ -1206,35 +1340,82 @@ export async function cobrarVentas(fd: FormData) {
   const { supabase, user } = await sesion();
   const mep = await mepActual(supabase);
   const fecha = txt(fd, "fecha") ?? hoyISO();
-  const cuentaId = txt(fd, "cuenta_id");
+  const plata = (v: unknown) => Number(String(v).replace(/\./g, "").replace(",", "."));
 
-  const filas: Record<string, unknown>[] = [];
+  // Por dónde entró la plata. Pueden ser varias: una parte al banco y el
+  // resto en mano.
+  const porClave = new Map<string, { monto: string; cuenta: string }>();
+  for (const [campo, valor] of fd.entries()) {
+    const m = /^r_(.+)_(monto|cuenta)$/.exec(campo);
+    if (!m) continue;
+    const fila = porClave.get(m[1]) ?? { monto: "", cuenta: "" };
+    fila[m[2] as "monto" | "cuenta"] = String(valor);
+    porClave.set(m[1], fila);
+  }
+
+  const entradas = [...porClave.values()]
+    .map((r) => ({ cuenta: r.cuenta, queda: plata(r.monto) }))
+    .filter((r) => r.cuenta && Number.isFinite(r.queda) && r.queda > 0);
+
+  // A qué ventas se imputa, en el orden en que las mandó el formulario
+  // (de la más vieja a la más nueva).
+  const aCobrar: { ventaId: string; monto: number }[] = [];
   for (const [campo, valor] of fd.entries()) {
     if (!campo.startsWith("cobro_")) continue;
-    const ventaId = campo.slice(6);
-    const monto = Number(String(valor).replace(/\./g, "").replace(",", "."));
+    const monto = plata(valor);
     if (!Number.isFinite(monto) || monto <= 0) continue;
+    aCobrar.push({ ventaId: campo.slice(6), monto });
+  }
 
-    const { data: venta } = await supabase
-      .from("ventas")
-      .select("cliente_id")
-      .eq("id", ventaId)
-      .maybeSingle();
+  if (!entradas.length || !aCobrar.length) return;
 
-    filas.push({
-      fecha,
-      tipo: "I",
-      cuenta_id: cuentaId,
-      venta_id: ventaId,
-      cliente_id: venta?.cliente_id ?? null,
-      monto,
-      moneda: "ARS",
-      cotizacion: mep,
-      monto_usd: mep ? Math.round((monto / mep) * 100) / 100 : null,
-      detalle: "Cobro de venta",
-      origen: "venta",
-      created_by: user.id,
-    });
+  const { data: ventasSel } = await supabase
+    .from("ventas")
+    .select("id, cliente_id")
+    .in(
+      "id",
+      aCobrar.map((c) => c.ventaId),
+    );
+  const clienteDe = new Map(
+    (ventasSel ?? []).map((v: any) => [v.id as string, v.cliente_id as string | null]),
+  );
+
+  const tandaId = entradas.length > 1 ? crypto.randomUUID() : null;
+
+  /*
+   * Se va vaciando cuenta por cuenta, en cascada: la primera entrada tapa
+   * las ventas más viejas hasta que se agota y la siguiente sigue donde
+   * quedó. Es como se paga de verdad —la transferencia cubre dos facturas
+   * y el efectivo tapa el resto— y evita partir cada venta en tantos
+   * pedacitos como cuentas haya.
+   */
+  const filas: Record<string, unknown>[] = [];
+  let i = 0;
+  for (const cobro of aCobrar) {
+    let falta = cobro.monto;
+    while (falta > 0.005 && i < entradas.length) {
+      const toma = Math.round(Math.min(falta, entradas[i].queda) * 100) / 100;
+      if (toma > 0) {
+        filas.push({
+          fecha,
+          tipo: "I",
+          cuenta_id: entradas[i].cuenta,
+          venta_id: cobro.ventaId,
+          cliente_id: clienteDe.get(cobro.ventaId) ?? null,
+          monto: toma,
+          moneda: "ARS",
+          cotizacion: mep,
+          monto_usd: mep ? Math.round((toma / mep) * 100) / 100 : null,
+          detalle: "Cobro de venta",
+          origen: "venta",
+          tanda_id: tandaId,
+          created_by: user.id,
+        });
+      }
+      entradas[i].queda = Math.round((entradas[i].queda - toma) * 100) / 100;
+      falta = Math.round((falta - toma) * 100) / 100;
+      if (entradas[i].queda <= 0.005) i++;
+    }
   }
 
   if (!filas.length) return;
