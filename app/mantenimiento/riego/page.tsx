@@ -446,8 +446,8 @@ export default async function AguaPage({
             columnas={[
               { titulo: "Fecha", ancho: "w-[3.4rem] sm:w-auto" },
               { titulo: "mm", align: "right" },
-              { titulo: "Lote" },
-              { titulo: "Origen", desde: "sm" },
+              { titulo: "Lote", desde: "sm" },
+              { titulo: "Estado" },
               { titulo: "", ancho: "w-11 sm:w-auto" },
             ]}
             vacio="Todavía no cargaste lluvias."
@@ -458,22 +458,54 @@ export default async function AguaPage({
                   <span className="sm:hidden">{fechaDM(l.fecha)}</span>
                   <span className="hidden sm:inline">{fechaBreve(l.fecha)}</span>
                 </td>
-                <td className="td text-right tabular-nums font-semibold sm:text-left">
-                  {mm(Number(l.mm))}
+                {/* Sin confirmar el número va en gris: es de una grilla de
+                    varios kilómetros, no del pluviómetro del campo. */}
+                <td
+                  className={
+                    "td text-right tabular-nums sm:text-left " +
+                    (l.confirmada ? "font-semibold text-tinta" : "text-tinta-3")
+                  }
+                >
+                  <Dato
+                    principal={mm(Number(l.mm))}
+                    secundario={
+                      l.confirmada ? null : (
+                        <span className="text-atencion-tx sm:hidden">sin confirmar</span>
+                      )
+                    }
+                  />
                 </td>
-                <td className="td">{l.lotes?.nombre ?? "Todo el campo"}</td>
+                <td className="td hidden sm:table-cell">{l.lotes?.nombre ?? "Todo el campo"}</td>
                 <td className="td">
-                  <Chip tono={l.origen === "confirmada_alerta" ? "azul" : "neutro"}>
-                    {l.origen === "confirmada_alerta" ? "Confirmada" : "Manual"}
+                  <Chip tono={l.confirmada ? "verde" : "ambar"}>
+                    {l.confirmada ? "confirmada" : "del pronóstico"}
                   </Chip>
                 </td>
                 <td className="td text-right">
-                  <form action={borrarLluvia}>
-                    <input type="hidden" name="id" value={l.id} />
-                    <button className="text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
-                      Borrar
-                    </button>
-                  </form>
+                  <Acciones titulo={`Lluvia del ${fechaBreve(l.fecha)}`}>
+                    {!l.confirmada && (
+                      <form action={registrarLluvia} className="flex items-end gap-1">
+                        <input type="hidden" name="fecha" value={l.fecha} />
+                        <input
+                          name="mm"
+                          type="number"
+                          step="0.5"
+                          min="0"
+                          required
+                          defaultValue={Number(l.mm)}
+                          aria-label={`mm reales del ${fechaBreve(l.fecha)}`}
+                          className="input w-24 min-w-0 text-center"
+                        />
+                        <button className="btn whitespace-nowrap px-3 py-1.5">Confirmar</button>
+                      </form>
+                    )}
+                    <form action={borrarLluvia}>
+                      <input type="hidden" name="id" value={l.id} />
+                      <button className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
+                        Borrar
+                      </button>
+                    </form>
+                  </Acciones>
                 </td>
               </tr>
             ))}

@@ -557,12 +557,15 @@ export async function registrarLluvia(fd: FormData) {
   const notificacionId = txt(fd, "notificacion_id");
 
   if (mmValor !== null) {
+    // Si la carga una persona, queda confirmada: pisa lo que haya
+    // anotado el pronóstico.
     await supabase.from("lluvias").upsert(
       {
         fecha,
         mm: mmValor,
         lote_id: loteId,
         origen: notificacionId ? "confirmada_alerta" : "manual",
+        confirmada: true,
         notas: txt(fd, "notas"),
         created_by: user.id,
       },

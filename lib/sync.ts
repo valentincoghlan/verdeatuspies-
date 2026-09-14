@@ -358,10 +358,69 @@ export async function syncClima() {
       { onConflict: "fecha" },
     );
 
-    return { ok: true, dias: dias.length };
+    const anotadas = await anotarLluviaObservada(sb, dias);
+
+    return { ok: true, dias: dias.length, lluvias: anotadas };
   } catch (e: any) {
     return { ok: false, motivo: String(e?.message ?? e) };
   }
+}
+
+/**
+ * Pasa la lluvia ya caída de Open-Meteo a la tabla de lluvias.
+ *
+ * Antes ese dato vivía solo en clima_dias y el balance de agua lo
+ * ignoraba: si nadie contestaba la alerta, el día quedaba en cero aunque
+ * hubieran caído treinta milímetros.
+ *
+ * Entra como "del pronóstico" y sin confirmar. Mientras no se confirme
+ * se sigue actualizando —Open-Meteo corrige la observación de un día
+ * durante las horas siguientes—, y apenas alguien la confirma o la
+ * corrige a mano, no se toca más.
+ */
+async function anotarLluviaObservada(sb: Sb, dias: any[]) {
+  const hoy = hoyAR();
+
+  // Solo días que ya pasaron: los de adelante son pronóstico y no son
+  // lluvia caída. Y una ventana corta, para no reescribir historia.
+  const pasados = dias.filter(
+    (d) => !d.es_pronostico && d.fecha < hoy && diasEntre(d.fecha, hoy) <= 5,
+  );
+  if (pasados.length === 0) return 0;
+
+  const { data: yaHay } = await sb
+    .from("lluvias")
+    .select("fecha, confirmada")
+    .is("lote_id", null)
+    .in(
+      "fecha",
+      pasados.map((d) => d.fecha),
+    );
+
+  const confirmadas = new Set(
+    (yaHay ?? []).filter((l: any) => l.confirmada).map((l: any) => l.fecha),
+  );
+
+  const filas = pasados
+    .filter((d) => Number(d.precipitacion_mm ?? 0) > 0)
+    .filter((d) => !confirmadas.has(d.fecha))
+    .map((d) => ({
+      fecha: d.fecha,
+      mm: Number(d.precipitacion_mm),
+      lote_id: null,
+      origen: "automatica",
+      confirmada: false,
+      notas: "Del pronóstico de Open-Meteo. Confirmá con el pluviómetro.",
+    }));
+
+  if (filas.length === 0) return 0;
+
+  const { error } = await sb
+    .from("lluvias")
+    .upsert(filas, { onConflict: "fecha,lote_id" });
+  if (error) throw new Error(`No se pudo anotar la lluvia: ${error.message}`);
+
+  return filas.length;
 }
 
 /* =================================================================== */
@@ -407,19 +466,35 @@ export async function generarAlertas() {
 
   const { data: lluviasCargadas } = await sb
     .from("lluvias")
-    .select("fecha")
+    .select("fecha, mm, confirmada")
     .gte("fecha", sumarDias(hoy, -3));
 
-  const yaCargadas = new Set((lluviasCargadas ?? []).map((l: any) => l.fecha));
+  // Las confirmadas no molestan más. Las que entraron solas sí: el
+  // número es de una grilla de varios kilómetros, no del pluviómetro.
+  const confirmadas = new Set(
+    (lluviasCargadas ?? []).filter((l: any) => l.confirmada).map((l: any) => l.fecha),
+  );
+  const automaticas = new Map(
+    (lluviasCargadas ?? [])
+      .filter((l: any) => !l.confirmada)
+      .map((l: any) => [l.fecha, Number(l.mm ?? 0)]),
+  );
 
   for (const d of climaPasado ?? []) {
     const mmPron = Number(d.precipitacion_mm ?? 0);
-    if (mmPron < umbralLluvia || yaCargadas.has(d.fecha)) continue;
+    if (mmPron < umbralLluvia || confirmadas.has(d.fecha)) continue;
+
+    const dm = `${d.fecha.slice(8, 10)}/${d.fecha.slice(5, 7)}`;
+    const yaAnotada = automaticas.has(d.fecha);
 
     const creada = await noti(sb, {
       tipo: "confirmar_lluvia",
-      titulo: `¿Llovió en ${ubicacion.nombre} el ${d.fecha.slice(8, 10)}/${d.fecha.slice(5, 7)}?`,
-      mensaje: `El pronóstico marcó ${mmTxt(mmPron)} mm. Confirmá si llovió y cargá los mm reales del pluviómetro.`,
+      titulo: yaAnotada
+        ? `Confirmá los ${mmTxt(automaticas.get(d.fecha) ?? mmPron)} mm del ${dm}`
+        : `¿Llovió en ${ubicacion.nombre} el ${dm}?`,
+      mensaje: yaAnotada
+        ? "Ya quedaron anotados del pronóstico. Mirá el pluviómetro y corregí si no coincide."
+        : `El pronóstico marcó ${mmTxt(mmPron)} mm. Confirmá si llovió y cargá los mm reales.`,
       severidad: "aviso",
       entidad_tipo: "lluvia",
       fecha_referencia: d.fecha,

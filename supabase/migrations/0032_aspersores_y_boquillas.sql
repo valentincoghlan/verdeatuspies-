@@ -193,29 +193,44 @@ end $$;
 -- ---------------------------------------------------------------------
 -- 4. El caudal de cada zona, calculado
 --
--- Si falta la superficie o algún pico no está en la ficha a esa presión,
--- la zona queda sin mm/hora: mejor un hueco declarado que un número a
--- medias, que después se propaga a todo el balance de agua.
+-- Falta un dato para cerrar la cuenta: los m² que moja cada zona. El
+-- marco entre aspersores no se sabe exacto —los lotes no son cuadrados y
+-- las líneas siguen el borde— pero no hace falta medirlo: la superficie
+-- del lote se reparte entre sus aspersores, y a cada zona le tocan los
+-- suyos.
+--
+-- Yapeyú son 14.500 m² entre 67 aspersores: 216 m² cada uno, que es un
+-- marco equivalente de unos 14,7 m. 20 de Junio, 13.500 entre 53: 255 m²,
+-- unos 16 m. Los dos caen justo en el rango de un PGP a 4,5 bar, que
+-- alcanza entre 12 y 15 m según el pico. La cuenta cierra sola y, mejor
+-- todavía, la suma de las zonas da exactamente la superficie del lote:
+-- no queda campo sin regar ni regado dos veces.
+--
+-- Si algún día se mide una zona en serio, se carga en
+-- riego_zonas.superficie_m2 y esa gana.
 -- ---------------------------------------------------------------------
 create or replace view v_caudal_zonas as
-select
-  z.id as zona_id,
-  z.nombre,
-  z.lote_id,
-  z.presion_bar,
-  z.superficie_m2,
-  coalesce(a.aspersores, 0)::int as aspersores,
-  a.litros_hora,
-  a.radio_max,
-  coalesce(a.sin_ficha, 0)::int as picos_sin_ficha,
-  case
-    when a.sin_ficha > 0 or a.litros_hora is null then null
-    when z.superficie_m2 is null or z.superficie_m2 <= 0 then null
-    else round((a.litros_hora / z.superficie_m2)::numeric, 2)
-  end as mm_por_hora_calculado,
-  z.mm_por_hora as mm_por_hora_manual
-from riego_zonas z
-left join (
+with reparto as (
+  select
+    z.id as zona_id,
+    l.superficie_m2 as lote_m2,
+    sum(za.cantidad) over (partition by z.id) as asp_zona,
+    sum(za.cantidad) over (partition by z.lote_id) as asp_lote
+  from riego_zonas z
+  join zona_aspersores za on za.zona_id = z.id
+  left join lotes l on l.id = z.lote_id
+),
+areas as (
+  select
+    zona_id,
+    case
+      when lote_m2 is null or asp_lote is null or asp_lote = 0 then null
+      else round((lote_m2 * asp_zona / asp_lote)::numeric, 1)
+    end as m2_repartidos
+  from reparto
+  group by zona_id, lote_m2, asp_zona, asp_lote
+),
+caudal as (
   select
     za.zona_id,
     sum(za.cantidad)::int as aspersores,
@@ -230,7 +245,28 @@ left join (
    and b.bar = coalesce(rz.presion_bar, 4.5)
   where za.cantidad > 0
   group by za.zona_id
-) a on a.zona_id = z.id;
+)
+select
+  z.id as zona_id,
+  z.nombre,
+  z.lote_id,
+  coalesce(z.presion_bar, 4.5) as presion_bar,
+  coalesce(z.superficie_m2, a.m2_repartidos) as superficie_m2,
+  z.superficie_m2 is not null as superficie_medida,
+  coalesce(c.aspersores, 0)::int as aspersores,
+  c.litros_hora,
+  c.radio_max,
+  coalesce(c.sin_ficha, 0)::int as picos_sin_ficha,
+  case
+    when c.sin_ficha > 0 or c.litros_hora is null then null
+    when coalesce(z.superficie_m2, a.m2_repartidos) is null then null
+    when coalesce(z.superficie_m2, a.m2_repartidos) <= 0 then null
+    else round((c.litros_hora / coalesce(z.superficie_m2, a.m2_repartidos))::numeric, 2)
+  end as mm_por_hora_calculado,
+  z.mm_por_hora as mm_por_hora_manual
+from riego_zonas z
+left join caudal c on c.zona_id = z.id
+left join areas a on a.zona_id = z.id;
 
 comment on view v_caudal_zonas is
-  'El mm/hora de cada zona, salido de sus aspersores. Null si falta un dato.';
+  'El mm/hora de cada zona, salido de sus aspersores y de su parte del lote.';
