@@ -20,6 +20,17 @@ const n = (s: string) => {
 };
 
 const m2 = (v: number) => `${v.toLocaleString("es-AR", { maximumFractionDigits: 1 })} m²`;
+
+/**
+ * Los m² de una cosecha nunca son redondos: salen de multiplicar pilas
+ * por el tamaño del pan. 416 pilas de 0,496 m² dan 206,336. Por eso los
+ * campos aceptan cualquier decimal y el reparto se escribe con dos: con
+ * `step="0.5"` el navegador se plantaba y el cierre no salía nunca.
+ */
+const dosDecimales = (v: number) => Math.round(v * 100) / 100;
+
+/** Menos de esto es polvo de redondeo, no pasto sin entregar. */
+const NADA = 0.05;
 const pesos = (v: number) =>
   v.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
 
@@ -61,7 +72,7 @@ export function CerrarCosecha({
     let queda = cosechado;
     const out: Record<string, string> = {};
     for (const p of pedidos) {
-      const toca = Math.min(queda, p.asignado > 0 ? p.asignado : p.m2Pedido);
+      const toca = dosDecimales(Math.min(queda, p.asignado > 0 ? p.asignado : p.m2Pedido));
       out[p.id] = toca > 0 ? String(toca) : "";
       queda -= toca;
     }
@@ -71,14 +82,36 @@ export function CerrarCosecha({
   const [reparto, setReparto] = useState<Record<string, string>>(inicial);
 
   const asignado = pedidos.reduce((a, p) => a + n(reparto[p.id] ?? ""), 0);
-  const sobra = Math.max(0, Math.round((cosechado - asignado) * 10) / 10);
+  const sobra = Math.max(0, dosDecimales(cosechado - asignado));
   const facturado = pedidos.reduce((a, p) => a + n(reparto[p.id] ?? "") * p.precioM2, 0);
   const sePasa = asignado > cosechado + 0.01;
 
-  const facturarElResto = () => {
-    if (!pedidos.length || sobra <= 0) return;
-    const primero = pedidos[0];
-    setReparto((r) => ({ ...r, [primero.id]: String(n(r[primero.id] ?? "") + sobra) }));
+  /**
+   * Reparte todo lo cortado y no deja nada colgado.
+   *
+   * Va en orden de entrega llenando cada pedido hasta lo que pidió, y si
+   * después de cubrirlos a todos todavía sobra —siempre sobra un poco,
+   * porque una pila entera no se parte— eso se le suma al último que
+   * recibió. Es el botón de todos los días: cosechaste para ese pedido y
+   * se lo llevás entero.
+   */
+  const entregarTodo = () => {
+    if (!pedidos.length) return;
+    let queda = cosechado;
+    const out: Record<string, string> = {};
+    let ultimo = "";
+    for (const p of pedidos) {
+      const toca = dosDecimales(Math.min(queda, p.m2Pedido));
+      out[p.id] = toca > 0 ? String(toca) : "";
+      if (toca > 0) ultimo = p.id;
+      queda -= toca;
+    }
+    // Lo que sobró después de cubrir todos los pedidos.
+    if (queda > NADA) {
+      const destino = ultimo || pedidos[0].id;
+      out[destino] = String(dosDecimales(n(out[destino] ?? "") + queda));
+    }
+    setReparto(out);
   };
 
   return (
@@ -158,7 +191,7 @@ export function CerrarCosecha({
                       <input
                         name={`m2_${p.id}`}
                         type="number"
-                        step="0.5"
+                        step="any"
                         min="0"
                         inputMode="decimal"
                         aria-label={`m² para ${p.comprador}`}
@@ -191,19 +224,20 @@ export function CerrarCosecha({
                 </span>
               </p>
 
-              {/* El excedente va de cortesía salvo que lo mandes a
-                  facturar acá mismo, antes de cerrar. */}
-              {sobra > 0 && pedidos.length > 0 && (
+              {/* Casi nunca cierra justo: una pila entera no se parte, así
+                  que siempre quedan unos centímetros colgando. Un botón
+                  para mandarlos al pedido y terminar. */}
+              {sobra > NADA && pedidos.length > 0 && (
                 <div className="mt-2 rounded-xl bg-crema p-2.5">
                   <p className="text-xs text-tinta-2">
-                    Esos {m2(sobra)} quedan de cortesía. Si los vas a cobrar, sumalos al pedido.
+                    Si no los repartís, esos {m2(sobra)} quedan de cortesía.
                   </p>
                   <button
                     type="button"
-                    onClick={facturarElResto}
-                    className="mt-1.5 flex min-h-11 items-center text-xs font-bold text-pasto hover:underline sm:min-h-9"
+                    onClick={entregarTodo}
+                    className="mt-2 flex min-h-11 w-full items-center justify-center rounded-full border-[1.5px] border-borde-boton bg-white text-sm font-bold text-pasto"
                   >
-                    Facturar los {m2(sobra)} a {pedidos[0].comprador}
+                    Entregar todo
                   </button>
                 </div>
               )}

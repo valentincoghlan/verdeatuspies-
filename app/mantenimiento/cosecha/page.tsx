@@ -71,7 +71,14 @@ export default async function CosechaPage() {
 
       <div className="mt-3 space-y-3">
         <Card titulo="Nueva cosecha">
-          <form action={crearCosecha} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {/* En una pantalla grande la grilla estiraba cada campo a
+              trescientos y pico de píxeles: un recuadro enorme para
+              escribir "2". Con el tope, el campo queda del tamaño de lo
+              que entra adentro. */}
+          <form
+            action={crearCosecha}
+            className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:max-w-3xl"
+          >
             {/* C3 - el objetivo sale del pedido, no se vuelve a preguntar. */}
             <PedidoYObjetivo
               pedidos={(pedidos ?? []).map((p: any) => ({
@@ -109,11 +116,11 @@ export default async function CosechaPage() {
             columnas={[
               { titulo: "Fecha", desde: "sm" },
               { titulo: "Lote" },
-              { titulo: "Objetivo", desde: "sm" },
-              { titulo: "Avance" },
-              { titulo: "Falta", desde: "sm" },
-              { titulo: "Pilas", desde: "sm" },
-              { titulo: "Líneas", desde: "sm" },
+              // Objetivo, avance y falta son el mismo hecho contado tres
+              // veces: "206 de 400" ya dice las tres cosas. Juntarlas es
+              // lo que le devuelve el ancho al lote, que se cortaba.
+              { titulo: "Avance", align: "right" },
+              { titulo: "Pilas", desde: "sm", align: "right" },
               { titulo: "Estado" },
               { titulo: "", ancho: "w-11 sm:w-auto" },
             ]}
@@ -126,8 +133,15 @@ export default async function CosechaPage() {
               const pct = objetivo > 0 ? Math.min(100, (cortado / objetivo) * 100) : 0;
               return (
                 <tr key={c.id}>
-                  <td className="td whitespace-nowrap">{fechaBreve(c.fecha)}</td>
-                  <td className="td max-w-0">
+                  {/* El encabezado ya se escondía en el celular, pero la
+                      celda no: la fila quedaba corrida una columna. La
+                      fecha sigue estando abajo del lote. */}
+                  <td className="td hidden whitespace-nowrap sm:table-cell">
+                    {fechaBreve(c.fecha)}
+                  </td>
+                  {/* En el teléfono el ancho es prestado y el nombre se
+                      corta; en la compu sobra, así que se muestra entero. */}
+                  <td className="td max-w-0 sm:max-w-none">
                     <span className="block truncate">{c.lote ?? "—"}</span>
                     <span className="block truncate text-xs text-tinta-3">
                       {c.comprador ? `para ${c.comprador}` : null}
@@ -137,21 +151,19 @@ export default async function CosechaPage() {
                       </span>
                     </span>
                   </td>
-                  <td className="td hidden tabular-nums sm:table-cell">{numero(objetivo)}</td>
-                  <td className="td tabular-nums font-semibold text-pasto">
+                  <td className="td text-right tabular-nums font-semibold text-pasto">
                     <Dato
                       principal={`${numero(cortado)} de ${numero(objetivo)}`}
-                      secundario={`${numero(pct)}%`}
+                      secundario={
+                        falta > 0 ? `${numero(pct)}% · faltan ${numero(falta)}` : "completa"
+                      }
                     />
                   </td>
-                  <td className="td hidden tabular-nums sm:table-cell">
-                    {falta > 0 ? numero(falta) : "—"}
-                  </td>
-                  <td className="td hidden tabular-nums text-tinta-2 sm:table-cell">
-                    {numero(c.pilas_cargadas)} / {numero(c.pilas_objetivo)}
-                  </td>
-                  <td className="td hidden tabular-nums text-tinta-2 sm:table-cell">
-                    {numero(c.lineas)}
+                  <td className="td hidden text-right tabular-nums text-tinta-2 sm:table-cell">
+                    <Dato
+                      principal={`${numero(c.pilas_cargadas)} / ${numero(c.pilas_objetivo)}`}
+                      secundario={`${numero(c.lineas)} ${Number(c.lineas) === 1 ? "línea" : "líneas"}`}
+                    />
                   </td>
                   <td className="td">
                     <Chip tono={c.estado === "cerrada" ? "verde" : "ambar"}>{c.estado}</Chip>
