@@ -2,20 +2,41 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, Chip, Tabla } from "@/components/ui";
 import { Campo, Selector } from "@/components/campos";
 import { CalculadoraCaudal } from "@/components/calculadora-caudal";
+import { AspersoresZonas } from "@/components/aspersores-zona";
 import { asignarZonas, guardarLote, guardarZona } from "@/lib/actions";
+import { caudalDeZona, origenDelCaudal } from "@/lib/caudal";
+import { numero } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 export default async function ConfigLotesPage() {
   const supabase = await createClient();
 
-  const [{ data: lotes }, { data: zonas }] = await Promise.all([
-    supabase.from("lotes").select("*").order("nombre"),
-    supabase.from("riego_zonas").select("*, lotes(nombre)").order("nombre"),
-  ]);
+  const [{ data: lotes }, { data: zonas }, { data: caudales }, { data: boquillas }, { data: puestos }] =
+    await Promise.all([
+      supabase.from("lotes").select("*").order("nombre"),
+      supabase.from("riego_zonas").select("*, lotes(nombre)").order("nombre"),
+      supabase.from("v_caudal_zonas").select("*"),
+      supabase.from("boquillas").select("modelo, numero, bar, litros_hora"),
+      supabase.from("zona_aspersores").select("zona_id, modelo, numero, cantidad"),
+    ]);
 
   const opcionesLotes = (lotes ?? []).map((l: any) => ({ value: l.id, label: l.nombre }));
   const sinAsignar = (zonas ?? []).filter((z: any) => !z.lote_id).length;
+
+  // El caudal de cada zona, para no recorrer la lista dentro del render.
+  const porZona = new Map((caudales ?? []).map((c: any) => [c.zona_id, c]));
+
+  const zonasConAspersores = (zonas ?? []).map((z: any) => ({
+    id: z.id as string,
+    nombre: z.nombre as string,
+    lote: (z.lotes?.nombre ?? null) as string | null,
+    presion_bar: z.presion_bar ?? null,
+    superficie_m2: z.superficie_m2 ?? null,
+    aspersores: (puestos ?? [])
+      .filter((p: any) => p.zona_id === z.id)
+      .map((p: any) => ({ modelo: p.modelo, numero: p.numero, cantidad: Number(p.cantidad) })),
+  }));
 
   return (
     <>
@@ -143,17 +164,28 @@ export default async function ConfigLotesPage() {
                     ))}
                   </select>
                 </td>
+                {/* Si la zona tiene sus aspersores cargados, el caudal
+                    sale de la ficha y el campo a mano desaparece: dos
+                    números editables para lo mismo es pedir que queden
+                    distintos. */}
                 <td className="td">
-                  <input
-                    name={`caudal_${z.id}`}
-                    aria-label={`Caudal de ${z.nombre}`}
-                    type="number"
-                    step="0.5"
-                    min="0"
-                    defaultValue={z.mm_por_hora ?? ""}
-                    placeholder="—"
-                    className="input w-full min-w-0"
-                  />
+                  {origenDelCaudal(porZona.get(z.id)) === "aspersores" ? (
+                    <span className="tabular-nums">
+                      {numero(caudalDeZona(porZona.get(z.id))!, 1)}
+                      <span className="block text-[11px] text-tinta-3">de los aspersores</span>
+                    </span>
+                  ) : (
+                    <input
+                      name={`caudal_${z.id}`}
+                      aria-label={`Caudal de ${z.nombre}`}
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      defaultValue={z.mm_por_hora ?? ""}
+                      placeholder="—"
+                      className="input w-full min-w-0"
+                    />
+                  )}
                 </td>
               </tr>
             ))}
@@ -171,10 +203,29 @@ export default async function ConfigLotesPage() {
         <p className="mt-2 text-sm text-tinta-2">
           El <strong>caudal (mm por hora)</strong> es cuánta agua tira esa zona. Con ese número la
           app pasa los minutos a milímetros y el riego entra en el balance de agua, al lado de la
-          lluvia. Para medirlo: poné cuatro o cinco recipientes rectos repartidos en la zona, regá
-          15 minutos, medí los milímetros que juntó cada uno, promedialos y multiplicá por 4.
+          lluvia. Lo mejor es cargar los aspersores acá abajo y que salga solo; el campo a mano
+          queda para las zonas que todavía no tengan la ficha.
         </p>
         <CalculadoraCaudal />
+      </Card>
+
+      <Card titulo="Aspersores de cada zona">
+        <p className="mb-3 text-sm text-tinta-2">
+          Cuántos aspersores de cada pico tiene la zona y a qué presión trabaja. Con eso la app
+          saca el caudal de la ficha de Hunter y no hace falta medirlo con vasos: cambiás un pico y
+          el número se corrige solo.
+        </p>
+        <AspersoresZonas
+          zonas={zonasConAspersores}
+          ficha={(boquillas ?? []) as any}
+        />
+        <p className="mt-3 text-sm text-tinta-2">
+          La <strong>superficie que moja</strong> es el marco entre aspersores por cuántos hay: si
+          están en cuadro cada 12 m, cada uno cubre 144 m². Si la dejás vacía, la app reparte la
+          superficie del lote entre sus zonas según cuántos aspersores tiene cada una, que para
+          zonas parejas alcanza. El número que sale es el teórico: en la cancha suele rendir entre
+          un 10 y un 25% menos, porque el agua no cae perfectamente pareja.
+        </p>
       </Card>
     </>
   );

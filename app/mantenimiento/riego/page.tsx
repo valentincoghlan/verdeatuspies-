@@ -17,6 +17,7 @@ import { CancelarRiegos } from "@/components/cancelar-riegos";
 import { Refrescar } from "@/components/refrescar";
 import { Dato } from "@/components/dato";
 import { Acciones } from "@/components/acciones";
+import { caudalesPorZona } from "@/lib/caudal";
 import { fechaBreve, fechaCorta, fechaDM, fechaLarga, hoyISO, mm, numero, sumarDiasISO } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -86,6 +87,11 @@ export default async function AguaPage({
       .maybeSingle(),
   ]);
 
+  // Cuánta agua tira cada zona, para pasar los minutos programados a
+  // milímetros. Va aparte del Promise.all porque es una vista y no una
+  // tabla, y la regla de qué caudal manda vive en un solo lugar.
+  const caudales = await caudalesPorZona(supabase);
+
   const listaRiegos = (riegos ?? []) as any[];
   const listaLluvias = (lluvias ?? []) as any[];
 
@@ -128,7 +134,9 @@ export default async function AguaPage({
     lote: (z.lotes?.nombre ?? null) as string | null,
     proximo: (z.proximo_riego_at ?? null) as string | null,
     minutos: (z.proximo_minutos ?? null) as number | null,
-    mmPorHora: (z.mm_por_hora ?? null) as number | null,
+    // El caudal sale de los aspersores de la zona si están cargados, y
+    // del número escrito a mano si no.
+    mmPorHora: caudales.get(z.id as string) ?? null,
     suspendidaHasta: (z.suspendida_hasta ?? null) as string | null,
   }));
   const conRiegoProgramado = programadas.filter((z) => z.proximo).length;

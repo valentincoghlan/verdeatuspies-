@@ -1,27 +1,34 @@
 -- ---------------------------------------------------------------------
--- OJO: ESTA MIGRACIÓN YA NO SE CORRE. LA REEMPLAZA LA 0034.
+-- 0034 · La ficha de boquillas, ahora sí
 --
--- Se corrió una versión anterior de este archivo, más simple, y después
--- el archivo se reescribió —cosa que no había que hacer—. Resultado: la
--- base quedó con las tablas viejas y los `create table if not exists` de
--- acá abajo no hacen nada.
+-- La 0032 quedó escrita en el repo pero nunca llegó a correr: en la base
+-- había una versión anterior y más simple, con otro diseño. Las dos
+-- tablas se llamaban igual y por eso el `create table if not exists` de
+-- la 0032 no hizo nada.
 --
--- La 0034 borra lo viejo y lo rehace bien. Esta queda solo como registro
--- de lo que efectivamente se corrió la primera vez.
+-- Lo que había:
+--   · boquillas(id, modelo, numero, litros_hora, notas) — 7 filas, y las
+--     siete con litros_hora en null.
+--   · zona_aspersores(zona_id, boquilla_id, cantidad).
+--   · riego_zonas sin presion_bar.
+--
+-- Con litros_hora vacío ninguna zona podía calcular su caudal: el
+-- inventario estaba bien cargado —120 aspersores, los mismos que acá—
+-- pero no había con qué convertirlo en agua.
+--
+-- Lo que falta es la presión. Un PGP rojo 12 tira 2.510 l/h a 3 bar y
+-- 3.220 a 5 bar: un 28% de diferencia que se va derecho al balance de
+-- agua. Por eso la ficha va con una fila por pico Y por presión, y cada
+-- zona declara a cuántos bar trabaja su línea.
+--
+-- Se borra lo viejo y se rehace. No se pierde nada: el inventario de los
+-- 120 aspersores se vuelve a cargar más abajo, y las boquillas viejas no
+-- tenían ningún dato adentro.
 -- ---------------------------------------------------------------------
 
--- ---------------------------------------------------------------------
--- 0032 · Qué aspersores tiene cada zona, y cuánto tira cada boquilla
---
--- El caudal de una zona no es un número que se escriba una vez: a medida
--- que entra el calor se prueba el alcance y se regulan las boquillas.
--- Así que en vez de guardar el mm/hora a mano, se guarda de qué está
--- hecha la zona —cuántos aspersores de cada pico— y la app hace la
--- cuenta sola. Cambiás un pico y cambia el mm/hora.
---
--- La cuenta es la de siempre: un litro sobre un metro cuadrado es un
--- milímetro. mm/hora = litros por hora de la zona / m² que moja.
--- ---------------------------------------------------------------------
+drop view if exists v_caudal_zonas;
+drop table if exists zona_aspersores;
+drop table if exists boquillas;
 
 -- ---------------------------------------------------------------------
 -- 1. La ficha del fabricante

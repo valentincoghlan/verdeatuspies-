@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { fechaArgentina, horaArgentina, mandarZona } from "@/lib/hydrawise";
 import { enviarAviso, enviarPush } from "@/lib/push";
+import { caudalDeUnaZona } from "@/lib/caudal";
 import { hoyISO } from "@/lib/format";
 
 /* ------------------------------------------------------------------ */
@@ -110,6 +111,7 @@ export async function regarZona(fd: FormData) {
 
   if (!zona?.hydrawise_relay_id) throw new Error("Esa zona no está conectada a Hydrawise.");
 
+  const caudal = await caudalDeUnaZona(supabase, zona.id);
   const cortar = txt(fd, "accion") === "stop";
   const minutos = num(fd, "minutos") ?? 15;
 
@@ -156,9 +158,9 @@ export async function regarZona(fd: FormData) {
       minutos,
       // Si la zona tiene cargado su caudal, el riego ya queda en mm y
       // entra en el balance de agua sin que nadie lo calcule a mano.
-      mm: zona.mm_por_hora
-        ? Number(((minutos / 60) * Number(zona.mm_por_hora)).toFixed(2))
-        : null,
+      // El caudal sale de los aspersores si están cargados; si no, del
+      // número escrito a mano.
+      mm: caudal ? Number(((minutos / 60) * caudal).toFixed(2)) : null,
       origen: "app",
       notas: `Abierta desde la app por ${minutos} min`,
       created_by: user.id,
@@ -1605,6 +1607,61 @@ export async function guardarZona(fd: FormData) {
   };
   if (id) await supabase.from("riego_zonas").update(datos).eq("id", id);
   else await supabase.from("riego_zonas").insert(datos);
+  bump("/config/lotes", "/mantenimiento/riego");
+}
+
+/**
+ * Guarda de qué está hecha una zona: sus aspersores, la presión y la
+ * superficie que moja.
+ *
+ * Los picos se reemplazan enteros en vez de actualizarse uno por uno. El
+ * formulario manda la lista completa tal como quedó en pantalla, así que
+ * cualquier otra cosa obligaría a adivinar cuáles se sacaron.
+ *
+ * No escribe mm_por_hora: ese campo sigue siendo el respaldo a mano. El
+ * caudal de la zona lo calcula la base a partir de lo que se guarda acá.
+ */
+export async function guardarAspersoresZona(fd: FormData) {
+  const { supabase } = await sesion();
+  const zonaId = txt(fd, "zona_id");
+  if (!zonaId) return;
+
+  await supabase
+    .from("riego_zonas")
+    .update({
+      presion_bar: dec(fd, "presion_bar"),
+      superficie_m2: dec(fd, "superficie_m2"),
+    })
+    .eq("id", zonaId);
+
+  // Las filas llegan como "pico_0" = "PGP rojo|12" y "cantidad_0" = "4".
+  const filas: { modelo: string; numero: string; cantidad: number }[] = [];
+  for (const [clave, valor] of fd.entries()) {
+    if (!clave.startsWith("pico_") || typeof valor !== "string" || !valor.includes("|")) continue;
+    const i = clave.slice(5);
+    const cantidad = Number((txt(fd, `cantidad_${i}`) ?? "").replace(",", "."));
+    if (!Number.isFinite(cantidad) || cantidad <= 0) continue;
+    const [modelo, numero] = valor.split("|");
+    if (!modelo || !numero) continue;
+    filas.push({ modelo, numero, cantidad: Math.round(cantidad) });
+  }
+
+  // Si el mismo pico entró dos veces, se suman en vez de pelearse por la
+  // clave primaria.
+  const juntadas = new Map<string, { modelo: string; numero: string; cantidad: number }>();
+  for (const f of filas) {
+    const k = `${f.modelo}|${f.numero}`;
+    const previa = juntadas.get(k);
+    juntadas.set(k, previa ? { ...f, cantidad: previa.cantidad + f.cantidad } : f);
+  }
+
+  await supabase.from("zona_aspersores").delete().eq("zona_id", zonaId);
+  if (juntadas.size > 0) {
+    await supabase
+      .from("zona_aspersores")
+      .insert([...juntadas.values()].map((f) => ({ ...f, zona_id: zonaId })));
+  }
+
   bump("/config/lotes", "/mantenimiento/riego");
 }
 
