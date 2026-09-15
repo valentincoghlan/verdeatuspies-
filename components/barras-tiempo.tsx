@@ -63,6 +63,18 @@ export function BarrasTiempo({
     else agrupados.push({ label, valor: d.valor });
   }
 
+  /*
+   * Cuántas barras entran, según el zoom.
+   *
+   * El recorte va DESPUÉS de agrupar y no antes. Cuando se recortaba la
+   * serie en el origen —los últimos doce meses— la vista por año quedaba
+   * mentirosa: al año más viejo le faltaban los meses que se habían caído
+   * por el camino, y 2024 mostraba 6.872 m² cuando habían sido 9.433.
+   * Un año a medias no se ve a medias: se ve como un año malo.
+   */
+  const CUANTAS: Record<Agrupacion, number> = { mes: 12, trimestre: 8, anio: 6 };
+  const visibles = agrupados.slice(-CUANTAS[agrupacion]);
+
   return (
     <>
       <div className="mb-3 flex flex-wrap gap-1.5">
@@ -83,7 +95,7 @@ export function BarrasTiempo({
         ))}
       </div>
 
-      <Barras datos={agrupados} formato={fmt} vertical />
+      <Barras datos={visibles} formato={fmt} vertical />
     </>
   );
 }

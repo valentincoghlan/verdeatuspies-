@@ -44,14 +44,24 @@ export function Cobrar({
   cuentas,
   accion,
   etiqueta = "Registrar un cobro",
+  clienteInicial = "",
+  compacto,
 }: {
   ventas: VentaACobrar[];
   cuentas: { id: string; nombre: string }[];
   accion: (fd: FormData) => Promise<void>;
   etiqueta?: string;
+  /**
+   * Arranca con este comprador puesto. Sirve para el botón de cada fila:
+   * si ya sabés a qué venta le vas a cargar la plata, no tiene sentido
+   * volver a elegir de quién es.
+   */
+  clienteInicial?: string;
+  /** Como un link y no como un botón grande: para adentro de una tabla. */
+  compacto?: boolean;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
-  const [cliente, setCliente] = useState("");
+  const [cliente, setCliente] = useState(clienteInicial);
   const [entradas, setEntradas] = useState<Renglon[]>(() => [renglonVacio(cuentas[0]?.id ?? "")]);
   const [reparto, setReparto] = useState<Record<string, string>>({});
   const [tocado, setTocado] = useState(false);
@@ -120,7 +130,11 @@ export function Cobrar({
       <button
         type="button"
         onClick={() => dialogo.current?.showModal()}
-        className="inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-pasto px-4 text-sm font-bold text-crema transition active:scale-[.98] sm:min-h-9"
+        className={
+          compacto
+            ? "inline-flex min-h-11 items-center whitespace-nowrap px-1 text-sm font-bold text-pasto hover:underline sm:min-h-9"
+            : "inline-flex min-h-11 items-center whitespace-nowrap rounded-full bg-pasto px-4 text-sm font-bold text-crema transition active:scale-[.98] sm:min-h-9"
+        }
       >
         {etiqueta}
       </button>

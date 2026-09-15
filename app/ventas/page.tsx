@@ -48,7 +48,9 @@ export default async function VentasPage() {
         .select("*, clientes!cliente_id(nombre), vinculante:clientes!vinculante_id(nombre), lotes(nombre)")
         .order("fecha", { ascending: false })
         .limit(80),
-      supabase.from("v_ventas_por_mes").select("*").order("mes", { ascending: false }).limit(12),
+      // Toda la historia: el grafico recorta segun el zoom que elijas, y
+      // con doce meses la vista por ano perdia parte del ano mas viejo.
+      supabase.from("v_ventas_por_mes").select("*").order("mes", { ascending: false }).limit(72),
       supabase.from("config").select("valor").eq("clave", "precio_m2_default").single(),
     ]);
 
@@ -221,6 +223,7 @@ export default async function VentasPage() {
                   { titulo: "Comprador" },
                   { titulo: "Facturado", desde: "sm" },
                   { titulo: "Debe", align: "right" },
+                  { titulo: "", ancho: "w-16 sm:w-auto" },
                 ]}
               >
                 {aCobrar.map((v) => (
@@ -235,7 +238,7 @@ export default async function VentasPage() {
                       </Link>
                     </td>
                     <td className="td hidden tabular-nums sm:table-cell">{pesos(v.facturado)}</td>
-                    <td className="td text-right tabular-nums font-semibold text-atencion-tx sm:text-left">
+                    <td className="td text-right tabular-nums font-semibold text-atencion-tx">
                       <Dato
                         principal={pesos(v.pendiente)}
                         secundario={
@@ -243,6 +246,18 @@ export default async function VentasPage() {
                             <span className="sm:hidden">de {pesos(v.facturado)}</span>
                           ) : null
                         }
+                      />
+                    </td>
+                    {/* Cargar el pago de ESTA entrega, sin volver a elegir
+                        de quién es. */}
+                    <td className="td text-right">
+                      <Cobrar
+                        ventas={aCobrar}
+                        cuentas={cuentasOpc}
+                        accion={cobrarVentas}
+                        etiqueta="Cobrar"
+                        clienteInicial={v.clienteId}
+                        compacto
                       />
                     </td>
                   </tr>
