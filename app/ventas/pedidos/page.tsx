@@ -13,7 +13,7 @@ import {
   crearPedido,
   reprogramarPedido,
 } from "@/lib/actions";
-import { diasEntre, fechaBreve, fechaCorta, fechaDM, fechaLarga, hoyISO, m2, mm, numero, pesos } from "@/lib/format";
+import { diasEntre, fechaBreve, fechaCorta, fechaLarga, hoyISO, m2, mm, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -291,7 +291,9 @@ export default async function PedidosPage() {
         <Card titulo="Margen por operación">
           <Tabla
             columnas={[
-              { titulo: "Entrega", ancho: "w-[3.2rem] sm:w-auto" },
+              // La fecha entera, con año: "14/09" solo no alcanza cuando
+              // la tabla arranca en septiembre y termina en enero.
+              { titulo: "Entrega", ancho: "w-[4.7rem] sm:w-auto" },
               { titulo: "Comprador" },
               { titulo: "m²", desde: "sm" },
               { titulo: "Cortesía", desde: "sm" },
@@ -308,9 +310,8 @@ export default async function PedidosPage() {
               const pct = facturado > 0 ? (margen / facturado) * 100 : 0;
               return (
                 <tr key={v.venta_id}>
-                  <td className="td whitespace-nowrap text-[11px] sm:text-sm">
-                    <span className="sm:hidden">{fechaDM(v.fecha_entrega)}</span>
-                    <span className="hidden sm:inline">{fechaBreve(v.fecha_entrega)}</span>
+                  <td className="td whitespace-nowrap text-xs sm:text-sm">
+                    {fechaBreve(v.fecha_entrega)}
                   </td>
                   <td className="td font-medium">
                     <span className="block truncate">{v.comprador}</span>
@@ -324,7 +325,7 @@ export default async function PedidosPage() {
                   <td className="td hidden tabular-nums text-tinta-2 sm:table-cell">
                     {Number(v.m2_cortesia) > 0 ? numero(Number(v.m2_cortesia)) : "—"}
                   </td>
-                  <td className="td text-right tabular-nums font-semibold sm:text-left">
+                  <td className="td text-right tabular-nums font-semibold">
                     <Dato
                       principal={pesos(facturado)}
                       secundario={<span className="sm:hidden">{numero(Number(v.m2))} m&sup2;</span>}

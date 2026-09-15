@@ -18,6 +18,9 @@ export type VentaEditable = {
 const ESTADOS = [
   { value: "presupuesto", label: "Presupuesto" },
   { value: "pedido", label: "Pedido" },
+  // Lo pone la app al cerrar una cosecha, pero se puede corregir a mano
+  // si alguna vez se cargó al revés.
+  { value: "cosechada", label: "Cosechada" },
   { value: "confirmada", label: "Confirmada" },
   { value: "entregada", label: "Entregada" },
   { value: "anulada", label: "Anulada" },

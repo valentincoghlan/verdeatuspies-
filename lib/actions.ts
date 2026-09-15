@@ -1606,6 +1606,18 @@ export async function repartirCosecha(fd: FormData) {
   if (reparto.length) {
     const { error } = await supabase.from("cosecha_ventas").insert(reparto);
     if (error) throw new Error(`No se pudo repartir la cosecha: ${error.message}`);
+
+    // El pedido pasa a "cosechada": el pasto está cortado y pagado,
+    // falta llevarlo. Solo desde "pedido": una entregada no vuelve para
+    // atrás porque se le reasigne una cosecha.
+    await supabase
+      .from("ventas")
+      .update({ estado: "cosechada" })
+      .in(
+        "id",
+        reparto.map((r) => r.venta_id),
+      )
+      .eq("estado", "pedido");
   }
 
   if (txt(fd, "cerrar") === "1") {

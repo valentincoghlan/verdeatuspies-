@@ -38,6 +38,7 @@ export default async function CajaPage({
     { data: personas },
     { data: lotes },
     { data: ventas },
+    { data: conSaldo },
     { data: cosechasDeVenta },
     { data: movs },
     { data: totales },
@@ -48,15 +49,24 @@ export default async function CajaPage({
     supabase.from("categorias").select("*").eq("activa", true).order("orden"),
     supabase.from("personas").select("*").eq("activa", true).order("nombre"),
     supabase.from("lotes").select("id, nombre").eq("activo", true).order("nombre"),
-    // Los pedidos a los que se les puede colgar un movimiento. Vienen
-    // los que deben plata —a esos se les cobra siempre, tengan la edad
-    // que tengan— y los cosechados hace poco, que son a los que se les
-    // puede imputar un gasto. La regla de cuál va con cuál está en
-    // PedidosDeCarga.
+    // Los pedidos recientes, salga de donde salga la plata.
+    //
+    // Va contra `ventas` y no contra v_margen_ventas porque esa vista
+    // deja afuera los que todavía están en estado "pedido", y un pedido
+    // sin confirmar igual se cosecha: la mano de obra de ese día es
+    // suya aunque la venta no esté cerrada.
+    supabase
+      .from("ventas")
+      .select("id, m2, fecha, fecha_entrega, estado, clientes!cliente_id(nombre)")
+      .gte("fecha", sumarDiasISO(hoy, -60))
+      .order("fecha_entrega", { ascending: false, nullsFirst: false })
+      .limit(120),
+    // Y las que deben plata, sin límite de fecha: a esas se les cobra
+    // hasta que queden en cero, tengan la antigüedad que tengan.
     supabase
       .from("v_margen_ventas")
-      .select("venta_id, comprador, fecha, fecha_entrega, facturado, m2, pendiente")
-      .or(`pendiente.gt.0,fecha.gte.${sumarDiasISO(hoy, -60)}`)
+      .select("venta_id, comprador, fecha, fecha_entrega, m2, pendiente")
+      .gt("pendiente", 0)
       .order("fecha_entrega", { ascending: false, nullsFirst: false })
       .limit(120),
     // De qué día es la cosecha que abasteció cada pedido: la ventana de
@@ -131,14 +141,35 @@ export default async function CajaPage({
 
   // Un solo listado para los dos formularios: quién puede recibir qué lo
   // decide PedidosDeCarga según se esté cargando un cobro o un gasto.
-  const pedidosElegibles = ((ventas ?? []) as any[]).map((v) => ({
-    id: v.venta_id as string,
-    comprador: (v.comprador ?? "Sin comprador") as string,
-    m2: Number(v.m2 ?? 0),
-    pendiente: Number(v.pendiente ?? 0),
-    fechaCosecha: cosechaDe.get(v.venta_id) ?? null,
-    fecha: (v.fecha_entrega ?? v.fecha) as string,
-  }));
+  // Se juntan las dos consultas porque casi no se pisan: las recientes
+  // pueden estar cobradas y las que deben pueden ser viejísimas.
+  const porId = new Map<string, any>();
+  for (const v of (ventas ?? []) as any[]) {
+    porId.set(v.id, {
+      id: v.id as string,
+      comprador: ((v.clientes as any)?.nombre ?? "Sin comprador") as string,
+      m2: Number(v.m2 ?? 0),
+      pendiente: 0,
+      fechaCosecha: cosechaDe.get(v.id) ?? null,
+      fecha: (v.fecha_entrega ?? v.fecha) as string,
+    });
+  }
+  for (const v of (conSaldo ?? []) as any[]) {
+    const ya = porId.get(v.venta_id);
+    if (ya) {
+      ya.pendiente = Number(v.pendiente ?? 0);
+      continue;
+    }
+    porId.set(v.venta_id, {
+      id: v.venta_id as string,
+      comprador: (v.comprador ?? "Sin comprador") as string,
+      m2: Number(v.m2 ?? 0),
+      pendiente: Number(v.pendiente ?? 0),
+      fechaCosecha: cosechaDe.get(v.venta_id) ?? null,
+      fecha: (v.fecha_entrega ?? v.fecha) as string,
+    });
+  }
+  const pedidosElegibles = [...porId.values()];
 
   const cuentasConId = (cuentas ?? []).map((c: any) => ({
     id: c.id as string,

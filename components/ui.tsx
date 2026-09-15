@@ -230,7 +230,7 @@ export function Tabla({
   }
 
   const alineado = (c: Columna) =>
-    c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "";
+    c.align === "right" ? "th-der" : c.align === "center" ? "th-centro" : "";
 
   return (
     <div className="w-full overflow-hidden">

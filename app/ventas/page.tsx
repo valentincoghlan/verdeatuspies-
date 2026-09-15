@@ -83,10 +83,12 @@ export default async function VentasPage() {
   const totalPorCobrar = aCobrar.reduce((a, v) => a + v.pendiente, 0);
   const cuentasOpc = ((cuentas ?? []) as any[]).map((c) => ({ id: c.id, nombre: c.nombre }));
 
+  // El camino de una venta: pedido -> cosechada -> entregada. El color
+  // acompaña ese avance, de lo más tibio a lo más cerrado.
   const tonoEstado = (e: string) =>
     e === "entregada"
       ? "verde"
-      : e === "confirmada"
+      : e === "cosechada" || e === "confirmada"
         ? "azul"
         : e === "pedido"
           ? "ambar"

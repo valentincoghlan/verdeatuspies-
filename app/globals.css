@@ -207,6 +207,21 @@ textarea.input {
 }
 /* La celda corta con puntos suspensivos, no a mitad de palabra. Lo que
    tenga que envolver lleva .td-envuelve. */
+/*
+  Encabezados alineados a la derecha o al centro.
+
+  Mismo motivo que input-corto: .th trae text-left en una regla común y
+  le gana a un text-right suelto. Por eso el encabezado de una columna de
+  plata quedaba a la izquierda mientras los números iban a la derecha, y
+  no se entendía cuál título era de cuál columna.
+*/
+.th-der {
+  @apply text-right;
+}
+.th-centro {
+  @apply text-center;
+}
+
 .td {
   @apply overflow-hidden text-ellipsis whitespace-nowrap px-2 py-2 text-sm text-tinta sm:px-3;
 }

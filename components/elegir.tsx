@@ -50,6 +50,8 @@ export function Elegir({
   deshabilitado?: boolean;
 }) {
   const [abierto, setAbierto] = useState(false);
+  /** Alto de la parte de pantalla que el teclado no tapa. */
+  const [visible, setVisible] = useState(0);
   const [teclado, setTeclado] = useState(0);
   const [busqueda, setBusqueda] = useState("");
   const [interno, setInterno] = useState(defaultValue);
@@ -83,7 +85,14 @@ export function Elegir({
     const vv = typeof window !== "undefined" ? window.visualViewport : null;
     if (!abierto || !vv) return;
 
-    const medir = () => setTeclado(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+    const medir = () => {
+      setTeclado(Math.max(0, window.innerHeight - vv.height - vv.offsetTop));
+      // Lo que queda a la vista con el teclado abierto. Antes la hoja se
+      // medía en vh —porcentaje de la pantalla entera, teclado incluido—
+      // y le sobraba alto: el buscador se iba para arriba y había que
+      // adivinar dónde estaba.
+      setVisible(vv.height);
+    };
     medir();
     vv.addEventListener("resize", medir);
     vv.addEventListener("scroll", medir);
@@ -91,6 +100,7 @@ export function Elegir({
       vv.removeEventListener("resize", medir);
       vv.removeEventListener("scroll", medir);
       setTeclado(0);
+      setVisible(0);
     };
   }, [abierto]);
 
@@ -164,13 +174,18 @@ export function Elegir({
           <div className="fixed inset-0 z-40 bg-tinta/30 sm:hidden" onClick={() => setAbierto(false)} />
 
           <div
-            style={teclado > 0 ? { bottom: `calc(${teclado}px + 0.75rem)` } : undefined}
+            style={{
+              ...(teclado > 0 ? { bottom: `calc(${teclado}px + 0.75rem)` } : {}),
+              // Nunca más alta que el hueco que dejó el teclado.
+              ...(visible > 0 ? { maxHeight: `${Math.max(180, visible - 24)}px` } : {}),
+            }}
             className={
-              "z-50 overflow-hidden rounded-2xl border border-borde bg-white shadow-[0_18px_40px_-20px_rgba(20,60,34,.35)] " +
+              "z-50 flex flex-col overflow-hidden rounded-2xl border border-borde bg-white shadow-[0_18px_40px_-20px_rgba(20,60,34,.35)] " +
               "fixed inset-x-3 bottom-3 max-h-[60vh] sm:absolute sm:inset-x-auto sm:bottom-auto sm:mt-1 sm:max-h-80 sm:w-full"
             }
           >
-            <div className="border-b border-beige p-2">
+            {/* El buscador va clavado arriba: es lo primero que se toca. */}
+            <div className="shrink-0 border-b border-beige p-2">
               <input
                 ref={buscador}
                 type="text"
@@ -181,7 +196,7 @@ export function Elegir({
               />
             </div>
 
-            <ul className="max-h-[50vh] overflow-y-auto p-1.5 sm:max-h-60">
+            <ul className="min-h-0 flex-1 overflow-y-auto p-1.5 sm:max-h-60">
               {/* Al buscar, la lista arranca por los resultados: nada arriba. */}
               {opcional && !busqueda.trim() && (
                 <li>
