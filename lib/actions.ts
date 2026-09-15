@@ -1378,6 +1378,93 @@ export async function crearCobro(fd: FormData) {
  * Van separados y no como un solo movimiento porque el pendiente se
  * calcula por venta, no por cliente.
  */
+/**
+ * Cuelga de una venta un cobro que ya estaba cargado.
+ *
+ * Pasa seguido: entra una transferencia, se anota en el momento como
+ * ingreso y recién después se sabe a qué entrega correspondía. Ese
+ * movimiento existe, la plata ya está en la cuenta; lo único que falta
+ * es decirle de qué venta es.
+ *
+ * Si el pago tapa solo una parte, el movimiento se parte en dos: la
+ * parte que va a esta venta queda colgada de ella y el resto sigue
+ * suelto, listo para asignarse a otra. El total de plata no cambia
+ * nunca, que es lo que hace que los saldos de las cuentas sigan
+ * cerrando.
+ */
+export async function asignarCobro(fd: FormData) {
+  const { supabase, user } = await sesion();
+  const movId = txt(fd, "movimiento_id")!;
+  const ventaId = txt(fd, "venta_id")!;
+
+  const [{ data: mov }, { data: venta }] = await Promise.all([
+    supabase.from("movimientos").select("*").eq("id", movId).maybeSingle(),
+    supabase.from("ventas").select("id, cliente_id").eq("id", ventaId).maybeSingle(),
+  ]);
+
+  if (!mov) throw new Error("No encontré ese cobro.");
+  if (!venta) throw new Error("No encontré esa venta.");
+  if (mov.venta_id) throw new Error("Ese cobro ya está asignado a una venta.");
+
+  const total = Number(mov.monto ?? 0);
+  const pedido = num(fd, "monto") ?? total;
+  const parte = Math.min(Math.max(0, pedido), total);
+
+  if (parte <= 0) return;
+
+  const proporcion = total > 0 ? parte / total : 1;
+  const usdParte =
+    mov.monto_usd === null ? null : Math.round(Number(mov.monto_usd) * proporcion * 100) / 100;
+
+  if (parte >= total - 0.01) {
+    // Va entero: no hace falta partir nada.
+    const { error } = await supabase
+      .from("movimientos")
+      .update({ venta_id: ventaId, cliente_id: mov.cliente_id ?? venta.cliente_id })
+      .eq("id", movId);
+    if (error) throw new Error(`No se pudo asignar el cobro: ${error.message}`);
+  } else {
+    const resto = Math.round((total - parte) * 100) / 100;
+    const usdResto = mov.monto_usd === null ? null : Math.round((Number(mov.monto_usd) - (usdParte ?? 0)) * 100) / 100;
+
+    // Primero achicar el original, después crear la parte asignada: si
+    // algo falla en el medio, queda de menos y no de más.
+    const { error: e1 } = await supabase
+      .from("movimientos")
+      .update({ monto: resto, monto_usd: usdResto })
+      .eq("id", movId);
+    if (e1) throw new Error(`No se pudo partir el cobro: ${e1.message}`);
+
+    const { id, created_at, ...resto_campos } = mov as any;
+    const { error: e2 } = await supabase.from("movimientos").insert({
+      ...resto_campos,
+      monto: parte,
+      monto_usd: usdParte,
+      venta_id: ventaId,
+      cliente_id: mov.cliente_id ?? venta.cliente_id,
+      created_by: user.id,
+    });
+    if (e2) {
+      // Devolver el original a como estaba, para no perder plata.
+      await supabase
+        .from("movimientos")
+        .update({ monto: total, monto_usd: mov.monto_usd })
+        .eq("id", movId);
+      throw new Error(`No se pudo partir el cobro: ${e2.message}`);
+    }
+  }
+
+  bump(
+    "/administracion",
+    "/administracion/disponibilidades",
+    "/ventas",
+    `/ventas/${ventaId}`,
+    "/ventas/clientes",
+    "/reportes",
+    "/",
+  );
+}
+
 export async function cobrarVentas(fd: FormData) {
   const { supabase, user } = await sesion();
   const mep = await mepActual(supabase);

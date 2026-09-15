@@ -9,6 +9,7 @@ import { QuePaso } from "@/components/que-paso";
 import {
   borrarMovimiento,
   borrarVenta,
+  asignarCobro,
   cobrarVentas,
   crearGastoVenta,
   editarVenta,
@@ -36,6 +37,7 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
     { data: lotes },
     { data: cuentas },
     { data: categorias },
+    { data: sueltos },
     { data: deLote },
     admin,
   ] = await Promise.all([
@@ -48,11 +50,24 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
       supabase.from("lotes").select("id, nombre").eq("activo", true).order("nombre"),
       supabase.from("cuentas").select("id, nombre").eq("activa", true).order("orden"),
       supabase.from("categorias").select("*").eq("activa", true).order("orden"),
+      // Cobros ya cargados que nunca se colgaron de una venta. Los
+      // ajustes de saldo quedan afuera: corrigen un arrastre, no son
+      // plata que alguien pago.
+      supabase
+        .from("v_movimientos")
+        .select("id, fecha, monto, categoria, subcategoria, detalle, cuenta, cliente")
+        .eq("tipo", "I")
+        .is("venta_id", null)
+        .neq("categoria", "Ajustes")
+        .order("fecha", { ascending: false })
+        .limit(30),
       supabase.from("v_lotes_por_venta").select("lotes, cuantos_lotes").eq("venta_id", id).maybeSingle(),
       esAdmin(),
     ]);
 
   if (!v) notFound();
+
+  const listaSueltos = (sueltos ?? []) as any[];
 
   // Cada rubro con sus subcategorías, como los pide QuePaso.
   const rubros = (categorias ?? [])
@@ -281,6 +296,75 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
             {gastosImputados > 0 && <> más {pesos(gastosImputados)} imputados</>}.
           </p>
         </Card>
+
+        {/*
+          Entra una transferencia, se anota en el momento como ingreso y
+          recien despues se sabe de que entrega era. Ese movimiento ya
+          existe y la plata ya esta en la cuenta: lo unico que falta es
+          decirle de que venta es. Cargarlo de nuevo seria contar la
+          misma plata dos veces.
+        */}
+        {pendiente > 0.5 && listaSueltos.length > 0 && (
+          <Card titulo="Cobros sin asignar">
+            <p className="mb-3 text-sm text-tinta-2">
+              Plata que ya entro pero no esta colgada de ninguna venta. Si alguno es de esta,
+              asignalo: no hace falta volver a cargarlo. A esta venta le faltan{" "}
+              <strong className="text-atencion-tx">{pesos(pendiente)}</strong>.
+            </p>
+            <Tabla
+              columnas={[
+                { titulo: "Fecha", ancho: "w-[4.7rem] sm:w-auto" },
+                { titulo: "De donde salio" },
+                { titulo: "Monto", align: "right" },
+                { titulo: "", ancho: "w-24 sm:w-auto" },
+              ]}
+              vacio="No hay cobros sueltos."
+            >
+              {listaSueltos.map((m: any) => {
+                const monto = Number(m.monto ?? 0);
+                const propone = Math.min(monto, pendiente);
+                return (
+                  <tr key={m.id}>
+                    <td className="td whitespace-nowrap">{fechaBreve(m.fecha)}</td>
+                    <td className="td max-w-0">
+                      <span className="block truncate">
+                        {m.cliente ?? m.detalle ?? m.subcategoria ?? "Sin detalle"}
+                      </span>
+                      <span className="block truncate text-xs text-tinta-3">
+                        {m.cuenta} · {m.categoria}
+                        {m.subcategoria ? ` · ${m.subcategoria}` : ""}
+                      </span>
+                    </td>
+                    <td className="td text-right tabular-nums font-semibold text-pasto">
+                      {pesos(monto)}
+                    </td>
+                    <td className="td text-right">
+                      <form action={asignarCobro} className="flex items-center justify-end gap-1.5">
+                        <input type="hidden" name="movimiento_id" value={m.id} />
+                        <input type="hidden" name="venta_id" value={String(v.venta_id)} />
+                        <input
+                          name="monto"
+                          type="text"
+                          inputMode="decimal"
+                          defaultValue={String(Math.round(propone))}
+                          aria-label={`Cuanto de este cobro va a esta venta`}
+                          className="input input-corto text-right"
+                        />
+                        <button className="whitespace-nowrap text-sm font-bold text-pasto hover:underline">
+                          Asignar
+                        </button>
+                      </form>
+                    </td>
+                  </tr>
+                );
+              })}
+            </Tabla>
+            <p className="mt-3 text-xs text-tinta-3">
+              Si el cobro es mas grande que lo que falta, se parte: lo que entra queda colgado de
+              esta venta y el resto sigue suelto para otra. La plata total no cambia.
+            </p>
+          </Card>
+        )}
 
         <Card titulo="Cargarle un gasto">
           <p className="mb-3 text-sm text-tinta-2">
