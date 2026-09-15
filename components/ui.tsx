@@ -231,6 +231,21 @@ function celdasDeLaPrimeraFila(children: ReactNode) {
 }
 
 /**
+ * Una clave estable para el interruptor de cada tabla.
+ *
+ * Tiene que salir siempre igual en el servidor y en el navegador —si no,
+ * React se queja de que el HTML no coincide—, así que no puede ser al
+ * azar ni un contador. Sale del contenido de la tabla, que es lo único
+ * que la distingue y no cambia entre una vuelta y la otra.
+ */
+function claveDeTabla(columnas: Columna[], extra: string) {
+  const texto = columnas.map((c) => `${c.titulo}|${c.desde ?? ""}|${c.ancho ?? ""}`).join("~") + extra;
+  let h = 0;
+  for (let i = 0; i < texto.length; i++) h = (Math.imul(31, h) + texto.charCodeAt(i)) | 0;
+  return `tb${(h >>> 0).toString(36)}`;
+}
+
+/**
  * Tabla que nunca obliga a scrollear de costado. Ni en el celular ni en
  * la compu.
  *
@@ -247,10 +262,16 @@ export function Tabla({
   columnas,
   children,
   vacio,
+  resumen,
+  abierta,
 }: {
   columnas: Columna[];
   children: ReactNode;
   vacio?: string;
+  /** Qué dice el interruptor del celular. Por defecto, cuántas filas hay. */
+  resumen?: string;
+  /** Arranca desplegada también en el celular. Para tablas de dos filas. */
+  abierta?: boolean;
 }) {
   const sinFilas = !children || (Array.isArray(children) && children.length === 0);
 
@@ -276,8 +297,43 @@ export function Tabla({
   const alineado = (c: Columna) =>
     c.align === "right" ? "th-der" : c.align === "center" ? "th-centro" : "";
 
+  const filas = Children.count(children);
+  const clave = claveDeTabla(columnas, vacio ?? "");
+  const titulo = resumen ?? `${filas} ${filas === 1 ? "fila" : "filas"}`;
+
+  /*
+   * En el celular la tabla arranca plegada.
+   *
+   * Una pantalla con tres tablas abiertas son cien filas de scroll antes
+   * de llegar a lo que buscabas. Cerradas, se ve el mapa de la pantalla
+   * de un vistazo y abrís la que te interesa.
+   *
+   * Va con un checkbox escondido y no con <details> porque hace falta que
+   * en la compu esté siempre abierta, y a un <details> cerrado no se le
+   * puede mostrar el contenido desde CSS: el navegador no lo dibuja. Con
+   * el checkbox alcanza `sm:block` y no hace falta nada de JavaScript.
+   */
   return (
     <div className="w-full overflow-hidden">
+      <input
+        id={clave}
+        type="checkbox"
+        defaultChecked={abierta}
+        className="peer sr-only"
+        tabIndex={-1}
+        aria-hidden
+      />
+      <label
+        htmlFor={clave}
+        className="mb-2 flex min-h-11 cursor-pointer select-none items-center justify-between gap-3 rounded-xl bg-crema px-3.5 text-sm font-semibold text-tinta-2 peer-checked:[&_.flecha]:rotate-180 sm:hidden"
+      >
+        <span className="truncate">{titulo}</span>
+        <span aria-hidden className="flecha shrink-0 text-[10px] text-tinta-3 transition">
+          ▾
+        </span>
+      </label>
+
+      <div className="hidden peer-checked:block sm:block">
       <table className="w-full table-fixed border-collapse overflow-hidden rounded-xl sm:table-auto">
         <thead>
           <tr>
@@ -298,6 +354,7 @@ export function Tabla({
         </thead>
         <tbody className="divide-y divide-beige">{children}</tbody>
       </table>
+      </div>
     </div>
   );
 }

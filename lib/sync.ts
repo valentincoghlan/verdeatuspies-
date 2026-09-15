@@ -648,7 +648,9 @@ export async function generarAlertas() {
   const { data: pedidos } = await sb
     .from("ventas")
     .select("id, fecha_entrega, m2, total, cliente_final, clientes!cliente_id(nombre), lotes(nombre)")
-    .eq("estado", "pedido")
+    // Cosechado no es entregado: el pasto esta cortado y apilado, pero
+    // todavia hay que llevarlo y el aviso tiene que seguir saliendo.
+    .in("estado", ["pedido", "cosechada"])
     .not("fecha_entrega", "is", null)
     .lte("fecha_entrega", sumarDias(hoy, 2))
     .order("fecha_entrega");

@@ -5,12 +5,15 @@ import { Campo, Nota, Opciones, Selector } from "@/components/campos";
 import { CanalYComprador } from "@/components/comprador";
 import { Dato } from "@/components/dato";
 import { ConfirmarEntrega } from "@/components/confirmar-entrega";
+import { EditarVenta } from "@/components/editar-venta";
 import {
   anularPedido,
+  borrarVenta,
   confirmarEntrega,
   crearCobro,
   crearGastoVenta,
   crearPedido,
+  editarVenta,
   reprogramarPedido,
 } from "@/lib/actions";
 import { diasEntre, fechaBreve, fechaCorta, fechaLarga, hoyISO, m2, mm, numero, pesos } from "@/lib/format";
@@ -35,6 +38,7 @@ export default async function PedidosPage() {
   const [
     { data: clientes },
     { data: lotes },
+    { data: estados },
     { data: pedidos },
     { data: margenes },
     { data: config },
@@ -46,6 +50,9 @@ export default async function PedidosPage() {
       // distribuidor y ofrece crear un cliente que ya existe.
       supabase.from("clientes").select("id, nombre, canal").eq("activo", true).order("nombre"),
       supabase.from("lotes").select("id, nombre").eq("activo", true).order("nombre"),
+      // v_pedidos_pendientes no trae el estado y EditarVenta lo necesita
+      // para no pisarlo al guardar. Son dos o tres filas: sale barato.
+      supabase.from("ventas").select("id, estado").in("estado", ["pedido", "cosechada"]),
       supabase
         .from("v_pedidos_pendientes")
         .select("*")
@@ -88,6 +95,10 @@ export default async function PedidosPage() {
     if (hijos.length === 0) return [{ value: p.id, label: p.nombre }];
     return hijos.map((h: any) => ({ value: h.id, label: `${p.nombre} · ${h.nombre}` }));
   });
+
+  const estadoDe = new Map(
+    ((estados ?? []) as any[]).map((x) => [x.id as string, x.estado as string]),
+  );
 
   return (
     <>
@@ -227,7 +238,7 @@ export default async function PedidosPage() {
 
                     {/* El mismo modal que en Inicio y en Cosecha: la
                         entrega se resuelve igual desde donde estés. */}
-                    <div className="mt-3">
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
                       <ConfirmarEntrega
                         pedidoId={p.id}
                         comprador={p.comprador ?? "Sin comprador"}
@@ -237,6 +248,26 @@ export default async function PedidosPage() {
                         confirmar={confirmarEntrega}
                         reprogramar={reprogramarPedido}
                         anular={anularPedido}
+                      />
+                      {/* Un pedido cambia antes de salir: piden más metros,
+                          se corre la fecha, se negocia el precio. Hasta hoy
+                          había que ir a Ventas a buscarlo. */}
+                      <EditarVenta
+                        venta={{
+                          id: p.id,
+                          comprador: p.comprador ?? "Sin comprador",
+                          fecha: p.fecha,
+                          fecha_entrega: p.fecha_entrega,
+                          m2: Number(p.m2 ?? 0),
+                          precio_m2: Number(p.precio_m2 ?? 0),
+                          flete: Number(p.flete ?? 0),
+                          estado: estadoDe.get(p.id) ?? "pedido",
+                          lote_id: p.lote_id,
+                          notas: p.notas,
+                        }}
+                        lotes={(lotes ?? []) as any[]}
+                        accion={editarVenta}
+                        borrar={borrarVenta}
                       />
                     </div>
 

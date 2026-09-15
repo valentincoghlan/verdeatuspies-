@@ -38,7 +38,7 @@ npm run typecheck  # tsc --noEmit
 ```
 app/
   page.tsx                       dashboard: pendientes, estado de lotes, clima, plata del mes
-  mantenimiento/riego            carga manual + zonas importadas de Hydrawise
+  mantenimiento/riego            zonas, abrir/cortar riego, cancelar programados, lluvias
   mantenimiento/cortes           cortes por lote y control de atraso
   mantenimiento/fertilizaciones  agenda, aplicación y catálogo de productos
   mantenimiento/lluvias          mm reales del pluviómetro vs. pronóstico
@@ -53,6 +53,7 @@ lib/
   sync.ts                        orquesta clima, Hydrawise, alertas y digest por mail
   hydrawise.ts                   integración con la API de Hunter
   clima.ts                       Open-Meteo
+  caudal.ts                      mm/hora de cada zona (la regla vive solo ahi)
   mail.ts                        plantilla HTML + envío con Resend
   format.ts                      pesos, m², mm, fechas, días entre fechas
   supabase/{server,client}.ts    clientes de Supabase (server usa cookies; admin usa service role)
@@ -110,17 +111,55 @@ middleware.ts                    protege todas las rutas menos /login, /auth y /
 Cada notificación lleva una `clave_unica` para no duplicarse entre corridas. El mail es
 un digest: junta todo lo pendiente en un solo envío.
 
-## Límite conocido: Hydrawise
+## Cómo funcionan los riegos
 
-La API REST pública de Hunter (`api.hydrawise.com/api/v1`) devuelve el catálogo de zonas,
-el próximo riego programado y las zonas corriendo en ese momento. **No expone el
-historial de riegos** — eso vive solo en los reportes de la app de Hunter.
+El controlador es un **Hunter Hydrawise**. La app no riega sola ni hace de reloj:
+manda órdenes, lee lo que el controlador informa y anota todo en `riegos`.
+
+**Las zonas.** Viven en `riego_zonas`, se importan del controlador en el sync y se
+atan a un lote a mano desde Config -> Zonas. Una zona sin lote riega igual, pero el
+riego no cae en ningún lote y no entra en el balance de agua.
+
+**De minutos a milímetros.** La conversión sale del caudal de la zona, en mm/hora, y
+la regla vive en `lib/caudal.ts` **y en ningún otro lado**: si la zona tiene los
+aspersores cargados (ficha de boquillas + presión) manda el número calculado; si no,
+manda el mm/hora escrito a mano en Ajustes; si no hay ninguno de los dos, el riego
+queda sin mm. `mm = minutos / 60 * caudal`.
+
+**Los tres orígenes de un riego** (columna `origen`):
+
+| Origen | Quién lo crea | Minutos |
+|---|---|---|
+| `app` | Abrir el riego desde la pantalla (`regarZona`) | exactos |
+| `hydrawise` | La corrida diaria, cuando detecta que la zona corrió | estimados del ciclo programado |
+| `manual` | Carga a mano de un riego viejo (`crearRiego`) | los que se escriban |
+
+**Abrir y cortar.** `regarZona` le manda `run` al controlador con los segundos, e
+inserta el riego en el acto con los mm ya calculados. Al cortar (`stop`) busca el
+riego abierto de esa zona del día y le ajusta los minutos a lo que realmente corrió.
+Si el agua arrancó pero el registro falla, la acción tira error: nunca se riega sin
+que quede anotado.
+
+**Programados y cancelación.** Los programas viven en el controlador, que es hardware
+y no depende de que nadie lo despierte (la app tuvo programas propios y se sacaron en
+la migración 0021). El sync guarda en `riego_zonas` el próximo riego, su duración y
+hasta cuándo está suspendida. `suspenderRiego` cancela los riegos programados hasta un
+día y hora — por zona, por lote o todo el campo — sin tocar el programa; para
+levantarlo se manda la misma orden con una fecha ya pasada, que es como Hunter
+entiende "volvé a regar".
+
+**Límite de la API de Hunter.** `api.hydrawise.com/api/v1` devuelve el catálogo de
+zonas, el próximo riego, las zonas corriendo ahora y el último riego en formato
+relativo ("2 days ago"). **No expone el historial**, que vive solo en los reportes de
+la app de Hunter. Además acepta como máximo **10 órdenes cada 5 minutos** en
+`setzone.php`; pasado eso contesta texto plano con HTTP 200, así que `lib/hydrawise.ts`
+mira el cuerpo y no solo el código.
 
 **Decisión tomada: un sync por día alcanza.** No se busca tiempo real. Queda registrado
-si cada zona regó ese día, y los minutos son los del ciclo programado (estimados, y
-marcados como tal en las notas del riego). Si algún día se quisiera el detalle exacto,
-alcanza con pegarle al mismo endpoint más seguido desde un scheduler externo, sin tocar
-código.
+si cada zona regó ese día y con cuántos minutos estimados (marcado así en las notas).
+El JSON crudo se guarda en `hydrawise_snapshots` para auditar. Si algún día se quisiera
+el detalle exacto, alcanza con pegarle al mismo endpoint más seguido desde un scheduler
+externo, sin tocar código.
 
 ## Estado
 

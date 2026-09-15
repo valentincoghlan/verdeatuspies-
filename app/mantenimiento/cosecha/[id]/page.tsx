@@ -47,7 +47,11 @@ export default async function ContarCosechaPage({
       supabase
         .from("ventas")
         .select("id, m2, precio_m2, fecha_entrega, clientes!cliente_id(nombre)")
-        .in("estado", ["pedido", "confirmada"])
+        // "cosechada" tambien: un pedido de 600 m2 que se cubrio con
+        // 200 sigue necesitando las otras dos cosechas. Cuando se le
+        // asigno la primera paso a ese estado, y si no estuviera aca
+        // no habria forma de darle la segunda.
+        .in("estado", ["pedido", "cosechada", "confirmada"])
         .order("fecha_entrega", { ascending: true, nullsFirst: false }),
       supabase.from("cosecha_ventas").select("venta_id, m2").eq("cosecha_id", id),
       // Lo que TODAS las cosechas ya le asignaron a cada pedido. Sin

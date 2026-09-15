@@ -854,9 +854,21 @@ export async function reprogramarPedido(fd: FormData) {
   const nueva = txt(fd, "fecha_entrega");
   if (!nueva) return;
 
+  // Mover la fecha no deshace lo que ya se hizo: si el pasto ya estaba
+  // cortado sigue estando cortado. El estado solo vuelve a "pedido"
+  // cuando se reprograma algo que se habia dado por entregado.
+  const { data: actual } = await supabase
+    .from("ventas")
+    .select("estado")
+    .eq("id", id)
+    .maybeSingle();
+
   await supabase
     .from("ventas")
-    .update({ estado: "pedido", fecha_entrega: nueva })
+    .update({
+      estado: actual?.estado === "cosechada" ? "cosechada" : "pedido",
+      fecha_entrega: nueva,
+    })
     .eq("id", id);
 
   await cerrarAvisoEntrega(
