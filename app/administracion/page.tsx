@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { Card, PageHeader, Stat, Tabla } from "@/components/ui";
+import { Card, CardPlegable, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota, Opciones, Selector } from "@/components/campos";
 import { Elegir } from "@/components/elegir";
 import { CuentaYMonto } from "@/components/plata";
@@ -198,12 +198,22 @@ export default async function CajaPage({
       <div className="space-y-3">
         <FiltroFechas base="/administracion" activo={sp.p} rango={rango} />
 
-        <Card titulo="Cargar un movimiento">
+        {/* Los dos formularios arrancan cerrados: ocupan media pantalla
+            y no se usan cada vez que entrás. Lo primero que se ve es lo
+            que ya está cargado. */}
+        <CardPlegable
+          titulo="Cargar un movimiento"
+          bajada="Una entrada o una salida"
+        >
           {/* Envuelve el formulario porque dos campos se miran entre sí:
               a qué pedidos se puede imputar depende de si entra o sale
               plata y de qué día es. */}
           <ProveedorCarga hoy={hoy}>
-          <form action={crearMovimiento} className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <form
+            id="cargar"
+            action={crearMovimiento}
+            className="grid grid-cols-2 gap-3 sm:grid-cols-3"
+          >
             {/* Qué pasó */}
             <QuePaso rubros={rubros} admin={admin} />
 
@@ -248,38 +258,25 @@ export default async function CajaPage({
             </div>
           </form>
           </ProveedorCarga>
-        </Card>
+        </CardPlegable>
 
         {/* El día de cosecha no es un movimiento: son cinco pagos que van
-            a tres pedidos. Va plegado para no tapar la carga de todos
-            los días, que sigue siendo la de arriba. */}
-        <Card className="p-0">
-          <details className="group">
-            <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 sm:px-5">
-              <span>
-                <span className="block text-sm font-bold text-tinta">Cargar varios juntos</span>
-                <span className="block text-xs text-tinta-3">
-                  Un día de cosecha: varios pagos repartidos entre varios pedidos
-                </span>
-              </span>
-              <span aria-hidden className="text-xs text-tinta-3 group-open:rotate-180">
-                ▾
-              </span>
-            </summary>
-            <div className="border-t border-beige p-4 sm:p-5">
-              <Tanda
-                rubros={rubros}
-                admin={admin}
-                cuentas={cuentasConId}
-                personas={nombresPersona}
-                lotes={opcionesLote}
-                pedidos={pedidosElegibles}
-                hoy={hoy}
-                accion={crearTanda}
-              />
-            </div>
-          </details>
-        </Card>
+            a tres pedidos. */}
+        <CardPlegable
+          titulo="Cargar varios juntos"
+          bajada="Un día de cosecha: varios pagos entre varios pedidos"
+        >
+          <Tanda
+            rubros={rubros}
+            admin={admin}
+            cuentas={cuentasConId}
+            personas={nombresPersona}
+            lotes={opcionesLote}
+            pedidos={pedidosElegibles}
+            hoy={hoy}
+            accion={crearTanda}
+          />
+        </CardPlegable>
 
         <Card titulo={`Del ${fechaBreve(rango.desde)} al ${fechaBreve(rango.hasta)}`}>
           <p className="mb-3 text-sm text-tinta-2">

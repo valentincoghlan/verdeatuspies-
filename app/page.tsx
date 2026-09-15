@@ -216,7 +216,10 @@ export default async function Dashboard() {
           {/* Lo que más se carga, a un toque desde la pantalla de entrada. */}
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
             <Link
-              href="/administracion"
+              // El ancla cae adentro del plegable, y el navegador lo
+              // abre solo al ir a un fragmento que está escondido ahí
+              // dentro: el atajo sigue siendo un toque.
+              href="/administracion#cargar"
               className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl bg-pasto px-3 text-sm font-bold text-crema transition active:scale-[.98]"
             >
               <span aria-hidden className="text-lg leading-none">

@@ -160,6 +160,50 @@ export function Card({
   );
 }
 
+/**
+ * Una tarjeta que arranca cerrada.
+ *
+ * Para los formularios de carga: ocupan media pantalla y no se usan cada
+ * vez que entrás. Cerrados, lo primero que ves es lo que ya cargaste.
+ *
+ * Es un <details> y no un estado de React a propósito: se abre sin
+ * JavaScript y el navegador se acuerda de cuál estaba abierto al volver.
+ */
+export function CardPlegable({
+  titulo,
+  bajada,
+  children,
+  abierta,
+  id,
+}: {
+  titulo: string;
+  /** Una línea que explica para qué sirve, sin tener que abrirlo. */
+  bajada?: string;
+  children: ReactNode;
+  abierta?: boolean;
+  id?: string;
+}) {
+  return (
+    <section id={id} className="card p-0">
+      <details className="group" open={abierta}>
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 sm:px-5">
+          <span className="min-w-0">
+            <span className="block text-sm font-bold text-tinta">{titulo}</span>
+            {bajada && <span className="block truncate text-xs text-tinta-3">{bajada}</span>}
+          </span>
+          <span
+            aria-hidden
+            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-crema text-xs text-tinta-2 transition group-open:rotate-180"
+          >
+            ▾
+          </span>
+        </summary>
+        <div className="border-t border-beige p-4 sm:p-5">{children}</div>
+      </details>
+    </section>
+  );
+}
+
 export type Columna = {
   titulo: string;
   /** Desde qué ancho se muestra. Sin esto, se ve siempre. */
