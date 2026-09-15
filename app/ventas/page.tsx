@@ -274,7 +274,7 @@ export default async function VentasPage() {
           >
             {(ventas ?? []).map((v: any) => (
               <tr key={v.id}>
-                <td className="td whitespace-nowrap">{fechaBreve(v.fecha)}</td>
+                <td className="td hidden whitespace-nowrap sm:table-cell">{fechaBreve(v.fecha)}</td>
                 <td className="td max-w-0 font-medium">
                   <Link
                     href={`/ventas/${v.id}`}
@@ -291,8 +291,10 @@ export default async function VentasPage() {
                     </span>
                   )}
                 </td>
-                <td className="td tabular-nums">{numero(v.m2)}</td>
-                <td className="td tabular-nums">{pesos(Number(v.precio_m2))}</td>
+                <td className="td hidden tabular-nums sm:table-cell">{numero(v.m2)}</td>
+                <td className="td hidden tabular-nums sm:table-cell">
+                  {pesos(Number(v.precio_m2))}
+                </td>
                 <td className="td tabular-nums font-semibold">
                   <Dato
                     principal={pesos(Number(v.total))}

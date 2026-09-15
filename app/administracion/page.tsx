@@ -10,7 +10,7 @@ import { FechaDeCarga, ProveedorCarga } from "@/components/carga";
 import { PedidosDeCarga } from "@/components/pedidos-de-carga";
 import { crearMovimiento, crearPersona, crearTanda } from "@/lib/actions";
 import { esAdmin } from "@/lib/rol";
-import { fechaBreve, fechaDM, hoyISO, numero, pesos, sumarDiasISO } from "@/lib/format";
+import { fechaBreve, fechaDM, hoyISO, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -59,9 +59,11 @@ export default async function CajaPage({
     supabase
       .from("ventas")
       .select("id, m2, total, fecha, fecha_entrega, estado, clientes!cliente_id(nombre)")
-      .gte("fecha", sumarDiasISO(hoy, -60))
+      // Sin piso de fecha: la lista corta la arma la pantalla —de entrada
+      // muestra la semana— pero "Buscar en todas" tiene que poder llegar
+      // a una cosecha vieja.
       .order("fecha_entrega", { ascending: false, nullsFirst: false })
-      .limit(120),
+      .limit(200),
     // Lo ya cobrado de los pedidos que todavía no llegaron al margen.
     // Una seña entra antes de cosechar, así que esos pedidos también
     // tienen saldo y también se les puede seguir cobrando.
@@ -293,7 +295,9 @@ export default async function CajaPage({
           )}
           <Tabla
             columnas={[
-              { titulo: "Fecha", ancho: "w-[2.9rem] sm:w-auto" },
+              // 2,9rem son 46px y de esos 16 se los come el padding:
+              // "14/09" no entraba por un pelo y salía "14/...".
+              { titulo: "Fecha", ancho: "w-[3.6rem] sm:w-auto" },
               { titulo: "Categoría" },
               { titulo: "Persona y monto" },
               { titulo: "Detalle", desde: "sm" },
@@ -304,7 +308,7 @@ export default async function CajaPage({
           >
             {lista.map((m) => (
               <tr key={m.id}>
-                <td className="td whitespace-nowrap text-[11px] sm:text-sm">
+                <td className="td whitespace-nowrap px-1.5 text-[11px] sm:px-3 sm:text-sm">
                   {/* Sin año: la tarjeta ya dice de qué período es, y con
                       el año la fecha salía cortada ("03/09/2"). */}
                   <span className="sm:hidden">{fechaDM(m.fecha)}</span>

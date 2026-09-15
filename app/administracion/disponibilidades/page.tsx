@@ -125,11 +125,15 @@ export default async function DisponibilidadesPage({
               return (
                 <tr key={c.cuenta_id}>
                   <td className="td font-semibold">{c.nombre}</td>
-                  <td className="td">
+                  <td className="td hidden sm:table-cell">
                     <Chip tono={enDolares ? "azul" : "neutro"}>{c.tipo}</Chip>
                   </td>
-                  <td className="td tabular-nums text-tinta-2">{c.movimientos}</td>
-                  <td className="td text-tinta-2">{fechaBreve(c.ultimo_movimiento)}</td>
+                  <td className="td hidden tabular-nums text-tinta-2 sm:table-cell">
+                    {c.movimientos}
+                  </td>
+                  <td className="td hidden text-tinta-2 sm:table-cell">
+                    {fechaBreve(c.ultimo_movimiento)}
+                  </td>
                   <td
                     className={
                       "td whitespace-nowrap text-right tabular-nums font-semibold sm:text-left " +
@@ -220,7 +224,7 @@ export default async function DisponibilidadesPage({
                 <td className="td tabular-nums font-semibold text-atencion-tx">
                   {pesos(Number(p.saldo_ars))}
                 </td>
-                <td className="td tabular-nums text-tinta-2">
+                <td className="td hidden tabular-nums text-tinta-2 sm:table-cell">
                   US$ {Math.round(Number(p.saldo_usd)).toLocaleString("es-AR")}
                 </td>
               </tr>
@@ -262,7 +266,9 @@ export default async function DisponibilidadesPage({
                         </span>
                       )}
                     </td>
-                    <td className="td tabular-nums">{pesos(Number(c.total_cobrado ?? 0))}</td>
+                    <td className="td hidden tabular-nums sm:table-cell">
+                      {pesos(Number(c.total_cobrado ?? 0))}
+                    </td>
                     <td
                       className={
                         "td whitespace-nowrap tabular-nums font-semibold " +

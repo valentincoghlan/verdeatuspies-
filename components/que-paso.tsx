@@ -22,9 +22,18 @@ const sirve = (t: string, lado: string) => t === "ambos" || t === lado;
  * formulario: se guarda junto con el movimiento, ya marcada para el lado
  * que estabas cargando.
  */
-export function QuePaso({ rubros, admin }: { rubros: Rubro[]; admin: boolean }) {
+export function QuePaso({
+  rubros,
+  admin,
+  fijo,
+}: {
+  rubros: Rubro[];
+  admin: boolean;
+  /** Con esto no se pregunta si entra o sale: ya se sabe. */
+  fijo?: "E" | "I";
+}) {
   const carga = useCarga();
-  const [lado, setLado] = useState("E");
+  const [lado, setLado] = useState<string>(fijo ?? "E");
   const [rubro, setRubro] = useState("");
   const [sub, setSub] = useState("");
   // Lo que se agrega con el "+" todavía no existe en la base.
@@ -74,6 +83,9 @@ export function QuePaso({ rubros, admin }: { rubros: Rubro[]; admin: boolean }) 
       <input type="hidden" name="categoria" value={completa} />
       {(rubroNuevo || subNuevo) && <input type="hidden" name="categoria_crear" value="1" />}
 
+      {fijo ? (
+        <input type="hidden" name="tipo" value={fijo} />
+      ) : (
       <div className="col-span-2 sm:col-span-1">
         {/* Sin rótulo: "Sale" y "Entra" ya se explican solos. */}
         <span className="label invisible" aria-hidden>
@@ -100,6 +112,7 @@ export function QuePaso({ rubros, admin }: { rubros: Rubro[]; admin: boolean }) 
           ))}
         </div>
       </div>
+      )}
 
       <Elegir
         label="Categoría"

@@ -1019,6 +1019,43 @@ async function idCategoria(
   return crear ? await alta(partes[1], padre!.id) : padre!.id;
 }
 
+/**
+ * Ningún movimiento entra sin categoría.
+ *
+ * Y sin subcategoría solo si esa categoría no tiene ninguna: "Cosecha"
+ * a secas no sirve —existe "Cosecha · Mano de obra" y "Cosecha ·
+ * Combustible"—, pero "Dividendos", que no tiene hijas, sí.
+ *
+ * Va en el servidor y no solo en el formulario porque es lo que sostiene
+ * los reportes: un movimiento sin categoría no aparece en ningún rubro y
+ * el costo por m² queda mal sin que nadie se entere.
+ */
+async function exigirCategoria(sb: Sb, categoriaId: string | null) {
+  if (!categoriaId) {
+    throw new Error("Falta la categoría. Todo movimiento tiene que tener una.");
+  }
+
+  const { data: cat } = await sb
+    .from("categorias")
+    .select("nombre, padre_id")
+    .eq("id", categoriaId)
+    .maybeSingle();
+
+  // Si ya es una subcategoría, no hay nada más que pedir.
+  if (!cat || cat.padre_id) return;
+
+  const { data: hijas } = await sb
+    .from("categorias")
+    .select("id")
+    .eq("padre_id", categoriaId)
+    .eq("activa", true)
+    .limit(1);
+
+  if (hijas && hijas.length) {
+    throw new Error(`"${cat.nombre}" tiene subcategorías: elegí una.`);
+  }
+}
+
 /** El MEP más reciente que guardó la corrida diaria. */
 async function mepActual(supabase: Awaited<ReturnType<typeof sesion>>["supabase"]) {
   const { data } = await supabase
@@ -1035,8 +1072,11 @@ export async function crearMovimiento(fd: FormData) {
   const mep = await mepActual(supabase);
   const tipo = txt(fd, "tipo") === "I" ? "I" : "E";
 
+  const fila = await movimientoDe(fd, user.id, mep, supabase);
+  await exigirCategoria(supabase, fila.categoria_id);
+
   await supabase.from("movimientos").insert({
-    ...(await movimientoDe(fd, user.id, mep, supabase)),
+    ...fila,
     tipo,
     origen: "manual",
   });
@@ -1130,6 +1170,8 @@ export async function crearTanda(fd: FormData) {
     tanda_id: crypto.randomUUID(),
     created_by: user.id,
   };
+
+  await exigirCategoria(supabase, comun.categoria_id);
 
   const filas: Record<string, unknown>[] = [];
 
@@ -1430,8 +1472,12 @@ export async function cobrarVentas(fd: FormData) {
 export async function crearGastoVenta(fd: FormData) {
   const { supabase, user } = await sesion();
   const mep = await mepActual(supabase);
+
+  const fila = await movimientoDe(fd, user.id, mep, supabase);
+  await exigirCategoria(supabase, fila.categoria_id);
+
   await supabase.from("movimientos").insert({
-    ...(await movimientoDe(fd, user.id, mep, supabase)),
+    ...fila,
     tipo: "E",
     origen: "pedido",
   });

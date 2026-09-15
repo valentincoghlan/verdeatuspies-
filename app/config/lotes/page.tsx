@@ -146,7 +146,7 @@ export default async function ConfigLotesPage() {
                     </span>
                   )}
                 </td>
-                <td className="td text-xs text-tinta-3">
+                <td className="td hidden text-xs text-tinta-3 sm:table-cell">
                   {z.hydrawise_relay_id ? `relay ${z.hydrawise_relay_id}` : "carga manual"}
                 </td>
                 <td className="td">

@@ -62,7 +62,7 @@ export default async function ConfigEquipoPage() {
                     {p?.activo ? "activo" : "sin entrar"}
                   </span>
                 </td>
-                <td className="td">{m.nombre ?? "—"}</td>
+                <td className="td hidden sm:table-cell">{m.nombre ?? "—"}</td>
                 <td className="td">
                   {/* En el celular solo el chip: el select con su botón al
                       lado no entra y salía como "Ca…". Se cambia desde el
@@ -96,7 +96,7 @@ export default async function ConfigEquipoPage() {
                     )}
                   </span>
                 </td>
-                <td className="td">
+                <td className="td hidden sm:table-cell">
                   {p?.activo ? (
                     <Chip tono="verde">activo</Chip>
                   ) : (

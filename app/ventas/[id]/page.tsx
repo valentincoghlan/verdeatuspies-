@@ -5,6 +5,7 @@ import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Confirmar } from "@/components/confirmar";
 import { EditarVenta } from "@/components/editar-venta";
 import { Cobrar } from "@/components/cobrar";
+import { QuePaso } from "@/components/que-paso";
 import {
   borrarMovimiento,
   borrarVenta,
@@ -29,8 +30,15 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
   const { id } = await params;
   const supabase = await createClient();
 
-  const [{ data: v }, { data: movs }, { data: lotes }, { data: cuentas }, { data: deLote }, admin] =
-    await Promise.all([
+  const [
+    { data: v },
+    { data: movs },
+    { data: lotes },
+    { data: cuentas },
+    { data: categorias },
+    { data: deLote },
+    admin,
+  ] = await Promise.all([
       supabase.from("v_margen_ventas").select("*").eq("venta_id", id).maybeSingle(),
       supabase
         .from("v_movimientos")
@@ -39,11 +47,23 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
         .order("fecha", { ascending: false }),
       supabase.from("lotes").select("id, nombre").eq("activo", true).order("nombre"),
       supabase.from("cuentas").select("id, nombre").eq("activa", true).order("orden"),
+      supabase.from("categorias").select("*").eq("activa", true).order("orden"),
       supabase.from("v_lotes_por_venta").select("lotes, cuantos_lotes").eq("venta_id", id).maybeSingle(),
       esAdmin(),
     ]);
 
   if (!v) notFound();
+
+  // Cada rubro con sus subcategorías, como los pide QuePaso.
+  const rubros = (categorias ?? [])
+    .filter((c: any) => !c.padre_id)
+    .map((p: any) => ({
+      nombre: p.nombre as string,
+      tipo: (p.tipo ?? "ambos") as string,
+      hijos: (categorias ?? [])
+        .filter((c: any) => c.padre_id === p.id)
+        .map((h: any) => ({ nombre: h.nombre as string, tipo: (h.tipo ?? "ambos") as string })),
+    }));
 
   const { data: cruda } = await supabase.from("ventas").select("*").eq("id", id).maybeSingle();
 
@@ -177,7 +197,8 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
         >
           <Tabla
             columnas={[
-              { titulo: "Fecha", ancho: "w-[3.4rem] sm:w-auto" },
+              // Acá la fecha va con año, que no entra en 3,4rem.
+              { titulo: "Fecha", ancho: "w-[4.7rem] sm:w-auto" },
               { titulo: "Concepto" },
               { titulo: "Cuenta", desde: "sm" },
               { titulo: "Monto", align: "right" },
@@ -268,7 +289,10 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
           </p>
           <form action={crearGastoVenta} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <input type="hidden" name="venta_id" value={String(v.venta_id)} />
-            <input type="hidden" name="tipo" value="E" />
+            {/* Un gasto sin categoría no aparece en ningún rubro de
+                Reportes y desarma el costo por m² sin que se note. Va
+                con el lado fijo: acá siempre sale plata. */}
+            <QuePaso rubros={rubros} admin={admin} fijo="E" />
             <div className="min-w-0">
               <label className="label" htmlFor="g-monto">
                 Cuánto

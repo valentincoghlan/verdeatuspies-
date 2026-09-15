@@ -238,7 +238,7 @@ export default async function FertilizacionesPage() {
             {(fertilizantes ?? []).map((f: any) => (
               <tr key={f.id}>
                 <td className="td font-medium">{f.nombre}</td>
-                <td className="td">{f.tipo ?? "—"}</td>
+                <td className="td hidden sm:table-cell">{f.tipo ?? "—"}</td>
                 <td className="td tabular-nums">{numero(f.dosis_por_ha, 1)}</td>
                 <td className="td">{f.unidad}</td>
               </tr>
