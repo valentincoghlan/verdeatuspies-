@@ -1,6 +1,16 @@
 "use client";
 
 import { useRef } from "react";
+import { Elegir } from "@/components/elegir";
+
+/**
+ * Quiénes pueden entregar.
+ *
+ * Es el equipo, y es corto: se elige de la lista en vez de escribirlo,
+ * que es como se evita tener "Salvador" y "salvador" contados aparte.
+ * Igual admite uno nuevo por si algún día entrega otro.
+ */
+const ENTREGAN = ["Pedro", "Valentín", "Salvador", "Miguel"];
 
 /**
  * El "¿se entregó?" de un pedido, en un modal.
@@ -25,6 +35,8 @@ export function ConfirmarEntrega({
   m2Cortesia,
   etiqueta = "¿Se entregó?",
   nota,
+  quienEntrega,
+  quienRetira,
 }: {
   pedidoId: string;
   comprador: string;
@@ -39,6 +51,9 @@ export function ConfirmarEntrega({
   etiqueta?: string;
   /** Una línea de contexto arriba de los campos. */
   nota?: string;
+  /** Lo que ya estaba anotado, si se está corrigiendo una entrega. */
+  quienEntrega?: string | null;
+  quienRetira?: string | null;
 }) {
   const dialogo = useRef<HTMLDialogElement>(null);
 
@@ -110,6 +125,37 @@ export function ConfirmarEntrega({
                   defaultValue={fecha}
                   className="input"
                 />
+              </div>
+
+              {/* Quién estuvo de cada lado. Es lo primero que se pregunta
+                  cuando algo no cierra, y hasta ahora vivía en la memoria
+                  del que estuvo ahí. */}
+              <Elegir
+                label="Quién entrega"
+                name="quien_entrega"
+                opciones={ENTREGAN.map((n) => ({ value: n, label: n }))}
+                defaultValue={quienEntrega ?? ""}
+                vacio="Elegí quién"
+                opcional
+                permiteNuevo
+                className="col-span-2"
+              />
+
+              <div className="col-span-2">
+                <label className="label" htmlFor={`retira-${pedidoId}`}>
+                  Quién retira
+                </label>
+                <input
+                  id={`retira-${pedidoId}`}
+                  name="quien_retira"
+                  defaultValue={quienRetira ?? ""}
+                  placeholder="El cliente, un fletero, el de la obra…"
+                  autoComplete="off"
+                  className="input"
+                />
+                <p className="mt-1 text-xs text-tinta-3">
+                  Opcional: muchas veces se deja en el campo y no hay nadie.
+                </p>
               </div>
             </div>
 

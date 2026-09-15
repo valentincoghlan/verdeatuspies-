@@ -179,6 +179,20 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
                 <dd className="tabular-nums">{m2(Number(v.m2_cortesia))}</dd>
               </div>
             )}
+            {/* Quién estuvo de cada lado. Es lo primero que se pregunta
+                cuando algo no cierra. */}
+            {cruda?.quien_entrega && (
+              <div>
+                <dt className="label">Entregó</dt>
+                <dd>{cruda.quien_entrega}</dd>
+              </div>
+            )}
+            {cruda?.quien_retira && (
+              <div>
+                <dt className="label">Retiró</dt>
+                <dd>{cruda.quien_retira}</dd>
+              </div>
+            )}
             {v.cliente_final && (
               <div>
                 <dt className="label">Recibe</dt>

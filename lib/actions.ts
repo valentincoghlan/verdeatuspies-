@@ -816,6 +816,8 @@ export async function confirmarEntrega(fd: FormData) {
     fecha,
     fecha_entrega: fecha,
     m2_cortesia: cortesia,
+    quien_entrega: txt(fd, "quien_entrega"),
+    quien_retira: txt(fd, "quien_retira"),
   };
   if (facturados !== null) patch.m2 = facturados;
 
@@ -826,7 +828,7 @@ export async function confirmarEntrega(fd: FormData) {
   // del equipo necesita saber sin entrar a mirar.
   const { data: venta } = await supabase
     .from("ventas")
-    .select("m2, m2_cortesia, total, clientes!cliente_id(nombre)")
+    .select("m2, m2_cortesia, total, quien_entrega, clientes!cliente_id(nombre)")
     .eq("id", id)
     .maybeSingle();
 
@@ -838,7 +840,8 @@ export async function confirmarEntrega(fd: FormData) {
       mensaje:
         `${(venta.clientes as any)?.nombre ?? "Cliente"} · ` +
         `${numeroCorto(Number(venta.m2))} m² por ${pesosCortos(Number(venta.total))}` +
-        (regalados > 0 ? ` · ${numeroCorto(regalados)} m² de regalo` : ""),
+        (regalados > 0 ? ` · ${numeroCorto(regalados)} m² de regalo` : "") +
+        (venta.quien_entrega ? ` · entregó ${venta.quien_entrega}` : ""),
       url: "/ventas/pedidos",
       tag: `entrega-${id}`,
     });

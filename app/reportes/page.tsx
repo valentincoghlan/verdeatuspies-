@@ -49,7 +49,7 @@ export default async function ReportesPage({
     { data: pagos },
     { data: cuentas },
     { data: egresos12 },
-    { data: meses12 },
+    { data: ventas12 },
     { data: cotizMes },
   ] = await Promise.all([
       supabase
@@ -75,8 +75,9 @@ export default async function ReportesPage({
         .from("v_movimientos")
         .select("categoria, monto, monto_usd, tipo_plata")
         .eq("tipo", "E")
-        .gte("fecha", desde12),
-      supabase.from("v_resumen_mes").select("m2_cosechados").gte("mes", desde12.slice(0, 7) + "-01"),
+        .gte("fecha", desde12)
+        .lte("fecha", hoyISO()),
+      supabase.from("v_margen_ventas").select("m2").gte("fecha", desde12).lte("fecha", hoyISO()),
       supabase.from("v_cotizacion_mes").select("mes, mep").order("mes"),
     ]);
 
@@ -107,25 +108,29 @@ export default async function ReportesPage({
     return mep > 0 ? monto / mep : 0;
   };
 
+  // Una sola lista manda en todo el panel: las ventas del período que ya
+  // están firmes —cosechadas, confirmadas o entregadas—. La cuenta va por
+  // entrega, no por cobranza: un pedido entregado y todavía impago ya es
+  // plata ganada, y por eso entra en Facturado aunque esté en Por cobrar.
+  // Antes Facturado miraba solo las entregadas y m² vendidos miraba las
+  // tres, así que el precio promedio dividía la plata de unas por los
+  // metros de otras.
+  const operaciones = (margenes ?? []) as any[];
+  const sinEntregar = operaciones.filter((v) => v.estado !== "entregada");
+
   const meses = porMes ?? [];
   const serie = (campo: string) =>
     meses.map((r: any) => ({
       label: mesCorto(r.mes),
       valor: campo === "vendido" ? conv(Number(r[campo] ?? 0), r.mes) : Number(r[campo] ?? 0),
     }));
-  const suma = (campo: string) =>
-    meses.reduce((a: number, r: any) => a + Number(r[campo] ?? 0), 0);
+  const sumaM2 = (campo: string) =>
+    operaciones.reduce((a: number, v: any) => a + Number(v[campo] ?? 0), 0);
 
-  const vendidos = suma("m2_vendidos");
-  const cosechados = suma("m2_cosechados");
-  const regalados = suma("m2_regalados");
+  const vendidos = sumaM2("m2");
+  const cosechados = sumaM2("m2_entregados");
+  const regalados = sumaM2("m2_cortesia");
   const pctRegalado = cosechados > 0 ? (regalados / cosechados) * 100 : 0;
-
-  const entregadas = (margenes ?? []).filter((v: any) => v.estado === "entregada");
-  const margenTotal = entregadas.reduce(
-    (a, v: any) => a + conv(Number(v.margen ?? 0), v.fecha_entrega ?? v.fecha),
-    0,
-  );
 
   // El saldo por cobrar es a hoy, no del período: es plata que te deben ahora.
   // El saldo por cobrar es de hoy, así que va con la cotización de hoy.
@@ -135,7 +140,7 @@ export default async function ReportesPage({
   );
 
   const porCanal = ["directa", "distribuidor"].map((c) => {
-    const filas = entregadas.filter((v: any) => v.canal === c);
+    const filas = operaciones.filter((v: any) => v.canal === c);
     return {
       canal: c,
       operaciones: filas.length,
@@ -161,7 +166,7 @@ export default async function ReportesPage({
     .sort((a, b) => b[1] - a[1])
     .map(([k, v]) => ({ label: k.slice(0, 14), valor: v }));
 
-  const facturado = entregadas.reduce(
+  const facturado = operaciones.reduce(
     (a, v: any) => a + conv(Number(v.facturado ?? 0), v.fecha_entrega ?? v.fecha),
     0,
   );
@@ -190,10 +195,7 @@ export default async function ReportesPage({
   // una ventana corta el cociente no mide nada. En septiembre daba
   // $ 11.290 con un solo pago cargado.
   const gastado12 = suman((egresos12 ?? []) as any[], "operativo");
-  const m2Doce = ((meses12 ?? []) as any[]).reduce(
-    (a, r) => a + Number(r.m2_cosechados ?? 0),
-    0,
-  );
+  const m2Doce = ((ventas12 ?? []) as any[]).reduce((a, v) => a + Number(v.m2 ?? 0), 0);
   const costoPorM2 = m2Doce > 0 ? gastado12 / m2Doce : 0;
 
   // El margen de verdad es lo facturado menos lo que se gastó de verdad
@@ -202,9 +204,9 @@ export default async function ReportesPage({
   // metro cuesta más de lo que se vende.
   const resultado = facturado - gastado;
   const pctMargen = facturado > 0 ? (resultado / facturado) * 100 : 0;
-  const ticket = entregadas.length > 0 ? facturado / entregadas.length : 0;
+  const ticket = operaciones.length > 0 ? facturado / operaciones.length : 0;
 
-  const mejores = entregadas
+  const mejores = operaciones
     .slice()
     .sort((a: any, b: any) => Number(b.margen ?? 0) - Number(a.margen ?? 0))
     .slice(0, 12);
@@ -222,12 +224,21 @@ export default async function ReportesPage({
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat label="m² vendidos" valor={m2(vendidos)} destacado />
-        <Stat label="Facturado" valor={plata(facturado)} tono="verde" detalle={`${entregadas.length} operaciones`} />
+        <Stat
+          label="Facturado"
+          valor={plata(facturado)}
+          tono="verde"
+          detalle={
+            sinEntregar.length > 0
+              ? `${operaciones.length} entregas · ${sinEntregar.length} sin salir todavía`
+              : `${operaciones.length} entregas`
+          }
+        />
         <Stat
           label="Resultado"
           valor={plata(resultado)}
           tono={resultado < 0 ? "ambar" : "verde"}
-          detalle={`Facturado menos gastos · ${numero(pctMargen, 1)}%`}
+          detalle={`Facturado menos costo operativo · ${numero(pctMargen, 1)}%`}
         />
         <Stat
           label="Por cobrar"
@@ -310,7 +321,7 @@ export default async function ReportesPage({
               { titulo: "Vendido" },
               { titulo: "Margen" },
             ]}
-            vacio="No hay entregas confirmadas en este período."
+            vacio="No hay entregas en este período."
           >
             {porCanal
               .filter((c) => c.operaciones > 0)
@@ -355,7 +366,7 @@ export default async function ReportesPage({
               { titulo: "Vendido" },
               { titulo: "Margen" },
             ]}
-            vacio="No hay entregas confirmadas en este período."
+            vacio="No hay entregas en este período."
           >
             {mejores.map((v: any) => {
               const vendido = Number(v.facturado ?? 0);
@@ -363,7 +374,13 @@ export default async function ReportesPage({
               const pct = vendido > 0 ? (margen / vendido) * 100 : 0;
               return (
                 <tr key={v.venta_id}>
-                  <td className="td whitespace-nowrap">{fechaBreve(v.fecha_entrega)}</td>
+                  <td className="td whitespace-nowrap">
+                    <Dato
+                      principal={fechaBreve(v.fecha_entrega)}
+                      secundario={v.estado !== "entregada" ? "sin salir" : undefined}
+                      tonoSecundario="text-atencion-tx"
+                    />
+                  </td>
                   <td className="td max-w-0 font-semibold">
                     <Dato
                       principal={<span className="block truncate">{v.comprador}</span>}
