@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Elegir } from "@/components/elegir";
 
 /**
  * Los renglones de plata de una carga en tanda.
@@ -62,7 +62,6 @@ export function Renglones({
   personas?: string[];
   etiquetaPersona?: string;
 }) {
-  const [listaId] = useState(() => `rg${Math.random().toString(36).slice(2, 8)}`);
   const pidePersona = !!personas;
 
   const cambiar = (key: string, campo: keyof Renglon, valor: string) =>
@@ -82,34 +81,31 @@ export function Renglones({
 
   return (
     <div>
-      {pidePersona && (
-        <datalist id={listaId}>
-          {personas!.map((p) => (
-            <option key={p} value={p} />
-          ))}
-        </datalist>
-      )}
-
       <ul className="space-y-2">
         {renglones.map((r) => (
           <li key={r.key} className="rounded-2xl bg-crema p-2.5">
             <div className="grid grid-cols-2 gap-2">
+              {/*
+                El mismo desplegable con buscador que el resto de la app.
+                Antes era un campo de texto con datalist y en el celular
+                la lista la resolvía el teclado: quedaba escribir el
+                nombre a mano y cualquier tipeo distinto daba de alta una
+                persona nueva. "Cardozo" y "cardoso" terminaban siendo
+                dos proveedores. Acá se elige de los que ya están, y dar
+                de alta uno nuevo es un paso aparte y a propósito.
+              */}
               {pidePersona && (
-                <div className="col-span-2 min-w-0">
-                  <label className="label" htmlFor={`${r.key}-persona`}>
-                    {etiquetaPersona}
-                  </label>
-                  <input
-                    id={`${r.key}-persona`}
-                    name={`r_${r.key}_persona`}
-                    list={listaId}
-                    value={r.persona}
-                    onChange={(e) => cambiar(r.key, "persona", e.target.value)}
-                    placeholder="Nombre"
-                    autoComplete="off"
-                    className="input bg-white"
-                  />
-                </div>
+                <Elegir
+                  label={etiquetaPersona}
+                  name={`r_${r.key}_persona`}
+                  opciones={personas!.map((n) => ({ value: n, label: n }))}
+                  vacio="Elegí o agregá"
+                  opcional
+                  permiteNuevo
+                  value={r.persona}
+                  onChange={(v) => cambiar(r.key, "persona", v)}
+                  className="col-span-2"
+                />
               )}
 
               <div className="min-w-0">
