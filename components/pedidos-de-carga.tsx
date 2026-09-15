@@ -32,10 +32,12 @@ const dm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
  * La lista no es la misma según lo que estés cargando, y no es un
  * capricho de pantalla: son dos cosas distintas.
  *
- * Un COBRO va contra lo que se debe. Mientras una venta tenga saldo se
- * le puede seguir cobrando, tenga la antigüedad que tenga, y un mismo
- * pago puede tapar varias del mismo comprador. Por eso acá aparecen
- * todas las que deben algo, sin límite de fecha.
+ * Un COBRO va contra lo que se debe. Empieza antes de cosechar —una
+ * seña entra con el pedido recién tomado— y no termina hasta que el
+ * saldo queda en cero, tenga la antigüedad que tenga. Un mismo pago
+ * puede tapar varias del mismo comprador. Por eso acá aparecen todas
+ * las que deben algo, sin límite de fecha y sin importar en qué punto
+ * del camino estén.
  *
  * Un GASTO pertenece a la cosecha que lo generó. La mano de obra de un
  * jueves es de lo que se cortó ese jueves, no de lo que se corte el mes
@@ -76,7 +78,7 @@ export function PedidosDeCarga({
   const titulo = esCobro ? "¿A qué ventas se le imputa?" : "¿A qué cosechas va?";
 
   const ayuda = esCobro
-    ? "Aparecen todas las ventas con saldo, sin importar la fecha."
+    ? "Aparecen todas las que deben algo, incluso sin cosechar todavía."
     : `Aparecen las cosechas de hasta ${DIAS_DE_GASTO} días antes del ${dm(fecha)}.`;
 
   if (elegibles.length === 0) {

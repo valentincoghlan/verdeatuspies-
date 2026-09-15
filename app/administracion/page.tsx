@@ -38,6 +38,7 @@ export default async function CajaPage({
     { data: personas },
     { data: lotes },
     { data: ventas },
+    { data: senados },
     { data: conSaldo },
     { data: cosechasDeVenta },
     { data: movs },
@@ -57,10 +58,14 @@ export default async function CajaPage({
     // suya aunque la venta no esté cerrada.
     supabase
       .from("ventas")
-      .select("id, m2, fecha, fecha_entrega, estado, clientes!cliente_id(nombre)")
+      .select("id, m2, total, fecha, fecha_entrega, estado, clientes!cliente_id(nombre)")
       .gte("fecha", sumarDiasISO(hoy, -60))
       .order("fecha_entrega", { ascending: false, nullsFirst: false })
       .limit(120),
+    // Lo ya cobrado de los pedidos que todavía no llegaron al margen.
+    // Una seña entra antes de cosechar, así que esos pedidos también
+    // tienen saldo y también se les puede seguir cobrando.
+    supabase.from("v_pedidos_pendientes").select("id, total, senado"),
     // Y las que deben plata, sin límite de fecha: a esas se les cobra
     // hasta que queden en cero, tengan la antigüedad que tengan.
     supabase
@@ -143,13 +148,20 @@ export default async function CajaPage({
   // decide PedidosDeCarga según se esté cargando un cobro o un gasto.
   // Se juntan las dos consultas porque casi no se pisan: las recientes
   // pueden estar cobradas y las que deben pueden ser viejísimas.
+  // Lo que le falta cobrar a un pedido que todavía no pasó por el
+  // margen: lo facturado menos lo que ya entró como seña.
+  const faltaDelPedido = new Map<string, number>();
+  for (const p of (senados ?? []) as any[]) {
+    faltaDelPedido.set(p.id, Number(p.total ?? 0) - Number(p.senado ?? 0));
+  }
+
   const porId = new Map<string, any>();
   for (const v of (ventas ?? []) as any[]) {
     porId.set(v.id, {
       id: v.id as string,
       comprador: ((v.clientes as any)?.nombre ?? "Sin comprador") as string,
       m2: Number(v.m2 ?? 0),
-      pendiente: 0,
+      pendiente: Math.max(0, faltaDelPedido.get(v.id) ?? 0),
       fechaCosecha: cosechaDe.get(v.id) ?? null,
       fecha: (v.fecha_entrega ?? v.fecha) as string,
     });
