@@ -5,6 +5,11 @@ import { Elegir } from "@/components/elegir";
 import { CuentaYMonto } from "@/components/plata";
 import { QuePaso } from "@/components/que-paso";
 import { FiltroFechas, resolverRango } from "@/components/filtro-fechas";
+import {
+  aplicarFiltros,
+  BuscadorMovimientos,
+  leerFiltros,
+} from "@/components/buscador-movimientos";
 import { Tanda } from "@/components/tanda";
 import { FechaDeCarga, ProveedorCarga } from "@/components/carga";
 import { PedidosDeCarga } from "@/components/pedidos-de-carga";
@@ -25,10 +30,11 @@ const TIPOS_PERSONA = [
 export default async function CajaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ p?: string; desde?: string; hasta?: string }>;
+  searchParams: Promise<Record<string, string | undefined>>;
 }) {
   const sp = await searchParams;
   const rango = resolverRango(sp);
+  const filtros = leerFiltros(sp);
   const supabase = await createClient();
   const hoy = hoyISO();
 
@@ -81,24 +87,30 @@ export default async function CajaPage({
     supabase
       .from("cosecha_ventas")
       .select("venta_id, cosechas(fecha)"),
-    supabase
-      .from("v_movimientos")
-      .select("*")
-      .gte("fecha", rango.desde)
-      .lte("fecha", rango.hasta)
-      .order("fecha", { ascending: false })
-      .limit(300),
+    aplicarFiltros(
+      supabase
+        .from("v_movimientos")
+        .select("*")
+        .gte("fecha", rango.desde)
+        .lte("fecha", rango.hasta)
+        .order("fecha", { ascending: false })
+        .limit(300),
+      filtros,
+    ),
     // Los totales se calculan sobre TODO el período, no sobre las 300 filas
     // que se muestran en la tabla.
-    supabase
-      .from("v_movimientos")
-      // `monto` está siempre en pesos, sin importar en qué moneda se
-      // escribió: por eso se suman todos. Los ajustes de saldo quedan
-      // afuera: corrigen un arrastre, no son plata que se movió.
-      .select("tipo, monto")
-      .neq("categoria", "Ajustes")
-      .gte("fecha", rango.desde)
-      .lte("fecha", rango.hasta),
+    aplicarFiltros(
+      supabase
+        .from("v_movimientos")
+        // `monto` está siempre en pesos, sin importar en qué moneda se
+        // escribió: por eso se suman todos. Los ajustes de saldo quedan
+        // afuera: corrigen un arrastre, no son plata que se movió.
+        .select("tipo, monto")
+        .neq("categoria", "Ajustes")
+        .gte("fecha", rango.desde)
+        .lte("fecha", rango.hasta),
+      filtros,
+    ),
     supabase
       .from("cotizaciones")
       .select("mep")
@@ -135,6 +147,8 @@ export default async function CajaPage({
     moneda: (c.moneda ?? "ARS") as string,
   }));
   const nombresPersona = (personas ?? []).map((p: any) => p.nombre as string);
+  // Solo los rubros padre: es como se ve en la columna "Categoría".
+  const nombresCategoria = rubros.map((r) => r.nombre);
   const opcionesLote = (lotes ?? []).map((l: any) => ({ value: l.id, label: l.nombre }));
   // La cosecha más reciente de cada pedido. Si lo abastecieron dos, vale
   // la última: es la que deja la ventana de gastos abierta más tiempo.
@@ -281,6 +295,15 @@ export default async function CajaPage({
         </CardPlegable>
 
         <Card titulo={`Del ${fechaBreve(rango.desde)} al ${fechaBreve(rango.hasta)}`}>
+          <BuscadorMovimientos
+            base="/administracion"
+            filtros={filtros}
+            periodo={sp.desde || sp.hasta ? undefined : (sp.p ?? "mes")}
+            rango={rango}
+            categorias={nombresCategoria}
+            cuentas={opcionesCuenta.map((c) => c.nombre)}
+            cuantos={todos.length}
+          />
           <p className="mb-3 text-sm text-tinta-2">
             {todos.length} movimientos (sin contar ajustes de saldo) · entró{" "}
             <strong className="text-pasto">{pesos(ingresos)}</strong> · salió{" "}
