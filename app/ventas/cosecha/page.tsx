@@ -162,7 +162,7 @@ export default async function CosechaPage() {
                       se cierra, según cómo esté. */}
                   <td className="td text-right">
                     <Link
-                      href={`/mantenimiento/cosecha/${c.id}`}
+                      href={`/ventas/cosecha/${c.id}`}
                       aria-label={`Editar la cosecha del ${fechaBreve(c.fecha)}`}
                       className="inline-flex size-11 items-center justify-center rounded-full text-tinta-2 transition hover:bg-beige hover:text-pasto"
                     >

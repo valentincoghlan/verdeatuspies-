@@ -35,7 +35,7 @@ const ICONOS: Record<string, ReactNode> = {
       strokeLinejoin="round"
     />
   ),
-  "/mantenimiento/cosecha": (
+  "/ventas/cosecha": (
     <>
       <rect x="3" y="7" width="16" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.8" />
       <rect x="3" y="13" width="16" height="5" rx="1.5" stroke="currentColor" strokeWidth="1.8" />

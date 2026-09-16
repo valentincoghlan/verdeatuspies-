@@ -1,5 +1,5 @@
 -- ---------------------------------------------------------------------
--- 0037 · Quién entregó y quién retiró
+-- 0038 · Quién entregó y quién retiró
 --
 -- Al confirmar una entrega se anotaba cuánto y cuándo, pero no quién.
 -- Y es lo primero que se pregunta cuando algo no cierra: si faltaron

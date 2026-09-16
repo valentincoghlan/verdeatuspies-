@@ -43,6 +43,7 @@ app/
   mantenimiento/fertilizaciones  agenda, aplicación y catálogo de productos
   mantenimiento/lluvias          mm reales del pluviómetro vs. pronóstico
   ventas                         ventas por cliente, m² por mes
+  ventas/cosecha                 cosechas: contar pilas y repartirlas entre pedidos
   ventas/clientes                clientes y cuenta corriente
   administracion                 cobros, pagos, saldos, caja
   config                         lotes, zonas, integraciones, equipo

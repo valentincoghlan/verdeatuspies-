@@ -125,7 +125,7 @@ export default async function ContarCosechaPage({
             : (c.lote ?? "Sin lote definido")
         }
         accion={
-          <Link href="/mantenimiento/cosecha" className="btn-ghost">
+          <Link href="/ventas/cosecha" className="btn-ghost">
             Volver
           </Link>
         }

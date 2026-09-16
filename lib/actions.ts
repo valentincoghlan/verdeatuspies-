@@ -847,7 +847,7 @@ export async function confirmarEntrega(fd: FormData) {
     });
   }
 
-  bump("/ventas/pedidos", "/ventas", "/administracion", "/mantenimiento/cosecha");
+  bump("/ventas/pedidos", "/ventas", "/administracion", "/ventas/cosecha");
 }
 
 /** Se pasa a una fecha nueva y sigue siendo pedido. */
@@ -1697,8 +1697,8 @@ export async function crearCosecha(fd: FormData) {
     if (error) throw new Error(`No se pudieron guardar los lotes: ${error.message}`);
   }
 
-  bump("/mantenimiento/cosecha");
-  if (data?.id) redirect(`/mantenimiento/cosecha/${data.id}`);
+  bump("/ventas/cosecha");
+  if (data?.id) redirect(`/ventas/cosecha/${data.id}`);
 }
 
 /**
@@ -1736,14 +1736,14 @@ export async function guardarCarga(fd: FormData) {
   );
   if (error) throw new Error(`No se pudo guardar la carga: ${error.message}`);
 
-  bump("/mantenimiento/cosecha", `/mantenimiento/cosecha/${cosechaId}`);
+  bump("/ventas/cosecha", `/ventas/cosecha/${cosechaId}`);
 }
 
 export async function borrarCarga(fd: FormData) {
   const { supabase } = await sesion();
   const cosechaId = txt(fd, "cosecha_id")!;
   await supabase.from("cosecha_cargas").delete().eq("id", txt(fd, "id")!);
-  bump("/mantenimiento/cosecha", `/mantenimiento/cosecha/${cosechaId}`);
+  bump("/ventas/cosecha", `/ventas/cosecha/${cosechaId}`);
 }
 
 export async function cambiarEstadoCosecha(fd: FormData) {
@@ -1753,7 +1753,7 @@ export async function cambiarEstadoCosecha(fd: FormData) {
     .from("cosechas")
     .update({ estado: txt(fd, "estado") ?? "cerrada" })
     .eq("id", id);
-  bump("/mantenimiento/cosecha", `/mantenimiento/cosecha/${id}`);
+  bump("/ventas/cosecha", `/ventas/cosecha/${id}`);
 }
 
 /**
@@ -1809,14 +1809,14 @@ export async function repartirCosecha(fd: FormData) {
     if (!count) throw new Error("No se pudo cerrar la cosecha: no se encontró o no tenés permiso.");
   }
 
-  bump("/mantenimiento/cosecha", `/mantenimiento/cosecha/${id}`, "/ventas/pedidos", "/ventas");
+  bump("/ventas/cosecha", `/ventas/cosecha/${id}`, "/ventas/pedidos", "/ventas");
 }
 
 export async function borrarCosecha(fd: FormData) {
   const { supabase } = await sesion();
   await supabase.from("cosechas").delete().eq("id", txt(fd, "id")!);
-  bump("/mantenimiento/cosecha");
-  redirect("/mantenimiento/cosecha");
+  bump("/ventas/cosecha");
+  redirect("/ventas/cosecha");
 }
 
 /* ------------------------------------------------------------------ */

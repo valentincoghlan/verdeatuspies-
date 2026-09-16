@@ -11,7 +11,7 @@ export type Seccion = { label: string; items: Link[] };
  */
 export const ATAJOS: Link[] = [
   { href: "/ventas/pedidos", label: "Pedidos", icono: "pedidos" },
-  { href: "/mantenimiento/cosecha", label: "Cosecha", icono: "cosecha" },
+  { href: "/ventas/cosecha", label: "Cosecha", icono: "cosecha" },
   { href: "/", label: "Inicio", icono: "inicio" },
   { href: "/mantenimiento/riego", label: "Riego" },
 ];
@@ -20,7 +20,6 @@ export const SECCIONES: Seccion[] = [
   {
     label: "Mantenimiento",
     items: [
-      { href: "/mantenimiento/cosecha", label: "Cosecha", icono: "cosecha" },
       { href: "/mantenimiento/riego", label: "Riego y lluvias", icono: "riego" },
       { href: "/mantenimiento/cortes", label: "Cortes", icono: "cortes" },
       { href: "/mantenimiento/fertilizaciones", label: "Fertilización", icono: "fertilizacion" },
@@ -30,7 +29,10 @@ export const SECCIONES: Seccion[] = [
   {
     label: "Ventas",
     items: [
+      // En el orden en que pasan: se toma el pedido, se cosecha, se
+      // entrega y queda la venta.
       { href: "/ventas/pedidos", label: "Pedidos", icono: "pedidos" },
+      { href: "/ventas/cosecha", label: "Cosecha", icono: "cosecha" },
       { href: "/ventas", label: "Ventas", icono: "ventas" },
       { href: "/ventas/clientes", label: "Clientes", icono: "clientes" },
     ],
