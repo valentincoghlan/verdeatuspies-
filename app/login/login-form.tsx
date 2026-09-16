@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { Rueda } from "@/components/guardar";
 
 type Modo = "clave" | "link";
 
@@ -160,7 +161,12 @@ export default function LoginForm() {
         </div>
       )}
 
-      <button className="btn w-full" disabled={estado === "enviando"}>
+      <button
+        className="btn w-full"
+        disabled={estado === "enviando"}
+        aria-busy={estado === "enviando" || undefined}
+      >
+        {estado === "enviando" && <Rueda />}
         {estado === "enviando"
           ? modo === "clave"
             ? "Entrando…"

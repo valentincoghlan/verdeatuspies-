@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export type ZonaProgramada = {
   id: string;
@@ -210,7 +211,7 @@ export function RiegosProgramados({
             que elijas, y después sigue con su programa.
           </p>
 
-          <form action={suspender} className="mt-4" onSubmit={() => dialogo.current?.close()}>
+          <Formulario action={suspender} className="mt-4" onSubmit={() => dialogo.current?.close()}>
             <input type="hidden" name="zona_id" value={zona?.id ?? ""} />
 
             <div className="grid grid-cols-2 gap-3">
@@ -251,11 +252,14 @@ export function RiegosProgramados({
               >
                 Cancelar
               </button>
-              <button className="flex min-h-12 flex-1 items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema">
+              <Guardar
+                esperando="Frenando…"
+                className="flex min-h-12 flex-1 items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema"
+              >
                 Frenar
-              </button>
+              </Guardar>
             </div>
-          </form>
+          </Formulario>
         </div>
       </dialog>
     </>

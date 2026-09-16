@@ -16,6 +16,7 @@ import {
 } from "@/lib/actions";
 import { fechaBreve, fechaLarga, m2, numero, pesos } from "@/lib/format";
 import { esAdmin } from "@/lib/rol";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -353,7 +354,10 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
                       {pesos(monto)}
                     </td>
                     <td className="td text-right">
-                      <form action={asignarCobro} className="flex items-center justify-end gap-1.5">
+                      <Formulario
+                        action={asignarCobro}
+                        className="flex items-center justify-end gap-1.5"
+                      >
                         <input type="hidden" name="movimiento_id" value={m.id} />
                         <input type="hidden" name="venta_id" value={String(v.venta_id)} />
                         <input
@@ -364,10 +368,13 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
                           aria-label={`Cuanto de este cobro va a esta venta`}
                           className="input input-corto text-right"
                         />
-                        <button className="whitespace-nowrap text-sm font-bold text-pasto hover:underline">
+                        <Guardar
+                          esperando=""
+                          className="whitespace-nowrap text-sm font-bold text-pasto hover:underline"
+                        >
                           Asignar
-                        </button>
-                      </form>
+                        </Guardar>
+                      </Formulario>
                     </td>
                   </tr>
                 );
@@ -385,7 +392,7 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
             Lo que se gastó por esta venta en particular: el flete de ese camión, la mano de obra de
             esa cosecha. Sale del margen de esta operación y no del gasto general.
           </p>
-          <form action={crearGastoVenta} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Formulario action={crearGastoVenta} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <input type="hidden" name="venta_id" value={String(v.venta_id)} />
             {/* Un gasto sin categoría no aparece en ningún rubro de
                 Reportes y desarma el costo por m² sin que se note. Va
@@ -442,9 +449,9 @@ export default async function VentaPage({ params }: { params: Promise<{ id: stri
               />
             </div>
             <div className="col-span-2 sm:col-span-4">
-              <button className="btn btn-alto sm:w-auto">Cargar el gasto</button>
+              <Guardar className="btn btn-alto sm:w-auto">Cargar el gasto</Guardar>
             </div>
-          </form>
+          </Formulario>
         </Card>
       </div>
     </>

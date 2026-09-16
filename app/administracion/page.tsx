@@ -16,6 +16,7 @@ import { PedidosDeCarga } from "@/components/pedidos-de-carga";
 import { crearMovimiento, crearPersona, crearTanda } from "@/lib/actions";
 import { esAdmin } from "@/lib/rol";
 import { fechaBreve, fechaDM, hoyISO, numero, pesos } from "@/lib/format";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -225,7 +226,7 @@ export default async function CajaPage({
               a qué pedidos se puede imputar depende de si entra o sale
               plata y de qué día es. */}
           <ProveedorCarga hoy={hoy}>
-          <form
+          <Formulario
             id="cargar"
             action={crearMovimiento}
             className="grid grid-cols-2 gap-3 sm:grid-cols-3"
@@ -270,9 +271,9 @@ export default async function CajaPage({
             />
 
             <div className="col-span-2 sm:col-span-3">
-              <button className="btn btn-alto sm:w-auto">Guardar movimiento</button>
+              <Guardar className="btn btn-alto sm:w-auto">Guardar movimiento</Guardar>
             </div>
-          </form>
+          </Formulario>
           </ProveedorCarga>
         </CardPlegable>
 

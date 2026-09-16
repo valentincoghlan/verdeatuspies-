@@ -6,6 +6,7 @@ import { PedidosDeCarga, type PedidoElegible } from "@/components/pedidos-de-car
 import { QuePaso, type Rubro } from "@/components/que-paso";
 import { Renglon, Renglones, renglonVacio, renglonesValidos, totalDe } from "@/components/renglones";
 import { repartirProporcional } from "@/lib/reparto";
+import { Formulario, Guardar } from "@/components/guardar";
 
 const pesos = (v: number) =>
   v.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
@@ -79,7 +80,7 @@ function FormularioDeTanda({
   const cuantos = listos.length * Math.max(1, destinos.length);
 
   return (
-    <form action={accion} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:max-w-4xl">
+    <Formulario action={accion} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:max-w-4xl">
       <QuePaso rubros={rubros} admin={admin} />
 
       <FechaDeCarga hoy={hoy} className="col-span-1" />
@@ -155,9 +156,12 @@ function FormularioDeTanda({
       )}
 
       <div className="col-span-2 flex flex-wrap items-center gap-3 sm:col-span-3">
-        <button disabled={listos.length === 0} className="btn btn-alto disabled:opacity-40 sm:w-auto">
+        <Guardar
+          disabled={listos.length === 0}
+          className="btn btn-alto disabled:opacity-40 sm:w-auto"
+        >
           Guardar {cuantos === 1 ? "el movimiento" : `los ${cuantos} movimientos`}
-        </button>
+        </Guardar>
         {listos.length > 0 && (
           <span className="text-sm text-tinta-2">
             {pesos(total)} en {listos.length} {listos.length === 1 ? "pago" : "pagos"}
@@ -166,6 +170,6 @@ function FormularioDeTanda({
           </span>
         )}
       </div>
-    </form>
+    </Formulario>
   );
 }

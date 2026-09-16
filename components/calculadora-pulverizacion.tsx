@@ -5,6 +5,7 @@ import { numero } from "@/lib/format";
 import { crearPulverizacion } from "@/lib/actions";
 import { Checks } from "@/components/checks";
 import { Nota } from "@/components/campos";
+import { Formulario, Guardar } from "@/components/guardar";
 
 /**
  * Cómo armar la pulverizadora.
@@ -499,7 +500,7 @@ export function CalculadoraPulverizacion({
           la dosis y la superficie no se vuelven a pedir: son los mismos
           que cargaste arriba, y se muestran para poder repasarlos antes
           de guardar. */}
-      <form action={crearPulverizacion} className="card">
+      <Formulario action={crearPulverizacion} className="card">
         <h2 className="mb-3 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
           Anotar esta pulverización
         </h2>
@@ -547,14 +548,14 @@ export function CalculadoraPulverizacion({
               <Nota className="col-span-2" />
             </div>
 
-            <button className="btn btn-alto mt-3">Anotar la pulverización</button>
+            <Guardar className="btn btn-alto mt-3">Anotar la pulverización</Guardar>
           </>
         ) : (
           <p className="text-sm text-tinta-2">
             Cargá el producto y la dosis acá arriba y te aparece el botón para anotarla.
           </p>
         )}
-      </form>
+      </Formulario>
 
       <p className="px-1 pb-2 text-xs text-tinta-3">
         La cuenta sale de los números que cargaste: el caudal real cambia con la presión y con el

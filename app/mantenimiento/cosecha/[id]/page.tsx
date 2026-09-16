@@ -12,6 +12,7 @@ import {
 } from "@/lib/actions";
 import { CerrarCosecha } from "@/components/cerrar-cosecha";
 import { fechaLarga, m2, numero } from "@/lib/format";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -178,7 +179,7 @@ export default async function ContarCosechaPage({
           <Card titulo="Contar">
             {/* Los tres campos en una sola fila: cuando se abre el teclado del
                 celular queda muy poca pantalla y hay que verlos todos juntos. */}
-            <form action={guardarCarga}>
+            <Formulario action={guardarCarga}>
               <input type="hidden" name="cosecha_id" value={c.id} />
               {/* De qué lote sale este tramo. Con un solo lote va
                   puesto y no se pregunta. */}
@@ -247,8 +248,8 @@ export default async function ContarCosechaPage({
                   />
                 </div>
               </div>
-              <button className="btn btn-alto mt-3 sm:w-auto">Guardar</button>
-            </form>
+              <Guardar className="btn btn-alto mt-3 sm:w-auto">Guardar</Guardar>
+            </Formulario>
             <p className="mt-3 text-sm text-tinta-2">
               <strong>Pilas</strong> es el total contado en ese tramo, no por línea. Si cortaste de
               la 2 a la 4 y contaste 62 pilas entre las tres, ponés 2, 4 y 62. Para una sola línea,
@@ -262,13 +263,16 @@ export default async function ContarCosechaPage({
           titulo="Historial"
           accion={
             cerrada ? (
-              <form action={cambiarEstadoCosecha}>
+              <Formulario action={cambiarEstadoCosecha}>
                 <input type="hidden" name="id" value={c.id} />
                 <input type="hidden" name="estado" value="abierta" />
-                <button className="whitespace-nowrap text-sm font-bold text-pasto hover:underline">
+                <Guardar
+                  esperando=""
+                  className="whitespace-nowrap text-sm font-bold text-pasto hover:underline"
+                >
                   Reabrir
-                </button>
-              </form>
+                </Guardar>
+              </Formulario>
             ) : (
               <CerrarCosecha
                 cosechaId={c.id}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export type VentaEditable = {
   id: string;
@@ -84,7 +85,7 @@ export function EditarVenta({
             Corregí lo que haga falta. El comprador no se cambia desde acá.
           </p>
 
-          <form action={accion} className="mt-4" onSubmit={() => dialogo.current?.close()}>
+          <Formulario action={accion} className="mt-4" onSubmit={() => dialogo.current?.close()}>
             <input type="hidden" name="id" value={venta.id} />
 
             <div className="grid grid-cols-2 gap-3">
@@ -213,15 +214,15 @@ export function EditarVenta({
               >
                 Cerrar
               </button>
-              <button className="flex min-h-12 flex-1 items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema">
+              <Guardar className="flex min-h-12 flex-1 items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema">
                 Guardar
-              </button>
+              </Guardar>
             </div>
-          </form>
+          </Formulario>
 
           {/* Borrar queda adentro del detalle y pide confirmación del
               navegador: no es algo que se toque al pasar. */}
-          <form
+          <Formulario
             action={borrar}
             className="mt-3 border-t border-beige pt-3"
             onSubmit={(e) => {
@@ -233,10 +234,14 @@ export function EditarVenta({
             }}
           >
             <input type="hidden" name="id" value={venta.id} />
-            <button className="flex min-h-11 w-full items-center justify-center rounded-full text-sm font-bold text-tinta-3 transition hover:bg-urgente-bg hover:text-urgente-tx">
+            <Guardar
+              esperando=""
+              velo="Borrando…"
+              className="flex min-h-11 w-full items-center justify-center rounded-full text-sm font-bold text-tinta-3 transition hover:bg-urgente-bg hover:text-urgente-tx"
+            >
               Borrar esta venta
-            </button>
-          </form>
+            </Guardar>
+          </Formulario>
         </div>
       </dialog>
     </>

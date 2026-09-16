@@ -12,6 +12,7 @@ import {
   marcarFertilizacionAplicada,
 } from "@/lib/actions";
 import { fechaBreve, fechaDM, fechaLarga, hoyISO, numero, pesos } from "@/lib/format";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +63,7 @@ export default async function FertilizacionesPage() {
 
       <div className="mt-3 space-y-3">
         <Card titulo="Agendar fertilización">
-          <form action={crearFertilizacion} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Formulario action={crearFertilizacion} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Checks
               label="Lotes"
               name="lote_id"
@@ -92,9 +93,9 @@ export default async function FertilizacionesPage() {
             <Campo label="Costo estimado" name="costo" type="number" placeholder="0" />
             <Nota className="col-span-2 sm:col-span-4" />
             <div className="col-span-2 flex items-end sm:col-span-4">
-              <button className="btn">Agendar y avisar por mail</button>
+              <Guardar className="btn">Agendar y avisar por mail</Guardar>
             </div>
-          </form>
+          </Formulario>
           <p className="mt-3 text-xs text-tinta-3">
             Podés marcar varios lotes y varios productos: se agenda una fertilización por cada
             combinación, para aplicarlas o cancelarlas por separado. El aviso sale en la corrida
@@ -145,7 +146,10 @@ export default async function FertilizacionesPage() {
                 </td>
                 <td className="td text-right">
                   <Acciones titulo={`${f.fertilizantes?.nombre} en ${f.lotes?.nombre}`}>
-                    <form action={marcarFertilizacionAplicada} className="flex items-end gap-1">
+                    <Formulario
+                      action={marcarFertilizacionAplicada}
+                      className="flex items-end gap-1"
+                    >
                       <input type="hidden" name="id" value={f.id} />
                       <input
                         name="fecha_aplicada"
@@ -153,20 +157,28 @@ export default async function FertilizacionesPage() {
                         defaultValue={hoy}
                         className="input w-full min-w-0 sm:w-36"
                       />
-                      <button className="btn whitespace-nowrap px-3 py-1.5">Aplicada</button>
-                    </form>
-                    <form action={cancelarFertilizacion}>
+                      <Guardar esperando="" className="btn whitespace-nowrap px-3 py-1.5">Aplicada</Guardar>
+                    </Formulario>
+                    <Formulario action={cancelarFertilizacion}>
                       <input type="hidden" name="id" value={f.id} />
-                      <button className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-tinta">
+                      <Guardar
+                        esperando=""
+                        velo="Cancelando…"
+                        className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-tinta"
+                      >
                         Cancelar
-                      </button>
-                    </form>
-                    <form action={borrarFertilizacion}>
+                      </Guardar>
+                    </Formulario>
+                    <Formulario action={borrarFertilizacion}>
                       <input type="hidden" name="id" value={f.id} />
-                      <button className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
+                      <Guardar
+                        esperando=""
+                        velo="Borrando…"
+                        className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx"
+                      >
                         Borrar
-                      </button>
-                    </form>
+                      </Guardar>
+                    </Formulario>
                   </Acciones>
                 </td>
               </tr>
@@ -218,15 +230,18 @@ export default async function FertilizacionesPage() {
         </Card>
 
         <Card titulo="Productos">
-          <form action={crearFertilizante} className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Formulario
+            action={crearFertilizante}
+            className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4"
+          >
             <Campo label="Nombre" name="nombre" required placeholder="Urea 46%" />
             <Campo label="Tipo" name="tipo" placeholder="nitrogenado" />
             <Campo label="Unidad" name="unidad" defaultValue="kg" />
             <Campo label="Dosis por ha" name="dosis_por_ha" type="number" step="0.5" />
             <div className="col-span-2 sm:col-span-4">
-              <button className="btn-ghost btn-alto sm:w-auto">Agregar producto</button>
+              <Guardar className="btn-ghost btn-alto sm:w-auto">Agregar producto</Guardar>
             </div>
-          </form>
+          </Formulario>
           <Tabla
             columnas={[
               { titulo: "Producto" },

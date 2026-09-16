@@ -13,6 +13,7 @@ import {
   reprogramarPedido,
   resolverNotificacion,
 } from "@/lib/actions";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -377,7 +378,10 @@ export default async function Dashboard() {
                   >
                     {n.tipo === "confirmar_lluvia" && (
                       <>
-                        <form action={registrarLluvia} className="flex flex-wrap items-end gap-2">
+                        <Formulario
+                          action={registrarLluvia}
+                          className="flex flex-wrap items-end gap-2"
+                        >
                           <input type="hidden" name="notificacion_id" value={n.id} />
                           <input type="hidden" name="fecha" value={n.fecha_referencia ?? hoy} />
                           <div className="min-w-0">
@@ -392,12 +396,12 @@ export default async function Dashboard() {
                               placeholder="12,5"
                             />
                           </div>
-                          <button className="btn">Sí, llovió</button>
-                        </form>
-                        <form action={descartarAlertaLluvia}>
+                          <Guardar className="btn">Sí, llovió</Guardar>
+                        </Formulario>
+                        <Formulario action={descartarAlertaLluvia}>
                           <input type="hidden" name="id" value={n.id} />
-                          <button className="btn-ghost">No llovió</button>
-                        </form>
+                          <Guardar className="btn-ghost">No llovió</Guardar>
+                        </Formulario>
                       </>
                     )}
 

@@ -3,6 +3,7 @@ import { Card } from "@/components/ui";
 import { Campo } from "@/components/campos";
 import { guardarConfig } from "@/lib/actions";
 import { esAdmin } from "@/lib/rol";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -31,7 +32,7 @@ export default async function ConfigGeneralPage() {
           complicar. <strong>Aviso de fertilización</strong>: cuántos días antes te recuerda una
           fertilización agendada.
         </p>
-        <form action={guardarConfig}>
+        <Formulario action={guardarConfig}>
           <fieldset disabled={!admin} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Campo
             label="Umbral de lluvia (mm)"
@@ -50,11 +51,11 @@ export default async function ConfigGeneralPage() {
           />
             {admin && (
               <div className="col-span-2 sm:col-span-4">
-                <button className="btn btn-alto sm:w-auto">Guardar</button>
+                <Guardar className="btn btn-alto sm:w-auto">Guardar</Guardar>
               </div>
             )}
           </fieldset>
-        </form>
+        </Formulario>
       </Card>
 
       <Card titulo="Precio de referencia">
@@ -62,7 +63,7 @@ export default async function ConfigGeneralPage() {
           Es el precio que aparece ya escrito cuando cargás un pedido o una venta, para no tener
           que ponerlo cada vez. Igual lo podés cambiar en cada operación.
         </p>
-        <form action={guardarConfig}>
+        <Formulario action={guardarConfig}>
           <fieldset disabled={!admin} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Campo
             label="Precio por m² sugerido"
@@ -73,11 +74,11 @@ export default async function ConfigGeneralPage() {
           />
             {admin && (
               <div className="col-span-2 sm:col-span-4">
-                <button className="btn btn-alto sm:w-auto">Guardar</button>
+                <Guardar className="btn btn-alto sm:w-auto">Guardar</Guardar>
               </div>
             )}
           </fieldset>
-        </form>
+        </Formulario>
       </Card>
 
       <Card titulo="Medida del pan de pasto">
@@ -85,7 +86,7 @@ export default async function ConfigGeneralPage() {
           Es la medida que sale de tu máquina. Con esto el contador de cosecha traduce pilas a m².
           En cada cosecha podés cambiarla si ese día cortás distinto, sin tocar esto.
         </p>
-        <form action={guardarConfig}>
+        <Formulario action={guardarConfig}>
           <fieldset disabled={!admin} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Campo
             label="Largo (m)"
@@ -107,11 +108,11 @@ export default async function ConfigGeneralPage() {
           />
             {admin && (
               <div className="col-span-2 sm:col-span-4">
-                <button className="btn btn-alto sm:w-auto">Guardar</button>
+                <Guardar className="btn btn-alto sm:w-auto">Guardar</Guardar>
               </div>
             )}
           </fieldset>
-        </form>
+        </Formulario>
       </Card>
 
       <Card titulo="Ubicación del campo">
@@ -119,7 +120,7 @@ export default async function ConfigGeneralPage() {
           De acá saca el pronóstico del tiempo. Ya apunta a Cardales: no hace falta que lo toques
           salvo que el campo se mude.
         </p>
-        <form action={guardarConfig}>
+        <Formulario action={guardarConfig}>
           <fieldset disabled={!admin} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Campo
             label="Nombre"
@@ -131,11 +132,11 @@ export default async function ConfigGeneralPage() {
           <Campo label="Longitud" name="lon" type="number" step="0.0001" defaultValue={ubicacion.lon} />
             {admin && (
               <div className="col-span-2 sm:col-span-4">
-                <button className="btn btn-alto sm:w-auto">Guardar</button>
+                <Guardar className="btn btn-alto sm:w-auto">Guardar</Guardar>
               </div>
             )}
           </fieldset>
-        </form>
+        </Formulario>
       </Card>
     </>
   );

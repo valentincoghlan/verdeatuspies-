@@ -17,6 +17,7 @@ import {
   reprogramarPedido,
 } from "@/lib/actions";
 import { diasEntre, fechaBreve, fechaCorta, fechaLarga, hoyISO, m2, mm, numero, pesos } from "@/lib/format";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -135,7 +136,7 @@ export default async function PedidosPage() {
 
       <div className="mt-3 space-y-3">
         <Card titulo="Nuevo pedido">
-          <form action={crearPedido} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Formulario action={crearPedido} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {/* Primero cuándo se entrega, que es lo que define todo lo demás. */}
             <Campo label="Entrega" name="fecha_entrega" type="date" required />
             <CanalYComprador clientes={clientesPorCanal} />
@@ -155,9 +156,9 @@ export default async function PedidosPage() {
             />
 
             <div className="col-span-2 sm:col-span-4">
-              <button className="btn btn-alto">Guardar pedido</button>
+              <Guardar className="btn btn-alto">Guardar pedido</Guardar>
             </div>
-          </form>
+          </Formulario>
           {clientesOpc.length === 0 && (
             <p className="mt-3 text-xs text-atencion-tx">
               Primero cargá un comprador en{" "}
@@ -275,7 +276,7 @@ export default async function PedidosPage() {
                       <summary className="cursor-pointer text-xs font-semibold text-tinta-2">
                         Registrar seña
                       </summary>
-                      <form
+                      <Formulario
                         action={crearCobro}
                         className="mt-2 grid grid-cols-2 gap-2 rounded-xl bg-white p-3"
                       >
@@ -308,9 +309,9 @@ export default async function PedidosPage() {
                           </select>
                         </div>
                         <div className="flex items-end">
-                          <button className="btn-ghost w-full">Guardar seña</button>
+                          <Guardar className="btn-ghost w-full">Guardar seña</Guardar>
                         </div>
-                      </form>
+                      </Formulario>
                     </details>
                   </li>
                 );

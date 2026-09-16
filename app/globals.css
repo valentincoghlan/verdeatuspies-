@@ -181,7 +181,16 @@ textarea.input {
   @apply inline-flex min-h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full bg-pasto px-5 text-base font-semibold text-crema transition hover:bg-pasto-medio active:scale-[.98] disabled:opacity-40 disabled:active:scale-100 sm:min-h-10 sm:text-sm;
 }
 .btn-ghost {
-  @apply inline-flex min-h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full border-[1.5px] border-borde-boton bg-white px-5 text-base font-semibold text-pasto transition hover:bg-hecho-bg active:scale-[.98] sm:min-h-10 sm:text-sm;
+  @apply inline-flex min-h-12 items-center justify-center gap-2 whitespace-nowrap rounded-full border-[1.5px] border-borde-boton bg-white px-5 text-base font-semibold text-pasto transition hover:bg-hecho-bg active:scale-[.98] disabled:opacity-40 disabled:active:scale-100 sm:min-h-10 sm:text-sm;
+}
+/* Mientras un botón guarda queda deshabilitado (ver components/guardar.tsx):
+   que se note también en los botones de texto suelto, que no traen estilo
+   propio de apagado. */
+button:disabled {
+  cursor: default;
+}
+button[aria-busy="true"]:not(.btn):not(.btn-ghost) {
+  opacity: 0.6;
 }
 /* La acción principal de una pantalla: más alta y a todo el ancho. */
 .btn-alto {

@@ -4,6 +4,7 @@ import { Campo, Selector } from "@/components/campos";
 import { agregarMiembro, cambiarRol, quitarMiembro } from "@/lib/actions";
 import { esAdmin, PERMISOS } from "@/lib/rol";
 import { Acciones } from "@/components/acciones";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,10 @@ export default async function ConfigEquipoPage() {
     <div className="space-y-3">
       <Card titulo="Quién puede entrar">
         {admin && (
-          <form action={agregarMiembro} className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Formulario
+            action={agregarMiembro}
+            className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4"
+          >
             <Campo label="Mail" name="email" type="email" required className="col-span-2" />
             <Campo label="Nombre" name="nombre" />
             <Selector
@@ -33,9 +37,9 @@ export default async function ConfigEquipoPage() {
               ]}
             />
             <div className="col-span-2 flex items-end sm:col-span-4">
-              <button className="btn btn-alto sm:w-auto">Habilitar mail</button>
+              <Guardar className="btn btn-alto sm:w-auto">Habilitar mail</Guardar>
             </div>
-          </form>
+          </Formulario>
         )}
 
         <Tabla
@@ -74,7 +78,7 @@ export default async function ConfigEquipoPage() {
                   </span>
                   <span className="hidden sm:block">
                     {admin ? (
-                      <form action={cambiarRol} className="flex items-center gap-2">
+                      <Formulario action={cambiarRol} className="flex items-center gap-2">
                         <input type="hidden" name="email" value={m.email} />
                         <select
                           name="rol"
@@ -85,10 +89,13 @@ export default async function ConfigEquipoPage() {
                           <option value="operador">Operador</option>
                           <option value="admin">Dueño</option>
                         </select>
-                        <button className="shrink-0 whitespace-nowrap text-xs font-bold text-pasto hover:underline">
+                        <Guardar
+                          esperando=""
+                          className="shrink-0 whitespace-nowrap text-xs font-bold text-pasto hover:underline"
+                        >
                           Cambiar
-                        </button>
-                      </form>
+                        </Guardar>
+                      </Formulario>
                     ) : (
                       <Chip tono={m.rol === "admin" ? "verde" : "neutro"}>
                         {m.rol === "admin" ? "dueño" : "operador"}
@@ -106,7 +113,7 @@ export default async function ConfigEquipoPage() {
                 <td className="td text-right">
                   {admin && (
                     <Acciones titulo={m.nombre ?? m.email}>
-                      <form action={cambiarRol} className="flex items-center gap-2 sm:hidden">
+                      <Formulario action={cambiarRol} className="flex items-center gap-2 sm:hidden">
                         <input type="hidden" name="email" value={m.email} />
                         <select
                           name="rol"
@@ -117,16 +124,23 @@ export default async function ConfigEquipoPage() {
                           <option value="operador">Operador</option>
                           <option value="admin">Dueño</option>
                         </select>
-                        <button className="shrink-0 whitespace-nowrap text-sm font-bold text-pasto">
+                        <Guardar
+                          esperando=""
+                          className="shrink-0 whitespace-nowrap text-sm font-bold text-pasto"
+                        >
                           Cambiar
-                        </button>
-                      </form>
-                      <form action={quitarMiembro}>
+                        </Guardar>
+                      </Formulario>
+                      <Formulario action={quitarMiembro}>
                         <input type="hidden" name="email" value={m.email} />
-                        <button className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
+                        <Guardar
+                          esperando=""
+                          velo="Quitando…"
+                          className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx"
+                        >
                           Quitar
-                        </button>
-                      </form>
+                        </Guardar>
+                      </Formulario>
                     </Acciones>
                   )}
                 </td>

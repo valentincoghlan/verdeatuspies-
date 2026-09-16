@@ -41,6 +41,7 @@ export const SECCIONES: Seccion[] = [
       { href: "/administracion", label: "Movimientos", icono: "movimientos" },
       { href: "/administracion/disponibilidades", label: "Disponibilidades", icono: "disponibilidades" },
       { href: "/reportes", label: "Reportes", icono: "reportes" },
+      { href: "/reportes/movimientos", label: "Ingresos y egresos", icono: "movimientos" },
     ],
   },
   {

@@ -5,6 +5,7 @@ import { Acciones } from "@/components/acciones";
 import { CalculadoraPulverizacion } from "@/components/calculadora-pulverizacion";
 import { borrarPulverizacion } from "@/lib/actions";
 import { fechaBreve, fechaDM, hoyISO, numero } from "@/lib/format";
+import { Formulario, Guardar } from "@/components/guardar";
 
 /** "3 l/ha", "1,5 l/ha": los decimales solo aparecen si los hay. */
 const dosisTexto = (dosis: unknown, unidad: string | null) => {
@@ -103,12 +104,16 @@ export default async function PulverizacionPage() {
                 </td>
                 <td className="td text-right">
                   <Acciones titulo={`${p.producto} en ${p.lotes?.nombre ?? "el lote"}`}>
-                    <form action={borrarPulverizacion}>
+                    <Formulario action={borrarPulverizacion}>
                       <input type="hidden" name="id" value={p.id} />
-                      <button className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
+                      <Guardar
+                        esperando=""
+                        velo="Borrando…"
+                        className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx"
+                      >
                         Borrar
-                      </button>
-                    </form>
+                      </Guardar>
+                    </Formulario>
                   </Acciones>
                 </td>
               </tr>

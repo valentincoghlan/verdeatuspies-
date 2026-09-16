@@ -5,6 +5,7 @@ import { Acciones } from "@/components/acciones";
 import { Campo, Nota, Selector } from "@/components/campos";
 import { borrarCorte, crearCorte } from "@/lib/actions";
 import { diasDesde, fechaBreve, fechaDM, fechaLarga, hoyISO, numero } from "@/lib/format";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -49,7 +50,7 @@ export default async function CortesPage() {
 
       <div className="mt-3 space-y-3">
         <Card titulo="Cargar un corte">
-          <form action={crearCorte} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Formulario action={crearCorte} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Selector
               label="Lote"
               name="lote_id"
@@ -64,9 +65,9 @@ export default async function CortesPage() {
             <Campo label="Quién cortó" name="responsable_texto" placeholder="Nombre" />
             <Nota className="col-span-2" />
             <div className="col-span-2 flex items-end sm:col-span-4">
-              <button className="btn">Guardar corte</button>
+              <Guardar className="btn">Guardar corte</Guardar>
             </div>
-          </form>
+          </Formulario>
         </Card>
 
         <Card titulo="Historial de cortes">
@@ -108,12 +109,16 @@ export default async function CortesPage() {
                 <td className="td hidden sm:table-cell">{c.responsable_texto ?? "—"}</td>
                 <td className="td text-right">
                   <Acciones titulo={`Corte del ${fechaBreve(c.fecha)}`}>
-                    <form action={borrarCorte}>
+                    <Formulario action={borrarCorte}>
                       <input type="hidden" name="id" value={c.id} />
-                      <button className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
+                      <Guardar
+                        esperando=""
+                        velo="Borrando…"
+                        className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx"
+                      >
                         Borrar
-                      </button>
-                    </form>
+                      </Guardar>
+                    </Formulario>
                   </Acciones>
                 </td>
               </tr>

@@ -19,6 +19,7 @@ import { Dato } from "@/components/dato";
 import { Acciones } from "@/components/acciones";
 import { caudalesPorZona } from "@/lib/caudal";
 import { fechaBreve, fechaCorta, fechaDM, fechaLarga, hoyISO, mm, numero, sumarDiasISO } from "@/lib/format";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -248,7 +249,7 @@ export default async function AguaPage({
                   <p className="text-sm font-semibold text-tinta">{n.titulo}</p>
                   {n.mensaje && <p className="mt-1 text-xs text-tinta-2">{n.mensaje}</p>}
                   <div className="mt-2 flex flex-wrap items-end gap-2">
-                    <form action={registrarLluvia} className="flex flex-wrap items-end gap-2">
+                    <Formulario action={registrarLluvia} className="flex flex-wrap items-end gap-2">
                       <input type="hidden" name="notificacion_id" value={n.id} />
                       <input type="hidden" name="fecha" value={n.fecha_referencia ?? hoy} />
                       <div>
@@ -263,12 +264,12 @@ export default async function AguaPage({
                           placeholder="12,5"
                         />
                       </div>
-                      <button className="btn">Sí, llovió</button>
-                    </form>
-                    <form action={descartarAlertaLluvia}>
+                      <Guardar className="btn">Sí, llovió</Guardar>
+                    </Formulario>
+                    <Formulario action={descartarAlertaLluvia}>
                       <input type="hidden" name="id" value={n.id} />
-                      <button className="btn-ghost">No llovió</button>
-                    </form>
+                      <Guardar className="btn-ghost">No llovió</Guardar>
+                    </Formulario>
                   </div>
                 </li>
               ))}
@@ -337,7 +338,7 @@ export default async function AguaPage({
         <Plegable titulo="Cargar a mano" detalle="un riego viejo o una lluvia">
         <div className="grid gap-3 lg:grid-cols-2">
           <Card titulo="Cargar un riego">
-            <form action={crearRiego} className="grid grid-cols-2 gap-3">
+            <Formulario action={crearRiego} className="grid grid-cols-2 gap-3">
               <Selector
                 label="Lote"
                 name="lote_id"
@@ -362,13 +363,13 @@ export default async function AguaPage({
               <Campo label="mm aplicados" name="mm" type="number" step="0.5" placeholder="8" />
               <Nota className="col-span-2" />
               <div className="col-span-2">
-                <button className="btn btn-alto">Guardar riego</button>
+                <Guardar className="btn btn-alto">Guardar riego</Guardar>
               </div>
-            </form>
+            </Formulario>
           </Card>
 
           <Card titulo="Cargar una lluvia">
-            <form action={registrarLluvia} className="grid grid-cols-2 gap-3">
+            <Formulario action={registrarLluvia} className="grid grid-cols-2 gap-3">
               <Campo label="Fecha" name="fecha" type="date" required defaultValue={hoy} />
               <Campo label="mm" name="mm" type="number" step="0.5" required placeholder="12,5" />
               <Selector
@@ -380,9 +381,9 @@ export default async function AguaPage({
               />
               <Nota className="col-span-2" />
               <div className="col-span-2">
-                <button className="btn btn-alto">Guardar lluvia</button>
+                <Guardar className="btn btn-alto">Guardar lluvia</Guardar>
               </div>
-            </form>
+            </Formulario>
           </Card>
         </div>
         </Plegable>
@@ -436,12 +437,16 @@ export default async function AguaPage({
                 </td>
                 <td className="td text-right">
                   <Acciones titulo={`Riego del ${fechaBreve(r.fecha)}`}>
-                    <form action={borrarRiego}>
+                    <Formulario action={borrarRiego}>
                       <input type="hidden" name="id" value={r.id} />
-                      <button className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
+                      <Guardar
+                        esperando=""
+                        velo="Borrando…"
+                        className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx"
+                      >
                         Borrar
-                      </button>
-                    </form>
+                      </Guardar>
+                    </Formulario>
                   </Acciones>
                 </td>
               </tr>
@@ -492,7 +497,7 @@ export default async function AguaPage({
                 <td className="td text-right">
                   <Acciones titulo={`Lluvia del ${fechaBreve(l.fecha)}`}>
                     {!l.confirmada && (
-                      <form action={registrarLluvia} className="flex items-end gap-1">
+                      <Formulario action={registrarLluvia} className="flex items-end gap-1">
                         <input type="hidden" name="fecha" value={l.fecha} />
                         <input
                           name="mm"
@@ -504,15 +509,19 @@ export default async function AguaPage({
                           aria-label={`mm reales del ${fechaBreve(l.fecha)}`}
                           className="input input-medio min-w-0 text-center"
                         />
-                        <button className="btn whitespace-nowrap px-3 py-1.5">Confirmar</button>
-                      </form>
+                        <Guardar esperando="" className="btn whitespace-nowrap px-3 py-1.5">Confirmar</Guardar>
+                      </Formulario>
                     )}
-                    <form action={borrarLluvia}>
+                    <Formulario action={borrarLluvia}>
                       <input type="hidden" name="id" value={l.id} />
-                      <button className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
+                      <Guardar
+                        esperando=""
+                        velo="Borrando…"
+                        className="whitespace-nowrap text-xs font-semibold text-tinta-3 hover:text-urgente-tx"
+                      >
                         Borrar
-                      </button>
-                    </form>
+                      </Guardar>
+                    </Formulario>
                   </Acciones>
                 </td>
               </tr>

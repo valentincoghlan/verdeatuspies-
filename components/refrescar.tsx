@@ -1,4 +1,5 @@
 import { sincronizarAhora } from "@/lib/actions";
+import { Formulario, Guardar } from "@/components/guardar";
 
 /**
  * Traer los datos de afuera: clima, dólar y controlador de riego.
@@ -16,8 +17,8 @@ export function Refrescar({
   sobreVerde?: boolean;
 }) {
   return (
-    <form action={sincronizarAhora}>
-      <button
+    <Formulario action={sincronizarAhora}>
+      <Guardar esperando="" velo={false}
         title={titulo}
         aria-label={titulo}
         className={
@@ -36,7 +37,7 @@ export function Refrescar({
             strokeLinejoin="round"
           />
         </svg>
-      </button>
-    </form>
+      </Guardar>
+    </Formulario>
   );
 }

@@ -3,6 +3,7 @@ import { Card, Chip } from "@/components/ui";
 import { Campo, Opciones, Selector } from "@/components/campos";
 import { guardarCategoria } from "@/lib/actions";
 import { esAdmin } from "@/lib/rol";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +86,7 @@ export default async function ConfigDatosPage() {
         </div>
 
         {admin && (
-        <form
+        <Formulario
           action={guardarCategoria}
           className="mb-6 grid grid-cols-2 gap-3 rounded-2xl bg-crema p-3 sm:grid-cols-4"
         >
@@ -111,9 +112,9 @@ export default async function ConfigDatosPage() {
             className="col-span-2"
           />
           <div className="col-span-2 sm:col-span-4">
-            <button className="btn-ghost">Agregar</button>
+            <Guardar className="btn-ghost">Agregar</Guardar>
           </div>
-        </form>
+        </Formulario>
         )}
 
         <div className="space-y-4">
@@ -127,7 +128,10 @@ export default async function ConfigDatosPage() {
                     {CHIP[(r.tipo ?? "ambos") as keyof typeof CHIP].texto}
                   </Chip>
                   {admin ? (
-                  <form action={guardarCategoria} className="ml-auto flex flex-wrap items-center gap-2">
+                  <Formulario
+                    action={guardarCategoria}
+                    className="ml-auto flex flex-wrap items-center gap-2"
+                  >
                     <input type="hidden" name="id" value={r.id} />
                     <select
                       name="tipo"
@@ -153,10 +157,13 @@ export default async function ConfigDatosPage() {
                         </option>
                       ))}
                     </select>
-                    <button className="shrink-0 whitespace-nowrap text-sm font-bold text-pasto hover:underline">
+                    <Guardar
+                      esperando=""
+                      className="shrink-0 whitespace-nowrap text-sm font-bold text-pasto hover:underline"
+                    >
                       Guardar
-                    </button>
-                  </form>
+                    </Guardar>
+                  </Formulario>
                   ) : (
                     <span className="ml-auto">
                       <Chip tono={CHIP_PLATA[r.tipo_plata ?? "operativo"].tono}>
@@ -179,7 +186,10 @@ export default async function ConfigDatosPage() {
                         {CHIP[(h.tipo ?? "ambos") as keyof typeof CHIP].texto}
                       </Chip>
                       {admin && (
-                      <form action={guardarCategoria} className="ml-auto flex items-center gap-2">
+                      <Formulario
+                        action={guardarCategoria}
+                        className="ml-auto flex items-center gap-2"
+                      >
                         <input type="hidden" name="id" value={h.id} />
                         <input type="hidden" name="padre_id" value={r.id} />
                         <select
@@ -193,10 +203,13 @@ export default async function ConfigDatosPage() {
                             </option>
                           ))}
                         </select>
-                        <button className="text-sm font-semibold text-pasto hover:underline">
+                        <Guardar
+                          esperando=""
+                          className="text-sm font-semibold text-pasto hover:underline"
+                        >
                           Guardar
-                        </button>
-                      </form>
+                        </Guardar>
+                      </Formulario>
                       )}
                     </li>
                   ))}

@@ -4,6 +4,7 @@ import { TextoLargo } from "@/components/texto-largo";
 import { Campo } from "@/components/campos";
 import { guardarConfig } from "@/lib/actions";
 import { fechaBreve, fechaDM, numero } from "@/lib/format";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,7 @@ export default async function ConfigIntegracionesPage() {
   return (
     <>
       <Card titulo="Hydrawise">
-        <form action={guardarConfig} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Formulario action={guardarConfig} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Campo
             label="API key de Hydrawise"
             name="hydrawise_api_key"
@@ -33,9 +34,9 @@ export default async function ConfigIntegracionesPage() {
             className="col-span-2 sm:col-span-4"
           />
           <div className="col-span-2 sm:col-span-4">
-            <button className="btn btn-alto sm:w-auto">Guardar</button>
+            <Guardar className="btn btn-alto sm:w-auto">Guardar</Guardar>
           </div>
-        </form>
+        </Formulario>
         <p className="mt-3 text-xs text-tinta-2">
           La key se saca de Hydrawise: <strong>Menú ☰ → Account Details → Account Settings →
           Generate API Key</strong>. Después tocá <strong>Sincronizar ahora</strong> y la app crea

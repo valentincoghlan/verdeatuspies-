@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { Formulario, Guardar } from "@/components/guardar";
 
 const pesos = (n: number) =>
   new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 }).format(n);
@@ -47,7 +48,7 @@ export function SaldarCliente({
             asentar ese ingreso con fecha de hoy y su cuenta queda en cero.
           </p>
 
-          <form action={accion} className="mt-4" onSubmit={() => dialogo.current?.close()}>
+          <Formulario action={accion} className="mt-4" onSubmit={() => dialogo.current?.close()}>
             <input type="hidden" name="cliente_id" value={cliente.id} />
 
             <p className="rounded-xl bg-crema p-3 text-xs text-tinta-2">
@@ -64,11 +65,11 @@ export function SaldarCliente({
               >
                 Cancelar
               </button>
-              <button className="flex min-h-12 flex-1 items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema">
+              <Guardar className="flex min-h-12 flex-1 items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema">
                 Asentar
-              </button>
+              </Guardar>
             </div>
-          </form>
+          </Formulario>
         </div>
       </dialog>
     </>

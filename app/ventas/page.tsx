@@ -8,6 +8,7 @@ import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota, Selector } from "@/components/campos";
 import { borrarVenta, cobrarVentas, crearVenta, editarVenta } from "@/lib/actions";
 import { fechaBreve, fechaCorta, fechaDM, fechaLarga, hoyISO, m2, numero, pesos } from "@/lib/format";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -124,7 +125,7 @@ export default async function VentasPage() {
 
       <div className="mt-3 space-y-3">
         <Card titulo="Nueva venta">
-          <form action={crearVenta} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Formulario action={crearVenta} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Selector
               label="Comprador"
               name="cliente_id"
@@ -183,9 +184,9 @@ export default async function VentasPage() {
             />
             <Nota className="col-span-2 sm:col-span-4" />
             <div className="col-span-2 sm:col-span-4">
-              <button className="btn btn-alto sm:w-auto">Guardar venta</button>
+              <Guardar className="btn btn-alto sm:w-auto">Guardar venta</Guardar>
             </div>
-          </form>
+          </Formulario>
           {(clientes ?? []).length === 0 && (
             <p className="mt-3 text-xs text-atencion-tx">
               Primero cargá un cliente en{" "}

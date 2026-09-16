@@ -8,6 +8,7 @@ import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota } from "@/components/campos";
 import { crearCosecha } from "@/lib/actions";
 import { fechaBreve, fechaLarga, hoyISO, m2, numero } from "@/lib/format";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +77,7 @@ export default async function CosechaPage() {
               trescientos y pico de píxeles: un recuadro enorme para
               escribir "2". Con el tope, el campo queda del tamaño de lo
               que entra adentro. */}
-          <form
+          <Formulario
             action={crearCosecha}
             className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:max-w-3xl"
           >
@@ -103,9 +104,9 @@ export default async function CosechaPage() {
             <Campo label="Panes por pila" name="panes_por_pila" type="number" defaultValue={porPila} />
             <Nota className="col-span-2 sm:col-span-4" />
             <div className="col-span-2 sm:col-span-4">
-              <button className="btn btn-alto sm:w-auto">Empezar la cosecha</button>
+              <Guardar className="btn btn-alto sm:w-auto">Empezar la cosecha</Guardar>
             </div>
-          </form>
+          </Formulario>
           <p className="mt-3 text-sm text-tinta-2">
             Si elegís un pedido, el objetivo se toma de sus m². Las medidas del pan vienen de
             Ajustes: cambialas acá si hoy cortás distinto, y quedan guardadas en esta cosecha.

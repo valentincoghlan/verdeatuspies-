@@ -4,6 +4,7 @@ import { Campo, Selector } from "@/components/campos";
 import { crearCuenta, ajustarSaldo } from "@/lib/actions";
 import { AjustarSaldo } from "@/components/ajustar-saldo";
 import { fechaBreve, m2, pesos } from "@/lib/format";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -289,7 +290,7 @@ export default async function DisponibilidadesPage({
 
         {esAdmin && (
         <Card titulo="Agregar una cuenta">
-          <form action={crearCuenta} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Formulario action={crearCuenta} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Campo label="Nombre" name="nombre" required placeholder="Banco Nación" className="col-span-2" />
             <Selector label="Qué es" name="tipo_cuenta" defaultValue="banco" opciones={TIPOS_CUENTA} />
             <Selector
@@ -302,9 +303,9 @@ export default async function DisponibilidadesPage({
               ]}
             />
             <div className="col-span-2 sm:col-span-4">
-              <button className="btn-ghost">Agregar cuenta</button>
+              <Guardar className="btn-ghost">Agregar cuenta</Guardar>
             </div>
-          </form>
+          </Formulario>
         </Card>
         )}
       </div>

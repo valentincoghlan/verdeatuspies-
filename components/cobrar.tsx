@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { montoDe, Renglon, Renglones, renglonVacio, totalDe } from "@/components/renglones";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export type VentaACobrar = {
   id: string;
@@ -153,7 +154,7 @@ export function Cobrar({
             haga falta.
           </p>
 
-          <form action={accion} className="mt-4" onSubmit={() => dialogo.current?.close()}>
+          <Formulario action={accion} className="mt-4" onSubmit={() => dialogo.current?.close()}>
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 min-w-0">
                 <label className="label" htmlFor="cob-cliente">
@@ -282,14 +283,14 @@ export function Cobrar({
               >
                 Cerrar
               </button>
-              <button
+              <Guardar
                 disabled={!cliente || asignado <= 0 || sePasa || faltaCuenta || sinAsignar < -0.5}
                 className="flex min-h-12 flex-[1.3] items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema disabled:opacity-40"
               >
                 Guardar el cobro
-              </button>
+              </Guardar>
             </div>
-          </form>
+          </Formulario>
         </div>
       </dialog>
     </>

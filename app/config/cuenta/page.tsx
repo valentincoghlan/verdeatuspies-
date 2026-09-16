@@ -11,6 +11,7 @@ import {
   guardarSuscripcion,
   probarAviso,
 } from "@/lib/actions";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -62,13 +63,13 @@ export default async function ConfigCuentaPage({
         />
 
         {(telefonos ?? 0) > 0 && (
-          <form action={probarAviso} className="mt-3 border-t border-beige pt-3">
-            <button className="btn-ghost">Mandar un aviso de prueba</button>
+          <Formulario action={probarAviso} className="mt-3 border-t border-beige pt-3">
+            <Guardar esperando="Mandando…" className="btn-ghost">Mandar un aviso de prueba</Guardar>
             <span className="ml-3 text-xs text-tinta-3">
               {telefonos} teléfono{telefonos === 1 ? "" : "s"} registrado
               {telefonos === 1 ? "" : "s"}
             </span>
-          </form>
+          </Formulario>
         )}
       </Card>
 
@@ -78,7 +79,7 @@ export default async function ConfigCuentaPage({
           ni a Pedro, y las alertas se siguen viendo dentro de la app igual.
         </p>
 
-        <form action={guardarAvisos}>
+        <Formulario action={guardarAvisos}>
           {AVISOS.map((a) => (
             <input key={a.tipo} type="hidden" name="todos" value={a.tipo} />
           ))}
@@ -134,9 +135,9 @@ export default async function ConfigCuentaPage({
 
 
           <div className="mt-4">
-            <button className="btn btn-alto">Guardar avisos</button>
+            <Guardar className="btn btn-alto">Guardar avisos</Guardar>
           </div>
-        </form>
+        </Formulario>
       </Card>
 
       <Card titulo="Mi contraseña">
@@ -144,13 +145,13 @@ export default async function ConfigCuentaPage({
           Entrás con <strong>{user?.email}</strong>. Con una contraseña entrás directo, sin esperar
           el link por mail.
         </p>
-        <form action={cambiarPassword} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Formulario action={cambiarPassword} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Campo label="Contraseña nueva" name="clave" type="password" required />
           <Campo label="Repetila" name="clave2" type="password" required />
           <div className="col-span-2 flex items-end">
-            <button className="btn btn-alto sm:w-auto">Guardar contraseña</button>
+            <Guardar className="btn btn-alto sm:w-auto">Guardar contraseña</Guardar>
           </div>
-        </form>
+        </Formulario>
         {resultado === "ok" && (
           <p className="mt-3 text-xs font-semibold text-pasto">
             Listo. La próxima vez entrá con tu mail y esta contraseña.
@@ -178,7 +179,7 @@ export default async function ConfigCuentaPage({
       </Card>
 
       <Card titulo="Mis avisos">
-        <form action={cambiarAvisoMail} className="flex flex-wrap items-center gap-2">
+        <Formulario action={cambiarAvisoMail} className="flex flex-wrap items-center gap-2">
           <input
             id="notificar_mail"
             name="notificar_mail"
@@ -189,8 +190,8 @@ export default async function ConfigCuentaPage({
           <label htmlFor="notificar_mail" className="text-sm">
             Quiero recibir las alertas por mail
           </label>
-          <button className="btn-ghost">Guardar</button>
-        </form>
+          <Guardar className="btn-ghost">Guardar</Guardar>
+        </Formulario>
         <p className="mt-3 text-xs text-tinta-2">
           Las alertas del día se juntan en un solo mail: entregas, lluvias a confirmar,
           fertilizaciones y cortes atrasados.

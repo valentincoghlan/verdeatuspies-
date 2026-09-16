@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export type LoteOpcion = { id: string; nombre: string };
 
@@ -54,7 +55,7 @@ export function CancelarRiegos({
             con su programa.
           </p>
 
-          <form action={accion} className="mt-4" onSubmit={() => dialogo.current?.close()}>
+          <Formulario action={accion} className="mt-4" onSubmit={() => dialogo.current?.close()}>
             {lote && <input type="hidden" name="lote_id" value={lote} />}
 
             <p className="label">Dónde</p>
@@ -114,19 +115,29 @@ export function CancelarRiegos({
               >
                 Cerrar
               </button>
-              <button className="flex min-h-12 flex-1 items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema">
+              <Guardar
+                esperando="Frenando…"
+                className="flex min-h-12 flex-1 items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema"
+              >
                 Frenar riegos
-              </button>
+              </Guardar>
             </div>
-          </form>
+          </Formulario>
 
           {hayFrenadas && (
-            <form action={accion} className="mt-3 border-t border-beige pt-3" onSubmit={() => dialogo.current?.close()}>
+            <Formulario
+              action={accion}
+              className="mt-3 border-t border-beige pt-3"
+              onSubmit={() => dialogo.current?.close()}
+            >
               <input type="hidden" name="reanudar" value="1" />
-              <button className="flex min-h-12 w-full items-center justify-center rounded-full border-[1.5px] border-pasto bg-hecho-bg text-sm font-bold text-pasto-oscuro">
+              <Guardar
+                esperando="Reanudando…"
+                className="flex min-h-12 w-full items-center justify-center rounded-full border-[1.5px] border-pasto bg-hecho-bg text-sm font-bold text-pasto-oscuro"
+              >
                 Reanudar todo ahora
-              </button>
-            </form>
+              </Guardar>
+            </Formulario>
           )}
         </div>
       </dialog>

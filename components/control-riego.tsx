@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export type ZonaControl = {
   id: string;
@@ -82,13 +83,17 @@ export function ControlRiego({
             </span>
 
             {z.corriendo ? (
-              <form action={accion}>
+              <Formulario action={accion}>
                 <input type="hidden" name="zona_id" value={z.id} />
                 <input type="hidden" name="accion" value="stop" />
-                <button className="inline-flex min-h-11 items-center rounded-full border-[1.5px] border-urgente-tx/30 bg-urgente-bg px-3 text-xs font-bold text-urgente-tx transition hover:bg-urgente-tx hover:text-white sm:min-h-8">
+                <Guardar
+                  esperando=""
+                  velo="Cortando el riego…"
+                  className="inline-flex min-h-11 items-center rounded-full border-[1.5px] border-urgente-tx/30 bg-urgente-bg px-3 text-xs font-bold text-urgente-tx transition hover:bg-urgente-tx hover:text-white sm:min-h-8"
+                >
                   Cortar
-                </button>
-              </form>
+                </Guardar>
+              </Formulario>
             ) : (
               <button
                 type="button"
@@ -166,14 +171,21 @@ export function ControlRiego({
             >
               Cancelar
             </button>
-            <form action={accion} className="flex-1" onSubmit={() => dialogo.current?.close()}>
+            <Formulario
+              action={accion}
+              className="flex-1"
+              onSubmit={() => dialogo.current?.close()}
+            >
               <input type="hidden" name="zona_id" value={zona?.id ?? ""} />
               <input type="hidden" name="accion" value="run" />
               <input type="hidden" name="minutos" value={finales} />
-              <button className="flex min-h-12 w-full items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema">
+              <Guardar
+                esperando="Abriendo el riego…"
+                className="flex min-h-12 w-full items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema"
+              >
                 Regar {finales} min
-              </button>
-            </form>
+              </Guardar>
+            </Formulario>
           </div>
         </div>
       </dialog>

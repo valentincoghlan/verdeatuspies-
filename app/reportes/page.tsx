@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import Barras from "@/components/barras";
@@ -39,6 +40,10 @@ export default async function ReportesPage({
   const enUsd = sp.m === "usd";
   const plata = enUsd ? (n: number) => dolares(n) : (n: number) => pesos(n);
   const plataCorta = enUsd ? (n: number) => dolaresCortos(n) : (n: number) => pesosCortos(n);
+  // Los precios por metro son números chicos: en dólares, "US$ 3 / m²"
+  // esconde la diferencia entre 2,76 y 3,49. Con dos decimales se lee de
+  // verdad. En pesos no hacen falta: ahí el número es de cuatro cifras.
+  const plataFina = enUsd ? (n: number) => dolares(n, 2) : (n: number) => pesos(n);
 
   // Doce meses hacia atras desde hoy, para el costo unitario.
   const desde12 = sumarDiasISO(hoyISO(), -365);
@@ -216,6 +221,11 @@ export default async function ReportesPage({
       <PageHeader
         titulo="Reportes"
         bajada={`Del ${fechaLarga(rango.desde)} al ${fechaLarga(rango.hasta)}.`}
+        accion={
+          <Link href="/reportes/movimientos" className="btn-ghost">
+            Ingresos y egresos
+          </Link>
+        }
       />
 
       <div className="mb-3">
@@ -251,12 +261,12 @@ export default async function ReportesPage({
       <div className="mt-2.5 grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat
           label="Precio promedio"
-          valor={`${plata(precioProm)} / m²`}
+          valor={`${plataFina(precioProm)} / m²`}
           detalle="Lo que sale el metro"
         />
         <Stat
           label="Costo por m² vendido"
-          valor={`${plata(costoPorM2)} / m²`}
+          valor={`${plataFina(costoPorM2)} / m²`}
           tono={costoPorM2 > precioProm ? "ambar" : "neutro"}
           detalle={
             costoPorM2 > precioProm

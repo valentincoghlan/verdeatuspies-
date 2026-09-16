@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import { Elegir } from "@/components/elegir";
+import { Formulario, Guardar } from "@/components/guardar";
 
 /**
  * Quiénes pueden entregar.
@@ -81,7 +82,7 @@ export function ConfirmarEntrega({
               `${m2.toLocaleString("es-AR")} m² agendados para el ${fecha.slice(8, 10)}/${fecha.slice(5, 7)}.`}
           </p>
 
-          <form action={confirmar} className="mt-4" onSubmit={() => dialogo.current?.close()}>
+          <Formulario action={confirmar} className="mt-4" onSubmit={() => dialogo.current?.close()}>
             <input type="hidden" name="id" value={pedidoId} />
 
             <div className="grid grid-cols-2 gap-3">
@@ -167,11 +168,11 @@ export function ConfirmarEntrega({
               >
                 Cerrar
               </button>
-              <button className="flex min-h-12 flex-[1.4] items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema">
+              <Guardar className="flex min-h-12 flex-[1.4] items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema">
                 Se entregó
-              </button>
+              </Guardar>
             </div>
-          </form>
+          </Formulario>
 
           <details className="group mt-3 border-t border-beige pt-3">
             <summary className="flex min-h-9 cursor-pointer list-none items-center gap-1 text-[13px] font-semibold text-tinta-3">
@@ -181,7 +182,7 @@ export function ConfirmarEntrega({
               </span>
             </summary>
 
-            <form
+            <Formulario
               action={reprogramar}
               className="mt-2 flex flex-wrap items-end gap-2"
               onSubmit={() => dialogo.current?.close()}
@@ -199,10 +200,10 @@ export function ConfirmarEntrega({
                   className="input"
                 />
               </div>
-              <button className="btn-ghost">Reprogramar</button>
-            </form>
+              <Guardar className="btn-ghost">Reprogramar</Guardar>
+            </Formulario>
 
-            <form
+            <Formulario
               action={anular}
               className="mt-2"
               onSubmit={(e) => {
@@ -214,10 +215,14 @@ export function ConfirmarEntrega({
               }}
             >
               <input type="hidden" name="id" value={pedidoId} />
-              <button className="flex min-h-11 w-full items-center justify-center rounded-full text-xs font-bold text-tinta-3 transition hover:bg-urgente-bg hover:text-urgente-tx">
+              <Guardar
+                esperando=""
+                velo="Anotando…"
+                className="flex min-h-11 w-full items-center justify-center rounded-full text-xs font-bold text-tinta-3 transition hover:bg-urgente-bg hover:text-urgente-tx"
+              >
                 Se cayó
-              </button>
-            </form>
+              </Guardar>
+            </Formulario>
           </details>
         </div>
       </dialog>

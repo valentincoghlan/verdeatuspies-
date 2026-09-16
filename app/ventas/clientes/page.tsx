@@ -5,6 +5,7 @@ import { Campo, Selector } from "@/components/campos";
 import { crearCliente, saldarCliente } from "@/lib/actions";
 import { SaldarCliente } from "@/components/saldar-cliente";
 import { fechaBreve, fechaDM, m2, numero, pesos } from "@/lib/format";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -100,14 +101,14 @@ export default async function ClientesPage({
 
       <div className="mt-3 space-y-3">
         <Card titulo="Nuevo cliente">
-          <form action={crearCliente} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Formulario action={crearCliente} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Campo label="Nombre" name="nombre" required className="col-span-2" />
             <Campo label="Teléfono" name="telefono" />
             <Selector label="Canal" name="canal" defaultValue="directa" opciones={CANALES} />
             <div className="col-span-2 sm:col-span-4">
-              <button className="btn btn-alto">Guardar cliente</button>
+              <Guardar className="btn btn-alto">Guardar cliente</Guardar>
             </div>
-          </form>
+          </Formulario>
         </Card>
 
         <Card

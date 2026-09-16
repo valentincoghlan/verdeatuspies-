@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Elegir } from "@/components/elegir";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export function Campo({
   label,
@@ -186,11 +187,11 @@ export function BorrarBtn({
   label?: string;
 }) {
   return (
-    <form action={action}>
+    <Formulario action={action}>
       <input type="hidden" name="id" value={id} />
-      <button className="text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
+      <Guardar esperando="" className="text-xs font-semibold text-tinta-3 hover:text-urgente-tx">
         {label}
-      </button>
-    </form>
+      </Guardar>
+    </Formulario>
   );
 }

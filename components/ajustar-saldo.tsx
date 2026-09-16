@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export type CuentaAjustable = { id: string; nombre: string; saldo: number };
 
@@ -60,7 +61,7 @@ export function AjustarSaldo({
             Poné cuánto hay de verdad hoy.
           </p>
 
-          <form action={accion} className="mt-4" onSubmit={() => dialogo.current?.close()}>
+          <Formulario action={accion} className="mt-4" onSubmit={() => dialogo.current?.close()}>
             <input type="hidden" name="cuenta_id" value={cuenta.id} />
 
             <label className="label" htmlFor={`real-${cuenta.id}`}>
@@ -96,14 +97,14 @@ export function AjustarSaldo({
               >
                 Cancelar
               </button>
-              <button
+              <Guardar
                 disabled={!hayValor || Math.abs(diferencia) < 1}
                 className="flex min-h-12 flex-1 items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema disabled:bg-borde disabled:text-tinta-3"
               >
                 Asentar
-              </button>
+              </Guardar>
             </div>
-          </form>
+          </Formulario>
         </div>
       </dialog>
     </>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, type ReactNode } from "react";
+import { Formulario, Guardar } from "@/components/guardar";
 
 /**
  * Una alerta de Inicio, con la forma de leerla y sacarla de la lista.
@@ -80,12 +81,16 @@ export function Alerta({
         <div className="flex flex-wrap items-center gap-2">
           {children}
 
-          <form action={resolver} ref={marcar} className={children ? "ml-auto" : ""}>
+          <Formulario action={resolver} ref={marcar} className={children ? "ml-auto" : ""}>
             <input type="hidden" name="id" value={id} />
-            <button className="flex min-h-11 items-center whitespace-nowrap rounded-full px-3 text-xs font-bold text-tinta-3 transition hover:bg-beige hover:text-tinta active:bg-beige sm:min-h-9">
+            <Guardar
+              esperando=""
+              velo={false}
+              className="flex min-h-11 items-center whitespace-nowrap rounded-full px-3 text-xs font-bold text-tinta-3 transition hover:bg-beige hover:text-tinta active:bg-beige sm:min-h-9"
+            >
               Listo
-            </button>
-          </form>
+            </Guardar>
+          </Formulario>
         </div>
       </div>
 

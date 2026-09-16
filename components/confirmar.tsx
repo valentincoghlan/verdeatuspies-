@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef } from "react";
+import { Formulario, Guardar } from "@/components/guardar";
 
 /**
  * Botón destructivo con confirmación en un modal.
@@ -57,14 +58,17 @@ export function Confirmar({
           {detalle && <p className="mt-2 text-[15px] leading-relaxed text-tinta-2">{detalle}</p>}
 
           <div className="mt-5 flex flex-wrap gap-2">
-            <form action={action} className="flex-1">
+            <Formulario action={action} className="flex-1">
               {Object.entries(campos).map(([k, v]) => (
                 <input key={k} type="hidden" name={k} value={v} />
               ))}
-              <button className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-urgente-tx px-5 text-base font-semibold text-crema transition hover:opacity-90">
+              <Guardar
+                esperando="Borrando…"
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-urgente-tx px-5 text-base font-semibold text-crema transition hover:opacity-90"
+              >
                 {confirmar}
-              </button>
-            </form>
+              </Guardar>
+            </Formulario>
             <button
               type="button"
               onClick={() => dialogo.current?.close()}

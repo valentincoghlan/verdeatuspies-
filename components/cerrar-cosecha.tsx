@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export type PedidoDelReparto = {
   id: string;
@@ -184,7 +185,7 @@ export function CerrarCosecha({
             )}
           </div>
 
-          <form action={accion} className="mt-4" onSubmit={() => dialogo.current?.close()}>
+          <Formulario action={accion} className="mt-4" onSubmit={() => dialogo.current?.close()}>
             <input type="hidden" name="id" value={cosechaId} />
 
             {pedidos.length === 0 ? (
@@ -281,23 +282,21 @@ export function CerrarCosecha({
             <div className="mt-5 flex gap-2">
               {/* C5 - se puede postergar: el reparto se guarda y el pedido
                   queda pendiente para confirmarlo cuando lo retiren. */}
-              <button
-                type="submit"
+              <Guardar
                 onClick={() => marcar("0")}
                 className="flex min-h-12 flex-1 items-center justify-center rounded-full border-[1.5px] border-borde bg-white text-sm font-bold text-tinta-2"
               >
                 Dejar pendiente
-              </button>
-              <button
-                type="submit"
+              </Guardar>
+              <Guardar
                 onClick={() => marcar("1")}
                 disabled={sePasa}
                 className="flex min-h-12 flex-[1.3] items-center justify-center rounded-full bg-pasto text-sm font-bold text-crema disabled:opacity-40"
               >
                 Confirmar cierre
-              </button>
+              </Guardar>
             </div>
-          </form>
+          </Formulario>
 
           <button
             type="button"
