@@ -6,6 +6,7 @@ import { AspersoresZonas } from "@/components/aspersores-zona";
 import { asignarZonas, guardarLote, guardarZona } from "@/lib/actions";
 import { caudalDeZona, origenDelCaudal } from "@/lib/caudal";
 import { numero } from "@/lib/format";
+import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ export default async function ConfigLotesPage() {
     nombre: z.nombre as string,
     lote: (z.lotes?.nombre ?? null) as string | null,
     presion_bar: z.presion_bar ?? null,
+    presion_medida: Boolean(z.presion_medida),
     superficie_m2: z.superficie_m2 ?? null,
     aspersores: (puestos ?? [])
       .filter((p: any) => p.zona_id === z.id)
@@ -41,7 +43,7 @@ export default async function ConfigLotesPage() {
   return (
     <>
       <Card titulo="Lotes">
-        <form action={guardarLote} className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Formulario action={guardarLote} className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Campo label="Nombre" name="nombre" required placeholder="Nuevo lote" />
           <Campo label="Superficie (m²)" name="superficie_m2" type="number" />
           <Campo
@@ -51,9 +53,9 @@ export default async function ConfigLotesPage() {
             defaultValue={14}
           />
           <div className="col-span-2 flex items-end sm:col-span-4">
-            <button className="btn-ghost btn-alto sm:w-auto">Agregar lote</button>
+            <Guardar className="btn-ghost btn-alto sm:w-auto">Agregar lote</Guardar>
           </div>
-        </form>
+        </Formulario>
         <Tabla
             columnas={[
               { titulo: "Lote" },
@@ -66,10 +68,10 @@ export default async function ConfigLotesPage() {
             <tr key={l.id}>
               <td className="td font-medium">
                 {l.nombre}
-                <form id={`lote-${l.id}`} action={guardarLote}>
+                <Formulario id={`lote-${l.id}`} action={guardarLote}>
                   <input type="hidden" name="id" value={l.id} />
                   <input type="hidden" name="nombre" value={l.nombre} />
-                </form>
+                </Formulario>
               </td>
               <td className="td">
                 <input
@@ -116,17 +118,17 @@ export default async function ConfigLotesPage() {
             lleguen de Hydrawise no van a caer en ningún lote hasta que las asignes.
           </p>
         )}
-        <form action={guardarZona} className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <Formulario action={guardarZona} className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Campo label="Nombre" name="nombre" required placeholder="Zona 1" />
           <Selector label="Lote" name="lote_id" vacio="Sin asignar" opciones={opcionesLotes} />
           <Campo label="Controller ID Hydrawise" name="hydrawise_controller_id" />
           <Campo label="Relay ID Hydrawise" name="hydrawise_relay_id" />
           <Campo label="Caudal (mm por hora)" name="mm_por_hora" type="number" step="0.5" placeholder="12" />
           <div className="col-span-2 flex items-end sm:col-span-4">
-            <button className="btn-ghost btn-alto sm:w-auto">Agregar zona</button>
+            <Guardar className="btn-ghost btn-alto sm:w-auto">Agregar zona</Guardar>
           </div>
-        </form>
-        <form action={asignarZonas}>
+        </Formulario>
+        <Formulario action={asignarZonas}>
           <Tabla
             columnas={[
               { titulo: "Zona" },
@@ -192,10 +194,10 @@ export default async function ConfigLotesPage() {
           </Tabla>
           {(zonas ?? []).length > 0 && (
             <div className="mt-4">
-              <button className="btn btn-alto sm:w-auto">Guardar todas las zonas</button>
+              <Guardar className="btn btn-alto sm:w-auto">Guardar todas las zonas</Guardar>
             </div>
           )}
-        </form>
+        </Formulario>
         <p className="mt-3 text-sm text-tinta-2">
           Elegí el lote de cada zona y guardá todas juntas con el botón de abajo. Las zonas las
           crea sola la app cuando sincroniza con Hydrawise.
@@ -214,6 +216,11 @@ export default async function ConfigLotesPage() {
           Cuántos aspersores de cada pico tiene la zona y a qué presión trabaja. Con eso la app
           saca el caudal de la ficha de Hunter y no hace falta medirlo con vasos: cambiás un pico y
           el número se corrige solo.
+        </p>
+        <p className="mb-3 text-sm text-tinta-2">
+          La <strong>presión</strong> hoy está estimada: la bomba da entre 4 y 5 bar y la app le
+          pone menos a las líneas que más agua piden, que son las que más pierden por el caño.
+          Cuando la midas con un manómetro, escribila y marcá la casilla: esa queda fija.
         </p>
         <AspersoresZonas
           zonas={zonasConAspersores}

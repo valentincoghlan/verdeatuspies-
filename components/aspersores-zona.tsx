@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { numero } from "@/lib/format";
+import { litrosDeBoquilla } from "@/lib/caudal";
 import { guardarAspersoresZona } from "@/lib/actions";
+import { Formulario, Guardar } from "@/components/guardar";
 
 /**
  * De qué está hecha cada zona de riego.
@@ -33,6 +35,7 @@ export type ZonaConAspersores = {
   nombre: string;
   lote: string | null;
   presion_bar: number | string | null;
+  presion_medida: boolean;
   superficie_m2: number | string | null;
   aspersores: { modelo: string; numero: string; cantidad: number }[];
 };
@@ -47,10 +50,8 @@ const n = (s: string) => {
 const texto = (v: unknown) => (v === null || v === undefined ? "" : String(v).replace(".", ","));
 
 export function AspersoresZonas({ zonas, ficha }: { zonas: ZonaConAspersores[]; ficha: Boquilla[] }) {
-  // Las presiones y los picos que existen en la ficha, calculados una vez
-  // para todas las zonas.
-  const presiones = [...new Set(ficha.map((b) => Number(b.bar)))].sort((a, b) => a - b);
-
+  // Los picos que existen en la ficha, calculados una vez para todas las
+  // zonas.
   const picos = [...new Map(ficha.map((b) => [`${b.modelo}|${b.numero}`, b])).values()].sort(
     (a, b) =>
       a.modelo === b.modelo
@@ -69,7 +70,7 @@ export function AspersoresZonas({ zonas, ficha }: { zonas: ZonaConAspersores[]; 
   return (
     <div className="space-y-2">
       {zonas.map((z) => (
-        <FichaZona key={z.id} zona={z} ficha={ficha} presiones={presiones} picos={picos} />
+        <FichaZona key={z.id} zona={z} ficha={ficha} picos={picos} />
       ))}
     </div>
   );
@@ -78,15 +79,14 @@ export function AspersoresZonas({ zonas, ficha }: { zonas: ZonaConAspersores[]; 
 function FichaZona({
   zona,
   ficha,
-  presiones,
   picos,
 }: {
   zona: ZonaConAspersores;
   ficha: Boquilla[];
-  presiones: number[];
   picos: Boquilla[];
 }) {
-  const [presion, setPresion] = useState(String(Number(zona.presion_bar ?? 4.5)));
+  const [presion, setPresion] = useState(texto(zona.presion_bar ?? 4.5));
+  const [medida, setMedida] = useState(zona.presion_medida);
   const [superficie, setSuperficie] = useState(texto(zona.superficie_m2));
   const [filas, setFilas] = useState(
     zona.aspersores.length > 0
@@ -100,11 +100,13 @@ function FichaZona({
   const cambiar = (i: number, campo: "pico" | "cantidad", valor: string) =>
     setFilas((xs) => xs.map((f, j) => (j === i ? { ...f, [campo]: valor } : f)));
 
-  const bar = Number(presion);
+  const bar = n(presion);
+  // La ficha se lee entre renglones: la línea puede trabajar a 4,3 bar y
+  // Hunter publica de media en media atmósfera. Misma cuenta que hace la
+  // base al guardar.
   const litrosDe = (pico: string) => {
     const [modelo, num] = pico.split("|");
-    const b = ficha.find((x) => x.modelo === modelo && x.numero === num && Number(x.bar) === bar);
-    return b ? Number(b.litros_hora) : null;
+    return litrosDeBoquilla(ficha, modelo, num, bar);
   };
 
   const cargadas = filas.filter((f) => f.pico && n(f.cantidad) > 0);
@@ -119,6 +121,9 @@ function FichaZona({
       <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-2 gap-y-1 p-3">
         <span className="font-semibold text-tinta">{zona.nombre}</span>
         <span className="text-xs text-tinta-3">{zona.lote ?? "sin lote"}</span>
+        <span className="text-xs text-tinta-3">
+          {numero(bar, 1)} bar{medida ? "" : " estimados"}
+        </span>
         <span className="ml-auto text-sm tabular-nums text-pasto-oscuro">
           {mmHora > 0 ? (
             <strong>{numero(mmHora, 1)} mm/h</strong>
@@ -128,7 +133,7 @@ function FichaZona({
         </span>
       </summary>
 
-      <form action={guardarAspersoresZona} className="border-t border-borde p-3">
+      <Formulario action={guardarAspersoresZona} className="border-t border-borde p-3">
         <input type="hidden" name="zona_id" value={zona.id} />
 
         <div className="grid grid-cols-2 gap-3">
@@ -136,19 +141,19 @@ function FichaZona({
             <label className="label" htmlFor={`pres-${zona.id}`}>
               Presión (bar)
             </label>
-            <select
+            {/* Escrita a mano y no elegida de una lista: el día que se
+                mida con manómetro el número va a ser 4,3 y no un valor
+                redondo. La ficha se interpola para cualquiera. */}
+            <input
               id={`pres-${zona.id}`}
               name="presion_bar"
+              type="text"
+              inputMode="decimal"
               value={presion}
               onChange={(e) => setPresion(e.target.value)}
-              className="input h-11 sm:h-9"
-            >
-              {presiones.map((p) => (
-                <option key={p} value={p}>
-                  {numero(p, 1)} bar
-                </option>
-              ))}
-            </select>
+              placeholder="4,5"
+              className="input"
+            />
           </div>
           <div className="min-w-0">
             <label className="label" htmlFor={`sup-${zona.id}`}>
@@ -168,6 +173,31 @@ function FichaZona({
             />
           </div>
         </div>
+
+        {/* La app estima la presión de cada línea por el agua que pide.
+            Cuando alguien la mide, esta marca la protege: la estimación
+            no vuelve a pisarla. */}
+        <label className="mt-2 flex min-h-12 cursor-pointer items-center gap-3 text-sm text-tinta-2">
+          <input
+            type="checkbox"
+            name="presion_medida"
+            checked={medida}
+            onChange={(e) => setMedida(e.target.checked)}
+            className="size-5 accent-pasto"
+          />
+          <span>
+            {medida ? (
+              <>
+                <strong className="text-tinta">Medida con manómetro.</strong> Nadie la va a tocar.
+              </>
+            ) : (
+              <>
+                <strong className="text-tinta">Estimada</strong> por lo que le pide la línea.
+                Marcá la casilla cuando la midas.
+              </>
+            )}
+          </span>
+        </label>
 
         <p className="mt-3 text-sm text-tinta-2">
           Un renglón por tipo de pico. Si la zona tiene cuatro del 12 y dos del 11, van en dos
@@ -242,8 +272,8 @@ function FichaZona({
         <div className="mt-3 rounded-xl bg-hecho-bg p-3">
           {sinFicha.length > 0 ? (
             <p className="text-sm text-atencion-tx">
-              El pico <strong>{sinFicha[0].pico.split("|")[1]}</strong> no tiene ficha a{" "}
-              {numero(bar, 1)} bar. Mientras falte, la zona queda sin caudal calculado.
+              El pico <strong>{sinFicha[0].pico.split("|")[1]}</strong> no está en la ficha.
+              Mientras falte, la zona queda sin caudal calculado.
             </p>
           ) : mmHora > 0 ? (
             <>
@@ -264,8 +294,8 @@ function FichaZona({
           )}
         </div>
 
-        <button className="btn btn-alto mt-3">Guardar {zona.nombre}</button>
-      </form>
+        <Guardar className="btn btn-alto mt-3">Guardar {zona.nombre}</Guardar>
+      </Formulario>
     </details>
   );
 }

@@ -1515,7 +1515,7 @@ export async function cobrarVentas(fd: FormData) {
 
   const { data: ventasSel } = await supabase
     .from("ventas")
-    .select("id, cliente_id")
+    .select("id, cliente_id, canal")
     .in(
       "id",
       aCobrar.map((c) => c.ventaId),
@@ -1523,6 +1523,34 @@ export async function cobrarVentas(fd: FormData) {
   const clienteDe = new Map(
     (ventasSel ?? []).map((v: any) => [v.id as string, v.cliente_id as string | null]),
   );
+  const canalDe = new Map(
+    (ventasSel ?? []).map((v: any) => [v.id as string, (v.canal as string | null) ?? null]),
+  );
+
+  /*
+   * El cobro entra en Ventas, con la subcategoría del canal de esa venta.
+   * Sin esto los cobros se guardaban sin categoría y el reporte de
+   * ingresos los amontonaba todos en "Sin categoría", que es justo lo
+   * que no querés ver cuando abrís de dónde vino la plata.
+   */
+  const { data: madreVentas } = await supabase
+    .from("categorias")
+    .select("id")
+    .is("padre_id", null)
+    .eq("nombre", "Ventas")
+    .maybeSingle();
+  let subsVentas: { id: string; nombre: string }[] = [];
+  if (madreVentas?.id) {
+    const { data } = await supabase
+      .from("categorias")
+      .select("id, nombre")
+      .eq("padre_id", madreVentas.id);
+    subsVentas = (data ?? []) as { id: string; nombre: string }[];
+  }
+  const categoriaDeCanal = (canal: string | null) => {
+    const buscada = canal === "distribuidor" ? "Distribuidores" : "Particulares";
+    return subsVentas.find((s) => s.nombre === buscada)?.id ?? madreVentas?.id ?? null;
+  };
 
   const tandaId = entradas.length > 1 ? crypto.randomUUID() : null;
 
@@ -1544,6 +1572,7 @@ export async function cobrarVentas(fd: FormData) {
           fecha,
           tipo: "I",
           cuenta_id: entradas[i].cuenta,
+          categoria_id: categoriaDeCanal(canalDe.get(cobro.ventaId) ?? null),
           venta_id: cobro.ventaId,
           cliente_id: clienteDe.get(cobro.ventaId) ?? null,
           monto: toma,
@@ -1979,6 +2008,9 @@ export async function guardarAspersoresZona(fd: FormData) {
     .from("riego_zonas")
     .update({
       presion_bar: dec(fd, "presion_bar"),
+      // Una presión medida con manómetro no la vuelve a pisar la
+      // estimación de la app (migración 0037).
+      presion_medida: fd.get("presion_medida") !== null,
       superficie_m2: dec(fd, "superficie_m2"),
     })
     .eq("id", zonaId);

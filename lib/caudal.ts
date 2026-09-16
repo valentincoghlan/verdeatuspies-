@@ -70,3 +70,42 @@ export async function caudalDeUnaZona(supabase: SupabaseClient, zonaId: string) 
 
   return caudalDeZona(data as FilaCaudal | null);
 }
+
+/**
+ * Los litros por hora de un pico a la presión que se le pida.
+ *
+ * La ficha de Hunter tiene una fila cada media atmósfera y las líneas no
+ * trabajan justo ahí: una puede estar en 4,3 bar. Entonces se lee entre
+ * renglones — el de abajo y el de arriba, y el proporcional — y fuera de
+ * rango se usa el extremo, sin inventar.
+ *
+ * Es la misma cuenta que hace la base en `litros_hora_boquilla`
+ * (migración 0037). Vive en los dos lados porque la pantalla de
+ * aspersores muestra el caudal mientras se cargan los picos, antes de
+ * que nada se haya guardado: si las dos cuentas se separan, el número
+ * que se ve al cargar no es el que queda.
+ */
+export function litrosDeBoquilla(
+  ficha: { modelo: string; numero: string; bar: number | string; litros_hora: number | string }[],
+  modelo: string,
+  numero: string,
+  bar: number,
+): number | null {
+  const filas = ficha
+    .filter((b) => b.modelo === modelo && b.numero === numero)
+    .map((b) => ({ bar: Number(b.bar), litros: Number(b.litros_hora) }))
+    .filter((b) => Number.isFinite(b.bar) && Number.isFinite(b.litros))
+    .sort((a, b) => a.bar - b.bar);
+
+  if (filas.length === 0 || !Number.isFinite(bar)) return null;
+
+  const abajo = [...filas].reverse().find((f) => f.bar <= bar);
+  const arriba = filas.find((f) => f.bar >= bar);
+
+  if (!abajo) return arriba!.litros;
+  if (!arriba) return abajo.litros;
+  if (abajo.bar === arriba.bar) return abajo.litros;
+
+  const proporcion = (bar - abajo.bar) / (arriba.bar - abajo.bar);
+  return abajo.litros + (arriba.litros - abajo.litros) * proporcion;
+}

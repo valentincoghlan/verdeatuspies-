@@ -64,9 +64,13 @@ middleware.ts                    protege todas las rutas menos /login, /auth y /
 
 ## Convenciones (respetalas al agregar features)
 
-- **Mutaciones**: server actions en `lib/actions.ts`, con formularios HTML nativos
-  (`<form action={miAction}>`). No agregues API routes para escribir datos ni fetch
-  desde el cliente.
+- **Mutaciones**: server actions en `lib/actions.ts`. No agregues API routes para
+  escribir datos ni fetch desde el cliente.
+- **Formularios**: `<Formulario action={miAction}>` con un `<Guardar>` adentro, los dos
+  de `components/guardar.tsx`. Mientras la acción viaja, el botón se apaga, muestra una
+  rueda y levanta un velo sobre la pantalla: sin eso, en el campo con señal mala no se
+  sabe si entró y se carga dos veces. `<form>` pelado queda solo para las navegaciones
+  (`method="get"`, `action="/auth/signout"`), donde no hay nada que esperar.
 - **Páginas**: Server Components con `export const dynamic = "force-dynamic"`. Componentes
   de cliente solo donde hay estado real (hoy: `components/nav-links.tsx` y
   `app/login/login-form.tsx`).
@@ -125,6 +129,17 @@ la regla vive en `lib/caudal.ts` **y en ningún otro lado**: si la zona tiene lo
 aspersores cargados (ficha de boquillas + presión) manda el número calculado; si no,
 manda el mm/hora escrito a mano en Ajustes; si no hay ninguno de los dos, el riego
 queda sin mm. `mm = minutos / 60 * caudal`.
+
+**La presión (migración 0037).** Cuánto tira un pico depende de a cuántos bar trabaje
+su línea: un PGP rojo 12 pasa de 2.510 l/h a 3 bar a 3.220 a 5. Nadie las midió todavía,
+así que la app las estima: la bomba da entre 4 y 5 bar, y dentro de cada lote la línea
+que menos agua pide queda en 5,0 y la que más pide en 4,0, repartiendo el medio con la
+pérdida de carga de Hazen-Williams (crece con el caudal a la 1,85). `presion_medida`
+marca las que sí se midieron con manómetro: **esas no se vuelven a estimar nunca**. La
+ficha de Hunter viene de media en media atmósfera, así que se interpola —
+`litros_hora_boquilla()` en la base y `litrosDeBoquilla()` en `lib/caudal.ts`, la misma
+cuenta en los dos lados porque la pantalla de aspersores muestra el caudal antes de
+guardar.
 
 **Los tres orígenes de un riego** (columna `origen`):
 
