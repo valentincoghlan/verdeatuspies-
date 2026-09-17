@@ -155,13 +155,13 @@ export default async function Dashboard() {
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat
-          label="m² vendidos este mes"
+          label="m² facturados este mes"
           valor={m2(m2Mes)}
           tono="verde"
           detalle={`${(ventasMes ?? []).length} operaciones`}
         />
         <Stat
-          label="m² pedidos a entregar"
+          label="m² comprometidos"
           valor={m2(m2Comprometidos)}
           tono={m2Comprometidos > 0 ? "ambar" : "neutro"}
           detalle={`${(pedidosPend ?? []).length} pedidos pendientes`}

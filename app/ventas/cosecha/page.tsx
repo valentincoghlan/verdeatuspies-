@@ -115,7 +115,7 @@ export default async function CosechaPage({
           detalle="En curso, de cualquier fecha"
         />
         <Stat
-          label="m² que faltan"
+          label="m² que faltan cosechar"
           valor={m2(faltan)}
           tono={faltan > 0 ? "ambar" : "neutro"}
           detalle="Para cerrar las abiertas"

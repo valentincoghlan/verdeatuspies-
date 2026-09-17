@@ -168,7 +168,7 @@ export default async function VentasPage({
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat
-          label="m² vendidos"
+          label="m² facturados"
           valor={m2(m2Periodo)}
           destacado
           detalle={
@@ -195,7 +195,7 @@ export default async function VentasPage({
           }
         />
         <Stat
-          label="Precio promedio m²"
+          label="Precio por m² facturado"
           valor={pesos(precioProm, 0)}
           detalle={
             <Variacion
@@ -365,7 +365,7 @@ export default async function VentasPage({
           )}
         </Card>
 
-        <Card titulo="m² vendidos">
+        <Card titulo="m² facturados">
           <BarrasTiempo datos={serie} />
         </Card>
 
@@ -377,7 +377,7 @@ export default async function VentasPage({
             columnas={[
               { titulo: "Fecha", desde: "sm" },
               { titulo: "Cliente" },
-              { titulo: "m²", desde: "sm", num: true },
+              { titulo: "m² fact.", desde: "sm", num: true },
               { titulo: "$/m²", desde: "sm", num: true },
               { titulo: "Total", num: true },
               { titulo: "Estado" },

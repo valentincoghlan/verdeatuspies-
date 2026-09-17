@@ -70,11 +70,11 @@ export default async function ClientesPage({
 
   return (
     <>
-      <PageHeader titulo="Clientes" bajada="Quién compró, cuántos m² y cuánto debe." />
+      <PageHeader titulo="Clientes" bajada="Quién compró, cuántos m² facturados y cuánto debe." />
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
-        <Stat label="m² a particulares" valor={m2(m2Particulares)} destacado />
-        <Stat label="m² a distribuidores" valor={m2(m2Distribuidores)} tono="verde" />
+        <Stat label="m² fact. a particulares" valor={m2(m2Particulares)} destacado />
+        <Stat label="m² fact. a distribuidores" valor={m2(m2Distribuidores)} tono="verde" />
         <Stat
           label="Clientes"
           valor={numero(lista.length)}
@@ -135,7 +135,7 @@ export default async function ClientesPage({
           <Tabla
             columnas={[
               { titulo: "Cliente" },
-              { titulo: "m² comprados", desde: "sm", num: true },
+              { titulo: "m² facturados", desde: "sm", num: true },
               { titulo: "Vendido", desde: "sm", num: true },
               { titulo: "Cobrado", desde: "sm", num: true },
               { titulo: "Saldo", num: true },

@@ -18,6 +18,8 @@ import {
 import { Dato } from "@/components/dato";
 import { Variacion } from "@/components/variacion";
 import { DetalleVenta } from "@/components/detalle-venta";
+import { EmbudoM2 } from "@/components/embudo";
+import { embudoDe } from "@/lib/metros";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +77,8 @@ export default async function ReportesPage({
     { data: cotizMes },
     { data: margenesAntes },
     { data: pagosAntes },
+    { data: cosechasDelRango },
+    { data: pedidosSueltos },
   ] = await Promise.all([
       supabase
         .from("v_resumen_mes")
@@ -116,6 +120,22 @@ export default async function ReportesPage({
         .eq("tipo", "E")
         .gte("fecha", rango.anterior.desde)
         .lte("fecha", rango.anterior.hasta),
+      // Lo cosechado sale de las cosechas y no de las ventas: una cosecha
+      // puede abastecer tres pedidos y un pedido necesitar dos cosechas,
+      // asi que sumarlo desde la venta daria cualquier cosa.
+      supabase
+        .from("v_cosechas")
+        .select("m2_cosechados")
+        .gte("fecha", rango.desde)
+        .lte("fecha", rango.hasta),
+      // Los pedidos sin confirmar no entran en v_margen_ventas, pero son
+      // metros comprometidos igual.
+      supabase
+        .from("ventas")
+        .select("estado, m2, m2_cortesia, m2_entregados, total")
+        .eq("estado", "pedido")
+        .gte("fecha", rango.desde)
+        .lte("fecha", rango.hasta),
     ]);
 
   // Cotización de cada mes, con el mes anterior más cercano como respaldo
@@ -134,6 +154,18 @@ export default async function ReportesPage({
     }
     return elegida;
   };
+  /*
+   * Las cinco magnitudes del periodo.
+   *
+   * La cuenta vive en lib/metros.ts y no aca: los mismos cinco numeros
+   * los va a pedir el panel economico, y si cada pantalla los derivara
+   * por su cuenta terminarian discrepando.
+   */
+  const embudo = embudoDe(
+    [...((margenes ?? []) as any[]), ...((pedidosSueltos ?? []) as any[])],
+    ((cosechasDelRango ?? []) as any[]).reduce((a, c) => a + Number(c.m2_cosechados ?? 0), 0),
+  );
+
   /** El monto de un movimiento en la moneda elegida. En dólares se usa el
    * monto_usd guardado con la cotización del día: más exacto que el mes. */
   const montoDe = (x: any) => Number((enUsd ? x.monto_usd : x.monto) ?? 0);
@@ -278,7 +310,7 @@ export default async function ReportesPage({
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat
-          label="m² vendidos"
+          label="m² facturados"
           valor={m2(vendidos)}
           destacado
           detalle={
@@ -332,7 +364,7 @@ export default async function ReportesPage({
           detalle="Lo que sale el metro"
         />
         <Stat
-          label="Costo por m² vendido"
+          label="Costo por m² facturado"
           valor={`${plataFina(costoPorM2)} / m²`}
           tono={costoPorM2 > precioProm ? "ambar" : "neutro"}
           detalle={
@@ -360,7 +392,7 @@ export default async function ReportesPage({
           detalle="Plantación, riego y máquinas"
         />
         <Stat
-          label="m² regalados"
+          label="m² de cortesía"
           valor={m2(regalados)}
           tono={pctRegalado > 5 ? "ambar" : "neutro"}
           detalle={`${numero(pctRegalado, 1)}% de lo cosechado`}
@@ -374,11 +406,16 @@ export default async function ReportesPage({
       </p>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <Card titulo="m² vendidos por mes">
+        {/* Donde se pierde el pasto entre que se promete y se cobra. */}
+        <Card titulo="De lo comprometido a lo cobrado">
+          <EmbudoM2 datos={embudo} />
+        </Card>
+
+        <Card titulo="m² facturados por mes">
           <Barras datos={serie("m2_vendidos")} formato={(n) => m2(n)} compacto />
         </Card>
 
-        <Card titulo="m² cosechados por mes">
+        <Card titulo="m² entregados por mes">
           <Barras datos={serie("m2_cosechados")} formato={(n) => m2(n)} compacto />
           <p className="mt-3 text-xs text-tinta-3">
             Es todo el pasto que salió del campo, incluyendo lo regalado. La diferencia con el

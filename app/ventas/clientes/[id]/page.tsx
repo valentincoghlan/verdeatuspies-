@@ -61,7 +61,7 @@ export default async function ClientePage({ params }: { params: Promise<{ id: st
           tono={saldo > 0 ? "ambar" : "neutro"}
           detalle={saldo > 0 ? "Te debe" : saldo < 0 ? "Pagó de más" : "Al día"}
         />
-        <Stat label="m² comprados" valor={m2(Number(c.m2_vendidos ?? 0))} />
+        <Stat label="m² facturados" valor={m2(Number(c.m2_vendidos ?? 0))} />
         <Stat
           label="Teléfono"
           valor={cliente.telefono ?? "—"}

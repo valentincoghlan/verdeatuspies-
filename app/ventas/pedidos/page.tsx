@@ -133,7 +133,7 @@ export default async function PedidosPage() {
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat
-          label="m² por entregar"
+          label="m² comprometidos"
           valor={m2(m2Comprometidos)}
           tono="verde"
           detalle={`${lista.length} pedidos pendientes`}
@@ -345,7 +345,7 @@ export default async function PedidosPage() {
               // la tabla arranca en septiembre y termina en enero.
               { titulo: "Entrega", ancho: "w-[4.7rem] sm:w-auto" },
               { titulo: "Comprador" },
-              { titulo: "m²", desde: "sm" },
+              { titulo: "m² fact.", desde: "sm" },
               { titulo: "Cortesía", desde: "sm" },
               { titulo: "Facturado", align: "right" },
               { titulo: "Gastos", desde: "sm" },
