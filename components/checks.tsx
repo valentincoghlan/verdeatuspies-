@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * Lista de checks dentro de un desplegable.
@@ -49,6 +49,21 @@ export function Checks({
 
   const alternar = (v: string) =>
     fijar(elegidos.includes(v) ? elegidos.filter((x) => x !== v) : [...elegidos, v]);
+
+  /*
+    Lo elegido que ya no está en la lista se suelta solo.
+
+    Pasa cuando la lista depende de otro campo: al decir de quién es un
+    cobro, las ventas de los demás desaparecen. El checkbox se va con
+    ellas —así que el formulario ya no lo manda— pero acá seguía contado,
+    y el resumen decía "3 elegidos" con dos a la vista.
+  */
+  const visibles = opciones.map((o) => o.value).join(",");
+  useEffect(() => {
+    const vivos = elegidos.filter((x) => opciones.some((o) => o.value === x));
+    if (vivos.length !== elegidos.length) fijar(vivos);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibles]);
 
   const estanTodos = opciones.length > 0 && elegidos.length === opciones.length;
   const alternarTodos = () => fijar(estanTodos ? [] : opciones.map((o) => o.value));

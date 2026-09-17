@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { fechaArgentina, horaArgentina, mandarZona } from "@/lib/hydrawise";
 import { enviarAviso, enviarPush } from "@/lib/push";
 import { caudalDeUnaZona } from "@/lib/caudal";
-import { repartirProporcional } from "@/lib/reparto";
+import { cancelarDeLaMasVieja, repartirProporcional } from "@/lib/reparto";
 import { hoyISO } from "@/lib/format";
 
 /* ------------------------------------------------------------------ */
@@ -1131,9 +1131,10 @@ export async function crearTanda(fd: FormData) {
     porClave.set(m[1], fila);
   }
 
-  const renglones = [...porClave.values()]
-    .map((r) => ({
+  const renglones = [...porClave.entries()]
+    .map(([clave, r]) => ({
       ...r,
+      clave,
       valor: Number(String(r.monto).replace(/\./g, "").replace(",", ".")),
     }))
     .filter((r) => r.cuenta && Number.isFinite(r.valor) && r.valor > 0);
@@ -1147,19 +1148,57 @@ export async function crearTanda(fd: FormData) {
   const { data: ventasSel } = ventaIds.length
     ? await supabase
         .from("v_margen_ventas")
-        .select("venta_id, cliente_id, m2")
+        .select("venta_id, cliente_id, m2, fecha, fecha_entrega, pendiente")
         .in("venta_id", ventaIds)
     : { data: [] as any[] };
 
-  // En el orden en que se eligieron, para que el reparto sea previsible.
-  const destinos = ventaIds
-    .map((id) => (ventasSel ?? []).find((v: any) => v.venta_id === id))
-    .filter(Boolean)
-    .map((v: any) => ({ id: v.venta_id as string, peso: Number(v.m2 ?? 0) }));
+  // Un pedido que todavía no se cosechó no está en el margen, pero puede
+  // tener seña y deber el resto: lo que le falta cobrar es total - seña.
+  const sinMargen = ventaIds.filter((id) => !(ventasSel ?? []).some((v: any) => v.venta_id === id));
 
-  const clientePorVenta = new Map(
-    (ventasSel ?? []).map((v: any) => [v.venta_id as string, v.cliente_id as string | null]),
-  );
+  const { data: pedidosSel } = sinMargen.length
+    ? await supabase
+        .from("v_pedidos_pendientes")
+        .select("id, cliente_id, m2, fecha, fecha_entrega, total, senado")
+        .in("id", sinMargen)
+    : { data: [] as any[] };
+
+  type Elegida = { id: string; clienteId: string | null; m2: number; debe: number; fecha: string };
+  const porVenta = new Map<string, Elegida>();
+
+  for (const v of (ventasSel ?? []) as any[]) {
+    porVenta.set(v.venta_id, {
+      id: v.venta_id,
+      clienteId: v.cliente_id ?? null,
+      m2: Number(v.m2 ?? 0),
+      debe: Math.max(0, Number(v.pendiente ?? 0)),
+      fecha: (v.fecha_entrega ?? v.fecha) as string,
+    });
+  }
+  for (const p of (pedidosSel ?? []) as any[]) {
+    porVenta.set(p.id, {
+      id: p.id,
+      clienteId: p.cliente_id ?? null,
+      m2: Number(p.m2 ?? 0),
+      debe: Math.max(0, Number(p.total ?? 0) - Number(p.senado ?? 0)),
+      fecha: (p.fecha_entrega ?? p.fecha) as string,
+    });
+  }
+
+  // En el orden en que se eligieron, para que el reparto sea previsible.
+  // (Un cobro no mira este orden: se ordena solo, por antigüedad.)
+  const elegidas = ventaIds
+    .map((id) => porVenta.get(id))
+    .filter((v): v is Elegida => !!v);
+
+  const destinos = elegidas.map((v) => ({ id: v.id, peso: v.m2 }));
+
+  const clientePorVenta = new Map(elegidas.map((v) => [v.id, v.clienteId]));
+
+  // Si todas las entregas elegidas son del mismo cliente, lo que sobre de
+  // un cobro entra a cuenta suya y no como plata de nadie.
+  const clientesElegidos = [...new Set(elegidas.map((v) => v.clienteId).filter(Boolean))];
+  const clienteUnico = clientesElegidos.length === 1 ? (clientesElegidos[0] as string) : null;
 
   // La moneda la decide la cuenta, igual que en la carga de a uno.
   const { data: cuentas } = await supabase
@@ -1188,35 +1227,74 @@ export async function crearTanda(fd: FormData) {
 
   await exigirCategoria(supabase, comun.categoria_id);
 
-  const filas: Record<string, unknown>[] = [];
-
+  // Cada renglón, ya resuelto: su persona, su moneda y cuántos pesos es.
+  type Pagado = {
+    clave: string;
+    cuenta: string;
+    personaId: string | null;
+    enDolares: boolean;
+    enPesos: number;
+  };
+  const pagos: Pagado[] = [];
   for (const r of renglones) {
     const personaId = await idPorNombreOCrear(supabase, "personas", r.persona || null, {
       tipo: "otro",
     });
-
     const enDolares = monedaDe.get(r.cuenta) === "USD";
     // `monto` va siempre en pesos; en dólares se escribe la divisa y los
     // pesos salen del MEP, como en movimientoDe().
     const enPesos = enDolares && mep ? Number((r.valor * mep).toFixed(2)) : r.valor;
+    pagos.push({ clave: r.clave, cuenta: r.cuenta, personaId, enDolares, enPesos });
+  }
 
-    // Sin pedidos, el renglón entero es un solo movimiento.
-    const partes = destinos.length
-      ? repartirProporcional(enPesos, destinos)
-      : [{ id: "", monto: enPesos }];
+  const filas: Record<string, unknown>[] = [];
 
-    for (const parte of partes) {
-      filas.push({
-        ...comun,
-        cuenta_id: r.cuenta,
-        persona_id: personaId,
-        venta_id: parte.id || null,
-        cliente_id: parte.id ? (clientePorVenta.get(parte.id) ?? null) : null,
-        monto: parte.monto,
-        moneda: enDolares ? "USD" : "ARS",
-        cotizacion: mep,
-        monto_usd: mep ? Number((parte.monto / mep).toFixed(2)) : null,
-      });
+  const fila = (
+    pago: Pagado,
+    ventaId: string | null,
+    monto: number,
+    clienteSuelto: string | null = null,
+  ) => ({
+    ...comun,
+    cuenta_id: pago.cuenta,
+    persona_id: pago.personaId,
+    venta_id: ventaId,
+    cliente_id: ventaId ? (clientePorVenta.get(ventaId) ?? null) : clienteSuelto,
+    monto,
+    moneda: pago.enDolares ? "USD" : "ARS",
+    cotizacion: mep,
+    monto_usd: mep ? Number((monto / mep).toFixed(2)) : null,
+  });
+
+  if (tipo === "I" && elegidas.length > 0) {
+    /*
+      Un cobro cancela de la venta más vieja en adelante, no se parte
+      proporcional: la deuda tiene que quedar siempre en lo último que se
+      entregó. La cuenta es la misma que dibujó la pantalla antes de
+      guardar (lib/reparto.ts), así que lo que se vio es lo que entra.
+
+      Puede quedar plata sin venta —si el pago supera lo que se debía—: se
+      guarda igual, a cuenta del cliente. Perderla no es una opción y
+      forzarla contra la última entrega la dejaría con saldo a favor.
+    */
+    const { cruces } = cancelarDeLaMasVieja(
+      pagos.map((p) => ({ id: p.clave, monto: p.enPesos })),
+      elegidas.map((v) => ({ id: v.id, debe: v.debe, fecha: v.fecha })),
+    );
+
+    for (const c of cruces) {
+      const pago = pagos.find((p) => p.clave === c.pago);
+      if (!pago || c.monto <= 0) continue;
+      filas.push(fila(pago, c.venta, c.monto, clienteUnico));
+    }
+  } else {
+    for (const pago of pagos) {
+      // Sin pedidos, el renglón entero es un solo movimiento.
+      const partes = destinos.length
+        ? repartirProporcional(pago.enPesos, destinos)
+        : [{ id: "", monto: pago.enPesos }];
+
+      for (const parte of partes) filas.push(fila(pago, parte.id || null, parte.monto));
     }
   }
 

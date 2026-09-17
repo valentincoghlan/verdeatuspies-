@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Checks } from "@/components/checks";
 import { useCarga } from "@/components/carga";
 
@@ -48,6 +48,12 @@ const dm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
  * Pero la semana es un atajo, no una reja. Abajo queda "Buscar en todas"
  * y salen todas las cosechas de la más nueva a la más vieja, por si hay
  * que cargar algo atrasado.
+ *
+ * Y un cobro es de un cliente solo. En cuanto se sabe quién pagó —porque
+ * se eligió arriba, o porque se marcó la primera venta— la lista se
+ * queda con las de esa cuenta corriente y esconde las demás: la plata de
+ * uno no puede tapar la entrega de otro, y una lista de veinte ventas de
+ * cinco compradores es donde se cuelan esos errores.
  */
 export function PedidosDeCarga({
   pedidos,
@@ -74,10 +80,47 @@ export function PedidosDeCarga({
     return d >= 0 && d <= DIAS_DE_GASTO;
   };
 
-  const elegibles = pedidos
-    .filter((p) => (esCobro ? p.pendiente > 0.5 : verTodas || deLaSemana(p)))
-    // De la más nueva a la más vieja: lo de recién es lo que se carga.
-    .sort((a, b) => (b.fechaCosecha ?? b.fecha).localeCompare(a.fechaCosecha ?? a.fecha));
+  // De quién es el cobro. Vacío quiere decir que todavía no se sabe.
+  const cliente = esCobro ? (carga?.cliente ?? "") : "";
+  const conDeuda = pedidos.filter((p) => p.pendiente > 0.5);
+
+  const elegibles = esCobro
+    ? conDeuda
+        .filter((p) => !cliente || p.comprador === cliente)
+        // De la más vieja a la más nueva: es el orden en que se cancela.
+        .sort((a, b) => a.fecha.localeCompare(b.fecha))
+    : pedidos
+        .filter((p) => verTodas || deLaSemana(p))
+        // De la más nueva a la más vieja: lo de recién es lo que se carga.
+        .sort((a, b) => (b.fechaCosecha ?? b.fecha).localeCompare(a.fechaCosecha ?? a.fecha));
+
+  /**
+   * Al marcar la primera venta, queda dicho de quién es el cobro.
+   *
+   * Es el mismo filtro leído al revés: si empezás por la venta de Edin,
+   * el cobro es de Edin y las otras se van solas. Sin esto habría que
+   * elegir el comprador arriba aunque ya lo hayas dicho abajo.
+   */
+  const marcados = (xs: string[]) => {
+    carga?.setElegidos(xs);
+    if (!esCobro || cliente) return;
+    const primero = pedidos.find((p) => p.id === xs[0]);
+    if (primero) carga?.setCliente(primero.comprador);
+  };
+
+  /*
+    Si la lista se achicó —cambió el comprador, cambió la fecha— lo que
+    ya no está deja de contar. El checkbox de una venta que se fue no
+    se manda, porque ni siquiera está dibujado; esto es para que el
+    reparto de arriba tampoco la siga mostrando.
+  */
+  const visibles = elegibles.map((p) => p.id).join(",");
+  useEffect(() => {
+    const puestos = carga?.elegidos ?? [];
+    const vivos = puestos.filter((id) => elegibles.some((p) => p.id === id));
+    if (vivos.length !== puestos.length) carga?.setElegidos(vivos);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibles]);
 
   // Cuántas quedan afuera de la semana, para poder ofrecerlas.
   const masViejas = esCobro ? 0 : pedidos.filter((p) => !deLaSemana(p)).length;
@@ -90,7 +133,9 @@ export function PedidosDeCarga({
   const titulo = esCobro ? "¿A qué ventas se le imputa?" : "¿A qué cosechas va?";
 
   const ayuda = esCobro
-    ? "Aparecen todas las que deben algo, incluso sin cosechar todavía."
+    ? cliente
+      ? `Solo las entregas de ${cliente}. Se cancelan de la más vieja en adelante.`
+      : "Aparecen todas las que deben algo, incluso sin cosechar todavía."
     : verTodas
       ? "Todas las cosechas, de la más nueva a la más vieja."
       : `Las cosechas de los últimos ${DIAS_DE_GASTO} días.`;
@@ -115,7 +160,9 @@ export function PedidosDeCarga({
         <span className="label">{titulo}</span>
         <p className="rounded-xl bg-crema px-3 py-3 text-sm text-tinta-2">
           {esCobro
-            ? "No hay ventas con saldo pendiente."
+            ? cliente
+              ? `${cliente} no tiene entregas con saldo. La plata entra igual, a cuenta.`
+              : "No hay ventas con saldo pendiente."
             : `Ninguna cosecha de los últimos ${DIAS_DE_GASTO} días. Este gasto queda general.`}
         </p>
         {buscarMas}
@@ -134,7 +181,8 @@ export function PedidosDeCarga({
           id="carga-venta"
           name="venta_id"
           className="input"
-          onChange={(e) => carga?.setElegidos(e.target.value ? [e.target.value] : [])}
+          value={carga?.elegidos[0] ?? ""}
+          onChange={(e) => marcados(e.target.value ? [e.target.value] : [])}
         >
           <option value="">No, es general</option>
           {elegibles.map((p) => (
@@ -157,7 +205,7 @@ export function PedidosDeCarga({
         name="venta_id"
         opciones={elegibles.map((p) => ({ value: p.id, label: etiqueta(p) }))}
         resumenVacio="A ninguno, es general"
-        onChange={(xs) => carga?.setElegidos(xs)}
+        onChange={marcados}
       />
       <p className="mt-1 text-xs text-tinta-3">{ayuda}</p>
       {buscarMas}

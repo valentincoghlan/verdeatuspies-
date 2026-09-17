@@ -1,17 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { FechaDeCarga, ProveedorCarga, useCarga } from "@/components/carga";
 import { PedidosDeCarga, type PedidoElegible } from "@/components/pedidos-de-carga";
 import { QuePaso, type Rubro } from "@/components/que-paso";
-import { Renglon, Renglones, renglonVacio, renglonesValidos, totalDe } from "@/components/renglones";
-import { repartirProporcional } from "@/lib/reparto";
+import {
+  montoDe,
+  Renglon,
+  Renglones,
+  renglonVacio,
+  renglonesValidos,
+  totalDe,
+} from "@/components/renglones";
+import { cancelarDeLaMasVieja, repartirProporcional } from "@/lib/reparto";
 import { Formulario, Guardar } from "@/components/guardar";
 
 const pesos = (v: number) =>
   v.toLocaleString("es-AR", { style: "currency", currency: "ARS", maximumFractionDigits: 0 });
 
 const metros = (v: number) => `${v.toLocaleString("es-AR", { maximumFractionDigits: 0 })} m²`;
+
+const dm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
 /**
  * Cargar varios pagos de una, y repartirlos entre varios pedidos.
@@ -24,6 +33,12 @@ const metros = (v: number) => `${v.toLocaleString("es-AR", { maximumFractionDigi
  * finales. No es un detalle de cortesía: si el gasto se parte solo y no
  * se ve cómo, el margen de cada venta pasa a ser un número que apareció
  * de la nada.
+ *
+ * Y el mismo formulario sirve para cobrar, con una regla distinta: un
+ * gasto se parte proporcional entre las cosechas que abasteció, un cobro
+ * cancela de la venta más vieja en adelante hasta donde llegue. Las dos
+ * cuentas viven en lib/reparto.ts, así que lo que se ve acá es
+ * exactamente lo que va a quedar guardado.
  */
 export function Tanda(props: Parametros) {
   // El proveedor va afuera porque el formulario lo consume: qué pedidos
@@ -63,21 +78,80 @@ function FormularioDeTanda({
 
   const total = totalDe(renglones);
   const listos = renglonesValidos(renglones);
+  const esCobro = (carga?.lado ?? "E") === "I";
 
   // En el orden en que se fueron marcando: el mismo que usa el servidor.
   const destinos = (carga?.elegidos ?? [])
     .map((id) => pedidos.find((p) => p.id === id))
     .filter((p): p is PedidoElegible => !!p);
 
-  const reparto = destinos.length
-    ? repartirProporcional(
-        total,
-        destinos.map((d) => ({ id: d.id, peso: d.m2 })),
-      )
-    : [];
+  /* --- Quién paga, para que la lista de abajo sea la de él ---------- */
+
+  const compradores = useMemo(
+    () => [...new Set(pedidos.filter((p) => p.pendiente > 0.5).map((p) => p.comprador))].sort(),
+    [pedidos],
+  );
+
+  // El primero que tenga nombre: un cobro es de un cliente solo.
+  const quienPaga = renglones.map((r) => r.persona.trim()).find(Boolean) ?? "";
+  const cliente = carga?.cliente ?? "";
+
+  // Elegiste quién pagó -> la lista de ventas se queda con las suyas.
+  // Un nombre que no le compró nada (un empleado, un proveedor) no
+  // filtra nada: no sería un cobro suyo, sería un error de tipeo.
+  useEffect(() => {
+    if (!esCobro) return;
+    const suyo = compradores.includes(quienPaga) ? quienPaga : "";
+    if (suyo !== cliente) carga?.setCliente(suyo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esCobro, quienPaga, cliente, compradores]);
+
+  // Y al revés: marcaste una venta de Edin y el cobro queda a nombre de
+  // Edin, sin tener que escribirlo de nuevo arriba. Los renglones que
+  // se agreguen después también, porque un cobro que entra partido —una
+  // parte en mano y otra al banco— sigue siendo del mismo que pagó.
+  useEffect(() => {
+    if (!esCobro || !cliente) return;
+    setRenglones((rs) =>
+      rs.every((r) => r.persona.trim())
+        ? rs
+        : rs.map((r) => (r.persona.trim() ? r : { ...r, persona: cliente })),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [esCobro, cliente, renglones.length]);
+
+  /* --- Cómo se reparte ---------------------------------------------- */
+
+  const reparto =
+    !esCobro && destinos.length
+      ? repartirProporcional(
+          total,
+          destinos.map((d) => ({ id: d.id, peso: d.m2 })),
+        )
+      : [];
+
+  // El cobro va cancelando de la más vieja: acá se ve cuánto le toca a
+  // cada entrega y cuánto le sigue quedando después de esta plata.
+  const cobro =
+    esCobro && destinos.length
+      ? cancelarDeLaMasVieja(
+          listos.map((r) => ({ id: r.key, monto: montoDe(r) })),
+          destinos.map((d) => ({ id: d.id, debe: d.pendiente, fecha: d.fecha })),
+        )
+      : null;
+
+  const imputado = new Map<string, number>();
+  for (const c of cobro?.cruces ?? []) {
+    if (c.venta) imputado.set(c.venta, (imputado.get(c.venta) ?? 0) + c.monto);
+  }
+
+  // De la más vieja a la más nueva: el orden en que se van tapando.
+  const enOrden = [...destinos].sort((a, b) => a.fecha.localeCompare(b.fecha));
 
   const m2Totales = destinos.reduce((a, d) => a + d.m2, 0);
-  const cuantos = listos.length * Math.max(1, destinos.length);
+  const cuantos = cobro
+    ? cobro.cruces.length
+    : listos.length * Math.max(1, destinos.length);
 
   return (
     <Formulario action={accion} className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:max-w-4xl">
@@ -119,13 +193,56 @@ function FormularioDeTanda({
           renglones={renglones}
           onChange={setRenglones}
           cuentas={cuentas}
-          personas={personas}
-          etiquetaPersona="A quién"
+          personas={esCobro ? [...compradores, ...personas.filter((n) => !compradores.includes(n))] : personas}
+          etiquetaPersona={esCobro ? "Quién pagó" : "A quién"}
         />
       </div>
 
-      {/* Cómo queda repartido, con los números finales. */}
-      {destinos.length > 0 && total > 0 && (
+      {/* Un cobro no se reparte: va cancelando de la más vieja. */}
+      {cobro && total > 0 && (
+        <div className="col-span-2 rounded-2xl border border-borde bg-white p-3 sm:col-span-3">
+          <p className="text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
+            Qué cancela, de la más vieja en adelante
+          </p>
+          <ul className="mt-1.5 space-y-1 text-sm">
+            {enOrden.map((d) => {
+              const tapa = imputado.get(d.id) ?? 0;
+              const queda = Math.max(0, Math.round((d.pendiente - tapa) * 100) / 100);
+              return (
+                <li key={d.id} className="flex items-baseline justify-between gap-3">
+                  <span className="min-w-0 flex-1 truncate text-tinta">
+                    {d.comprador} · {dm(d.fecha)}
+                  </span>
+                  <span className="shrink-0 text-xs tabular-nums text-tinta-3">
+                    {tapa <= 0
+                      ? `no le llega · debe ${pesos(d.pendiente)}`
+                      : queda === 0
+                        ? "queda saldada"
+                        : `le quedan ${pesos(queda)}`}
+                  </span>
+                  <span
+                    className={
+                      "w-24 shrink-0 text-right font-semibold tabular-nums " +
+                      (tapa > 0 ? "text-tinta" : "text-tinta-3")
+                    }
+                  >
+                    {pesos(tapa)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          {cobro.sobra > 0 && (
+            <p className="mt-2 text-xs text-atencion-tx">
+              Sobran {pesos(cobro.sobra)} después de tapar todo lo elegido: entran igual, a cuenta
+              del cliente, sin colgarse de ninguna entrega.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Un gasto sí: es de todas las cosechas que abasteció. */}
+      {!esCobro && destinos.length > 0 && total > 0 && (
         <div className="col-span-2 rounded-2xl border border-borde bg-white p-3 sm:col-span-3">
           <p className="text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
             Cómo se reparte

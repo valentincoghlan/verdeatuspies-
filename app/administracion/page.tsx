@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardPlegable, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota, Opciones, Selector } from "@/components/campos";
-import { Elegir } from "@/components/elegir";
 import { CuentaYMonto } from "@/components/plata";
 import { QuePaso } from "@/components/que-paso";
 import { FiltroFechas, resolverRango } from "@/components/filtro-fechas";
@@ -13,6 +12,7 @@ import {
 import { Tanda } from "@/components/tanda";
 import { FechaDeCarga, ProveedorCarga } from "@/components/carga";
 import { PedidosDeCarga } from "@/components/pedidos-de-carga";
+import { PersonaDeCarga } from "@/components/persona-de-carga";
 import { crearMovimiento, crearPersona, crearTanda } from "@/lib/actions";
 import { esAdmin } from "@/lib/rol";
 import { fechaBreve, fechaDM, hoyISO, numero, pesos } from "@/lib/format";
@@ -200,6 +200,12 @@ export default async function CajaPage({
   }
   const pedidosElegibles = [...porId.values()];
 
+  // Quiénes deben plata hoy: en un cobro son los únicos que pueden ser
+  // "quién pagó", y eligiendo uno la lista de entregas queda en las suyas.
+  const compradoresConSaldo = [
+    ...new Set(pedidosElegibles.filter((p) => p.pendiente > 0.5).map((p) => p.comprador)),
+  ].sort();
+
   const cuentasConId = (cuentas ?? []).map((c: any) => ({
     id: c.id as string,
     nombre: c.nombre as string,
@@ -246,13 +252,9 @@ export default async function CajaPage({
               opciones={opcionesLote}
               className="col-span-1"
             />
-            <Elegir
-              label="Persona"
-              name="persona"
-              opciones={nombresPersona.map((n) => ({ value: n, label: n }))}
-              vacio="Sin especificar"
-              opcional
-              permiteNuevo
+            <PersonaDeCarga
+              personas={nombresPersona}
+              compradores={compradoresConSaldo}
               className="col-span-2 sm:col-span-1"
             />
             <Campo

@@ -27,6 +27,17 @@ type Carga = {
   /** Los pedidos marcados, en el orden en que se marcaron. */
   elegidos: string[];
   setElegidos: (v: string[]) => void;
+  /**
+   * De quién es el cobro, por nombre de comprador.
+   *
+   * Un cobro es de una cuenta corriente sola: la plata de Edin tapa
+   * ventas de Edin y de nadie más. Se llena por los dos lados —eligiendo
+   * quién pagó, o marcando la primera venta— y mientras esté puesto, la
+   * lista de ventas no muestra las de otro. En un gasto no se usa: la
+   * mano de obra de una cosecha no tiene dueño.
+   */
+  cliente: string;
+  setCliente: (v: string) => void;
 };
 
 const Ctx = createContext<Carga | null>(null);
@@ -35,10 +46,11 @@ export function ProveedorCarga({ hoy, children }: { hoy: string; children: React
   const [lado, setLado] = useState("E");
   const [fecha, setFecha] = useState(hoy);
   const [elegidos, setElegidos] = useState<string[]>([]);
+  const [cliente, setCliente] = useState("");
 
   const valor = useMemo(
-    () => ({ lado, setLado, fecha, setFecha, elegidos, setElegidos }),
-    [lado, fecha, elegidos],
+    () => ({ lado, setLado, fecha, setFecha, elegidos, setElegidos, cliente, setCliente }),
+    [lado, fecha, elegidos, cliente],
   );
 
   return <Ctx.Provider value={valor}>{children}</Ctx.Provider>;
