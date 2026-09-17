@@ -84,7 +84,13 @@ export function Renglones({
       <ul className="space-y-2">
         {renglones.map((r) => (
           <li key={r.key} className="rounded-2xl bg-crema p-2.5">
-            <div className="grid grid-cols-2 gap-2">
+            {/*
+              En el celular cada dato va en su renglón. En la compu los
+              tres entran cómodos en una sola línea —son campos cortos— y
+              el formulario se hace la mitad de largo: en un día de
+              cosecha son cinco renglones, no uno.
+            */}
+            <div className="grid grid-cols-2 items-end gap-2 sm:flex sm:flex-wrap sm:gap-3">
               {/*
                 El mismo desplegable con buscador que el resto de la app.
                 Antes era un campo de texto con datalist y en el celular
@@ -104,11 +110,11 @@ export function Renglones({
                   permiteNuevo
                   value={r.persona}
                   onChange={(v) => cambiar(r.key, "persona", v)}
-                  className="col-span-2"
+                  className="col-span-2 sm:w-auto sm:flex-[2] sm:basis-40"
                 />
               )}
 
-              <div className="min-w-0">
+              <div className="min-w-0 sm:w-28 sm:shrink-0">
                 <label className="label" htmlFor={`${r.key}-monto`}>
                   Monto
                 </label>
@@ -124,7 +130,7 @@ export function Renglones({
                 />
               </div>
 
-              <div className="min-w-0">
+              <div className="min-w-0 sm:w-auto sm:flex-1 sm:basis-32">
                 <label className="label" htmlFor={`${r.key}-cuenta`}>
                   Qué cuenta
                 </label>
@@ -143,17 +149,17 @@ export function Renglones({
                   ))}
                 </select>
               </div>
+              {/* En la compu cierra la línea; en el celular, debajo. */}
+              {renglones.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => sacar(r.key)}
+                  className="col-span-2 flex min-h-9 items-center text-xs font-semibold text-tinta-3 hover:text-urgente-tx sm:shrink-0 sm:px-1"
+                >
+                  Sacar
+                </button>
+              )}
             </div>
-
-            {renglones.length > 1 && (
-              <button
-                type="button"
-                onClick={() => sacar(r.key)}
-                className="mt-1.5 flex min-h-9 items-center text-xs font-semibold text-tinta-3 hover:text-urgente-tx"
-              >
-                Sacar
-              </button>
-            )}
           </li>
         ))}
       </ul>
