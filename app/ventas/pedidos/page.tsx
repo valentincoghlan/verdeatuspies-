@@ -13,6 +13,7 @@ import {
   crearCobro,
   crearGastoVenta,
   crearPedido,
+  deshacerEntrega,
   editarVenta,
   reprogramarPedido,
 } from "@/lib/actions";
@@ -46,6 +47,7 @@ export default async function PedidosPage() {
     { data: cuentas },
     { data: categorias },
     { data: personas },
+    { data: entregas },
   ] = await Promise.all([
       // El canal hace falta acá: sin él, el buscador no sabe quién es
       // distribuidor y ofrece crear un cliente que ya existe.
@@ -66,6 +68,15 @@ export default async function PedidosPage() {
       supabase.from("cuentas").select("id, nombre").eq("activa", true).order("orden"),
       supabase.from("categorias").select("*").eq("activa", true).order("orden"),
       supabase.from("personas").select("id, nombre").eq("activa", true).order("nombre"),
+      // Quién estuvo de cada lado no está en v_margen_ventas y el modal
+      // de corregir lo tiene que mostrar ya cargado: si no, arreglar los
+      // metros borraría de paso el nombre del que entregó.
+      supabase
+        .from("ventas")
+        .select("id, quien_entrega, quien_retira")
+        .eq("estado", "entregada")
+        .order("fecha_entrega", { ascending: false })
+        .limit(60),
     ]);
 
   const cfg = new Map((config ?? []).map((c: any) => [c.clave, c.valor]));
@@ -96,6 +107,13 @@ export default async function PedidosPage() {
     if (hijos.length === 0) return [{ value: p.id, label: p.nombre }];
     return hijos.map((h: any) => ({ value: h.id, label: `${p.nombre} · ${h.nombre}` }));
   });
+
+  const quienDe = new Map(
+    ((entregas ?? []) as any[]).map((x) => [
+      x.id as string,
+      { entrega: x.quien_entrega as string | null, retira: x.quien_retira as string | null },
+    ]),
+  );
 
   const estadoDe = new Map(
     ((estados ?? []) as any[]).map((x) => [x.id as string, x.estado as string]),
@@ -333,6 +351,7 @@ export default async function PedidosPage() {
               { titulo: "Gastos", desde: "sm" },
               { titulo: "Margen", desde: "sm" },
               { titulo: "Pendiente", desde: "sm" },
+              { titulo: "", ancho: "w-[5.5rem] sm:w-auto" },
             ]}
             vacio="Todavía no hay entregas confirmadas."
           >
@@ -380,10 +399,38 @@ export default async function PedidosPage() {
                   >
                     {pesos(Number(v.pendiente))}
                   </td>
+                  <td className="td text-right">
+                    {/* El mismo modal que confirma la entrega, pero con
+                        todo ya cargado. Adentro está el "no salió este
+                        pedido", que es lo que se busca cuando se dio por
+                        entregado el de al lado. */}
+                    <ConfirmarEntrega
+                      pedidoId={String(v.venta_id)}
+                      comprador={v.comprador ?? "Sin comprador"}
+                      m2={Number(v.m2 ?? 0)}
+                      fecha={String(v.fecha_entrega ?? v.fecha)}
+                      nota={`Entregado el ${fechaLarga(String(v.fecha_entrega ?? v.fecha))}. Arreglá lo que haya quedado mal.`}
+                      etiqueta="Corregir"
+                      variante="sutil"
+                      corrigiendo
+                      m2Facturados={Number(v.m2 ?? 0)}
+                      m2Cortesia={Number(v.m2_cortesia ?? 0)}
+                      quienEntrega={quienDe.get(String(v.venta_id))?.entrega ?? null}
+                      quienRetira={quienDe.get(String(v.venta_id))?.retira ?? null}
+                      confirmar={confirmarEntrega}
+                      reprogramar={reprogramarPedido}
+                      anular={anularPedido}
+                      deshacer={deshacerEntrega}
+                    />
+                  </td>
                 </tr>
               );
             })}
           </Tabla>
+          <p className="mt-3 text-xs text-tinta-3">
+            Si una entrega quedó mal dada —salió otro pedido, o los metros no eran esos—, se
+            arregla desde acá sin ir a buscar la venta.
+          </p>
         </Card>
 
       </div>

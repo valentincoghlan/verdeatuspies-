@@ -811,6 +811,16 @@ export async function confirmarEntrega(fd: FormData) {
   const facturados = dec(fd, "m2");
   const cortesia = dec(fd, "m2_cortesia") ?? 0;
 
+  // Si ya figuraba entregada, esto es un arreglo y no una entrega nueva:
+  // el celular del resto tiene que decir eso y no volver a cantar la
+  // misma entrega como si acabara de salir.
+  const { data: antes } = await supabase
+    .from("ventas")
+    .select("estado")
+    .eq("id", id)
+    .maybeSingle();
+  const corrigiendo = antes?.estado === "entregada";
+
   const patch: Record<string, unknown> = {
     estado: "entregada",
     fecha,
@@ -822,7 +832,12 @@ export async function confirmarEntrega(fd: FormData) {
   if (facturados !== null) patch.m2 = facturados;
 
   await supabase.from("ventas").update(patch).eq("id", id);
-  await cerrarAvisoEntrega(supabase, user.id, id, "Entrega confirmada.");
+  await cerrarAvisoEntrega(
+    supabase,
+    user.id,
+    id,
+    corrigiendo ? "Entrega corregida." : "Entrega confirmada.",
+  );
 
   // El aviso al celular lleva la operación cerrada: es lo que el resto
   // del equipo necesita saber sin entrar a mirar.
@@ -836,7 +851,7 @@ export async function confirmarEntrega(fd: FormData) {
     const regalados = Number(venta.m2_cortesia ?? 0);
     await enviarAviso({
       tipo: "entrega_confirmada",
-      titulo: "Entrega confirmada",
+      titulo: corrigiendo ? "Entrega corregida" : "Entrega confirmada",
       mensaje:
         `${(venta.clientes as any)?.nombre ?? "Cliente"} · ` +
         `${numeroCorto(Number(venta.m2))} m² por ${pesosCortos(Number(venta.total))}` +
@@ -891,6 +906,76 @@ export async function anularPedido(fd: FormData) {
   await supabase.from("ventas").update({ estado: "anulada" }).eq("id", id);
   await cerrarAvisoEntrega(supabase, user.id, id, "El pedido se cayó.");
   bump("/ventas/pedidos", "/ventas", "/administracion");
+}
+
+/**
+ * No salió: la entrega estaba mal dada y el pedido vuelve a la lista.
+ *
+ * Pasa seguido en el campo: se confirma la entrega del pedido de al
+ * lado, o salió otro camión y se tocó la fila equivocada. Hasta ahora,
+ * una vez entregada la venta desaparecía de Pedidos y había que ir a
+ * buscarla a Ventas para bajarle el estado a mano.
+ *
+ * El pedido vuelve con los m² que se habían pedido, sin cortesía y sin
+ * nadie anotado como que entregó: todo eso se cargó pensando en una
+ * salida que no pasó. Lo que ya se le hubiera cobrado no se toca y
+ * queda como seña, que es lo que es mientras el pasto no salga.
+ *
+ * Vuelve a "cosechada" si el pasto ya estaba cortado para este pedido y
+ * a "pedido" si no: deshacer la entrega no descosecha nada.
+ */
+export async function deshacerEntrega(fd: FormData) {
+  const { supabase, user } = await sesion();
+  const id = txt(fd, "id")!;
+
+  const { data: venta } = await supabase
+    .from("ventas")
+    .select("m2, m2_pedido, fecha_entrega, clientes!cliente_id(nombre)")
+    .eq("id", id)
+    .maybeSingle();
+  if (!venta) throw new Error("No se encontró la venta.");
+
+  const { count } = await supabase
+    .from("cosecha_ventas")
+    .select("venta_id", { count: "exact", head: true })
+    .eq("venta_id", id);
+
+  // Si se sabe para cuándo se reprograma, va con esa fecha; si no,
+  // queda con la que tenía y aparece como atrasado, que es la verdad.
+  const fecha = txt(fd, "fecha_entrega") ?? venta.fecha_entrega ?? hoyISO();
+  const pedidos = Number(venta.m2_pedido ?? 0);
+
+  const { error } = await supabase
+    .from("ventas")
+    .update({
+      estado: (count ?? 0) > 0 ? "cosechada" : "pedido",
+      // La confirmación había movido la fecha de la venta al día de la
+      // entrega: mientras no salga, las dos vuelven a ser la prevista.
+      fecha,
+      fecha_entrega: fecha,
+      m2: pedidos > 0 ? pedidos : Number(venta.m2 ?? 0),
+      m2_cortesia: 0,
+      quien_entrega: null,
+      quien_retira: null,
+    })
+    .eq("id", id);
+  if (error) throw new Error(`No se pudo deshacer la entrega: ${error.message}`);
+
+  await cerrarAvisoEntrega(supabase, user.id, id, "La entrega estaba mal dada.");
+
+  // El resto del equipo vio pasar "Entrega confirmada": tiene que ver
+  // pasar también que no fue.
+  await enviarAviso({
+    tipo: "entrega_confirmada",
+    titulo: "Entrega deshecha",
+    mensaje:
+      `${(venta.clientes as any)?.nombre ?? "Cliente"} no salió · ` +
+      `vuelve a pendientes para el ${fecha.slice(8, 10)}/${fecha.slice(5, 7)}`,
+    url: "/ventas/pedidos",
+    tag: `entrega-${id}`,
+  });
+
+  bump("/ventas/pedidos", "/ventas", "/administracion", "/ventas/cosecha");
 }
 
 /* ------------------------------------------------------------------ */
