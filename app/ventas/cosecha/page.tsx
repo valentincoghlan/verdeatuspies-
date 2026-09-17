@@ -4,7 +4,9 @@ import { Checks } from "@/components/checks";
 import { Dato } from "@/components/dato";
 import { Icono } from "@/components/iconos";
 import { PedidoYObjetivo } from "@/components/pedido-objetivo";
-import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
+import { Card, CardPlegable, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
+import { FiltroFechas, resolverRango } from "@/components/filtro-fechas";
+import { Variacion } from "@/components/variacion";
 import { Campo, Nota } from "@/components/campos";
 import { crearCosecha } from "@/lib/actions";
 import { fechaBreve, fechaLarga, hoyISO, m2, numero } from "@/lib/format";
@@ -12,22 +14,49 @@ import { Formulario, Guardar } from "@/components/guardar";
 
 export const dynamic = "force-dynamic";
 
-export default async function CosechaPage() {
+export default async function CosechaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ p?: string; desde?: string; hasta?: string }>;
+}) {
+  const sp = await searchParams;
+  const rango = resolverRango(sp);
   const supabase = await createClient();
   const hoy = hoyISO();
 
-  const [{ data: lotes }, { data: pedidos }, { data: cosechas }, { data: config }] =
-    await Promise.all([
+  const [
+    { data: lotes },
+    { data: pedidos },
+    { data: cosechas },
+    { data: config },
+    { data: enCurso },
+    { data: cosechasAntes },
+  ] = await Promise.all([
       supabase.from("lotes").select("id, nombre").eq("activo", true).order("nombre"),
       supabase
         .from("v_pedidos_pendientes")
         .select("id, comprador, m2, fecha_entrega, lote")
         .order("fecha_entrega"),
-      supabase.from("v_cosechas").select("*").order("fecha", { ascending: false }).limit(30),
+      supabase
+        .from("v_cosechas")
+        .select("*")
+        .gte("fecha", rango.desde)
+        .lte("fecha", rango.hasta)
+        .order("fecha", { ascending: false }),
       supabase
         .from("config")
         .select("clave, valor")
         .in("clave", ["pan_largo_m", "pan_ancho_m", "panes_por_pila"]),
+      // Las abiertas van sin filtro de fecha: una cosecha que quedó a
+      // medio contar la semana pasada te sigue importando hoy, aunque
+      // estés mirando otro período.
+      supabase.from("v_cosechas").select("objetivo_m2, m2_cosechados").eq("estado", "abierta"),
+      // El mismo tramo una vuelta para atrás, para la flechita.
+      supabase
+        .from("v_cosechas")
+        .select("m2_cosechados")
+        .gte("fecha", rango.anterior.desde)
+        .lte("fecha", rango.anterior.hasta),
     ]);
 
   const cfg = new Map((config ?? []).map((c: any) => [c.clave, c.valor]));
@@ -37,8 +66,17 @@ export default async function CosechaPage() {
   const m2Pan = largo * ancho;
 
   const lista = (cosechas ?? []) as any[];
-  const abiertas = lista.filter((c) => c.estado === "abierta");
-  const m2Abiertos = abiertas.reduce((a, c) => a + Number(c.m2_cosechados ?? 0), 0);
+
+  // Lo que salió del campo en el período elegido, esté la cosecha abierta
+  // o cerrada: es el número que dice cuánto se cortó.
+  const m2Periodo = lista.reduce((a, c) => a + Number(c.m2_cosechados ?? 0), 0);
+  const m2Antes = ((cosechasAntes ?? []) as any[]).reduce(
+    (a, c) => a + Number(c.m2_cosechados ?? 0),
+    0,
+  );
+  const contra = rango.anterior.etiqueta;
+
+  const abiertas = (enCurso ?? []) as any[];
   const faltan = abiertas.reduce(
     (a, c) => a + Math.max(0, Number(c.objetivo_m2 ?? 0) - Number(c.m2_cosechados ?? 0)),
     0,
@@ -51,18 +89,36 @@ export default async function CosechaPage() {
         bajada="Contá las pilas por tramo de líneas y la app te dice cuánto llevás y cuánto falta."
       />
 
+      <div className="mb-3">
+        <FiltroFechas base="/ventas/cosecha" activo={sp.p} rango={rango} />
+      </div>
+
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+        <Stat
+          label="m² cosechados"
+          valor={m2(m2Periodo)}
+          destacado
+          detalle={
+            <Variacion
+              actual={m2Periodo}
+              anterior={m2Antes}
+              formato={(n) => m2(n)}
+              contra={contra}
+              sobreOscuro
+            />
+          }
+        />
         <Stat
           label="Cosechas abiertas"
           valor={numero(abiertas.length)}
-          detalle={abiertas.length === 1 ? "en curso" : "en curso"}
+          tono={abiertas.length > 0 ? "ambar" : "neutro"}
+          detalle="En curso, de cualquier fecha"
         />
-        <Stat label="m² cortados" valor={m2(m2Abiertos)} tono="verde" detalle="En lo que está abierto" />
         <Stat
           label="m² que faltan"
           valor={m2(faltan)}
           tono={faltan > 0 ? "ambar" : "neutro"}
-          detalle="Para llegar al objetivo"
+          detalle="Para cerrar las abiertas"
         />
         <Stat
           label="Pan actual"
@@ -72,7 +128,10 @@ export default async function CosechaPage() {
       </div>
 
       <div className="mt-3 space-y-3">
-        <Card titulo="Nueva cosecha">
+        <CardPlegable
+          titulo="Nueva cosecha"
+          bajada="Elegí el pedido, el lote y la medida del pan"
+        >
           {/* En una pantalla grande la grilla estiraba cada campo a
               trescientos y pico de píxeles: un recuadro enorme para
               escribir "2". Con el tope, el campo queda del tamaño de lo
@@ -111,22 +170,23 @@ export default async function CosechaPage() {
             Si elegís un pedido, el objetivo se toma de sus m². Las medidas del pan vienen de
             Ajustes: cambialas acá si hoy cortás distinto, y quedan guardadas en esta cosecha.
           </p>
-        </Card>
+        </CardPlegable>
 
-        <Card titulo="Cosechas">
+        <Card titulo={`Cosechas · ${rango.etiqueta.toLowerCase()}`}>
           <Tabla
             columnas={[
               { titulo: "Fecha", desde: "sm" },
               // Para quién es, y nada más: el lote ya se ve adentro de la
               // cosecha y acá solo robaba ancho.
               { titulo: "Cliente" },
-              // Objetivo, avance y falta son el mismo hecho contado tres
-              // veces: "404 de 400" ya lo dice entero.
-              { titulo: "Avance", align: "right" },
+              // Cuánto salió del campo es el dato de esta pantalla, así que
+              // va en su propia columna y no escondido en un "404/400".
+              { titulo: "m² cosechados", num: true },
+              { titulo: "Objetivo", desde: "sm", num: true },
               { titulo: "Estado" },
-              { titulo: "", ancho: "w-11" },
+              { titulo: "", ancho: "w-11 sm:w-auto" },
             ]}
-            vacio="Todavía no empezaste ninguna cosecha."
+            vacio="No hay cosechas en este período."
           >
             {lista.map((c) => {
               const cortado = Number(c.m2_cosechados ?? 0);
@@ -147,13 +207,14 @@ export default async function CosechaPage() {
                       {fechaBreve(c.fecha)}
                     </span>
                   </td>
-                  <td className="td text-right tabular-nums font-semibold text-pasto">
+                  <td className="td td-num font-semibold text-pasto">
                     <Dato
-                      principal={`${numero(cortado)}/${numero(objetivo)}`}
-                      secundario={
-                        falta > 0 ? `faltan ${numero(falta)}` : "completada"
-                      }
+                      principal={numero(cortado)}
+                      secundario={falta > 0 ? `faltan ${numero(falta)}` : "completada"}
                     />
+                  </td>
+                  <td className="td td-num hidden text-tinta-2 sm:table-cell">
+                    {numero(objetivo)}
                   </td>
                   <td className="td">
                     <Chip tono={c.estado === "cerrada" ? "verde" : "ambar"}>{c.estado}</Chip>
@@ -161,12 +222,20 @@ export default async function CosechaPage() {
                   {/* El lápiz entra a la cosecha: ahí se sigue contando o
                       se cierra, según cómo esté. */}
                   <td className="td text-right">
+                    {/* En el celular el ícono solo; en la compu un botón
+                        que dice qué hace, igual que en Ventas. */}
                     <Link
                       href={`/ventas/cosecha/${c.id}`}
                       aria-label={`Editar la cosecha del ${fechaBreve(c.fecha)}`}
-                      className="inline-flex size-11 items-center justify-center rounded-full text-tinta-2 transition hover:bg-beige hover:text-pasto"
+                      className={
+                        "inline-flex size-11 items-center justify-center rounded-full " +
+                        "text-tinta-2 transition hover:bg-beige hover:text-pasto " +
+                        "sm:size-auto sm:gap-1.5 sm:rounded-full sm:border sm:border-borde-boton " +
+                        "sm:px-3 sm:py-1 sm:text-xs sm:font-bold sm:hover:border-pasto"
+                      }
                     >
-                      <Icono nombre="editar" className="size-[18px]" />
+                      <Icono nombre="editar" className="size-[18px] sm:size-4" />
+                      <span className="hidden sm:inline">Editar</span>
                     </Link>
                   </td>
                 </tr>

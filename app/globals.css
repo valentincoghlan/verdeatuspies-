@@ -211,7 +211,7 @@ button[aria-busy="true"]:not(.btn):not(.btn-ghost) {
 /* El encabezado NO lleva overflow-hidden: con eso los títulos salían
    cortados a mitad de palabra ("LOTI COR EST"). Si no entra, envuelve. */
 .th {
-  @apply bg-beige px-2 py-2 sm:px-3 text-left text-[11px] font-bold uppercase tracking-[.06em] text-tinta-2;
+  @apply bg-beige px-2 py-2 sm:px-2.5 sm:py-1.5 text-left text-[11px] font-bold uppercase tracking-[.06em] text-tinta-2;
   hyphens: none;
 }
 /* La celda corta con puntos suspensivos, no a mitad de palabra. Lo que
@@ -232,7 +232,18 @@ button[aria-busy="true"]:not(.btn):not(.btn-ghost) {
 }
 
 .td {
-  @apply overflow-hidden text-ellipsis whitespace-nowrap px-2 py-2 text-sm text-tinta sm:px-3;
+  @apply overflow-hidden text-ellipsis whitespace-nowrap px-2 py-2 text-sm text-tinta sm:px-2.5 sm:py-1.5;
+}
+/*
+  La columna de números.
+
+  Va en el <td> y el encabezado se alinea solo desde la lista de columnas
+  (`num: true`). Antes cada tabla decidía por su cuenta y quedaban
+  encabezados a la izquierda con los números a la derecha, sin saber qué
+  título era de qué columna.
+*/
+.td-num {
+  @apply text-right tabular-nums;
 }
 .td-envuelve {
   @apply whitespace-normal;

@@ -55,7 +55,15 @@ export function EditarVenta({
         onClick={() => dialogo.current?.showModal()}
         title="Editar la venta"
         aria-label={`Editar la venta de ${venta.comprador}`}
-        className="flex size-11 items-center justify-center rounded-full text-tinta-3 transition hover:bg-beige hover:text-pasto active:bg-beige sm:size-9"
+        className={
+          // En el celular el lápiz solo, que es lo único que entra en la
+          // fila. En la compu un botón que dice qué hace: ahí sobra el
+          // ancho y un ícono suelto obliga a adivinar.
+          "flex size-11 items-center justify-center rounded-full text-tinta-3 transition " +
+          "hover:bg-beige hover:text-pasto active:bg-beige " +
+          "sm:size-auto sm:gap-1.5 sm:rounded-full sm:border sm:border-borde-boton sm:px-3 " +
+          "sm:py-1 sm:text-xs sm:font-bold sm:text-tinta-2 sm:hover:border-pasto"
+        }
       >
         <svg
           viewBox="0 0 24 24"
@@ -70,6 +78,7 @@ export function EditarVenta({
           <path d="M12 20h9" />
           <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
         </svg>
+        <span className="hidden sm:inline">Editar</span>
       </button>
 
       <dialog

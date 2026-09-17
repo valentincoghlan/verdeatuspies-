@@ -120,6 +120,42 @@ export function sumarDiasISO(iso: string, dias: number) {
   return d.toISOString().slice(0, 10);
 }
 
+/**
+ * El lunes de la semana en la que cae esa fecha.
+ *
+ * La semana del campo arranca el lunes: el fin de semana es cuando se
+ * entrega, no cuando se corta el período.
+ */
+export function lunesDeISO(iso: string) {
+  const d = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
+  // getUTCDay() devuelve 0 para el domingo, así que se corre uno.
+  return sumarDiasISO(iso, -((d.getUTCDay() + 6) % 7));
+}
+
+/** El último día del mes en el que cae esa fecha. */
+export function finDeMesISO(iso: string) {
+  const [a, m] = iso.slice(0, 7).split("-").map(Number);
+  const siguiente = m === 12 ? `${a + 1}-01-01` : `${a}-${String(m + 1).padStart(2, "0")}-01`;
+  return sumarDiasISO(siguiente, -1);
+}
+
+/**
+ * El mismo tramo, corrido N meses para atrás.
+ *
+ * Sirve para comparar contra el período anterior sin que se desarme por
+ * los meses de distinto largo: el 31 de marzo comparado con febrero cae
+ * en el 28, no se pasa al 3 de marzo.
+ */
+export function mesesAtrasISO(iso: string, meses: number) {
+  const [a, m, d] = iso.slice(0, 10).split("-").map(Number);
+  const total = a * 12 + (m - 1) - meses;
+  const anioDestino = Math.floor(total / 12);
+  const mesDestino = (total % 12) + 1;
+  const primero = `${anioDestino}-${String(mesDestino).padStart(2, "0")}-01`;
+  const ultimoDia = Number(finDeMesISO(primero).slice(8, 10));
+  return `${primero.slice(0, 8)}${String(Math.min(d, ultimoDia)).padStart(2, "0")}`;
+}
+
 /** Días enteros entre dos fechas ISO (b - a). */
 export function diasEntre(a: string, b: string = hoyISO()) {
   const da = new Date(`${a.slice(0, 10)}T12:00:00Z`).getTime();

@@ -16,6 +16,8 @@ import {
   sumarDiasISO,
 } from "@/lib/format";
 import { Dato } from "@/components/dato";
+import { Variacion } from "@/components/variacion";
+import { DetalleVenta } from "@/components/detalle-venta";
 
 export const dynamic = "force-dynamic";
 
@@ -27,10 +29,25 @@ const mesCorto = (iso: string) => `${MESES[Number(iso.slice(5, 7)) - 1]} ${iso.s
 export default async function ReportesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ p?: string; desde?: string; hasta?: string; m?: string }>;
+  searchParams: Promise<{
+    p?: string;
+    desde?: string;
+    hasta?: string;
+    m?: string;
+    ver?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const rango = resolverRango(sp);
+
+  // La URL del período sin el `ver`: es a donde vuelve el modal al cerrarse,
+  // para no perder el filtro que tenías puesto.
+  const sinModal = (() => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (k !== "ver" && v) q.set(k, String(v));
+    const cola = q.toString();
+    return cola ? `/reportes?${cola}` : "/reportes";
+  })();
   const supabase = await createClient();
 
   // Mirar tres temporadas en pesos no dice nada: $41 millones de 2024 y
@@ -56,6 +73,8 @@ export default async function ReportesPage({
     { data: egresos12 },
     { data: ventas12 },
     { data: cotizMes },
+    { data: margenesAntes },
+    { data: pagosAntes },
   ] = await Promise.all([
       supabase
         .from("v_resumen_mes")
@@ -84,6 +103,19 @@ export default async function ReportesPage({
         .lte("fecha", hoyISO()),
       supabase.from("v_margen_ventas").select("m2").gte("fecha", desde12).lte("fecha", hoyISO()),
       supabase.from("v_cotizacion_mes").select("mes, mep").order("mes"),
+      // El mismo tramo una vuelta para atrás: alimenta el comparador de
+      // los carteles y nada más, por eso trae solo lo que se compara.
+      supabase
+        .from("v_margen_ventas")
+        .select("m2, facturado, fecha, fecha_entrega")
+        .gte("fecha", rango.anterior.desde)
+        .lte("fecha", rango.anterior.hasta),
+      supabase
+        .from("v_movimientos")
+        .select("monto, monto_usd, tipo_plata")
+        .eq("tipo", "E")
+        .gte("fecha", rango.anterior.desde)
+        .lte("fecha", rango.anterior.hasta),
     ]);
 
   // Cotización de cada mes, con el mes anterior más cercano como respaldo
@@ -211,6 +243,18 @@ export default async function ReportesPage({
   const pctMargen = facturado > 0 ? (resultado / facturado) * 100 : 0;
   const ticket = operaciones.length > 0 ? facturado / operaciones.length : 0;
 
+  // Los mismos números del tramo anterior. El facturado se pasa a la
+  // moneda elegida con la cotización de su propia fecha, igual que el
+  // del período en curso.
+  const opsAntes = (margenesAntes ?? []) as any[];
+  const vendidosAntes = opsAntes.reduce((a, v) => a + Number(v.m2 ?? 0), 0);
+  const facturadoAntes = opsAntes.reduce(
+    (a, v) => a + conv(Number(v.facturado ?? 0), v.fecha_entrega ?? v.fecha),
+    0,
+  );
+  const gastadoAntes = suman((pagosAntes ?? []) as any[], "operativo");
+  const contra = rango.anterior.etiqueta;
+
   const mejores = operaciones
     .slice()
     .sort((a: any, b: any) => Number(b.margen ?? 0) - Number(a.margen ?? 0))
@@ -233,22 +277,45 @@ export default async function ReportesPage({
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
-        <Stat label="m² vendidos" valor={m2(vendidos)} destacado />
+        <Stat
+          label="m² vendidos"
+          valor={m2(vendidos)}
+          destacado
+          detalle={
+            <Variacion
+              actual={vendidos}
+              anterior={vendidosAntes}
+              formato={(n) => m2(n)}
+              contra={contra}
+              sobreOscuro
+            />
+          }
+        />
         <Stat
           label="Facturado"
           valor={plata(facturado)}
           tono="verde"
           detalle={
-            sinEntregar.length > 0
-              ? `${operaciones.length} entregas · ${sinEntregar.length} sin salir todavía`
-              : `${operaciones.length} entregas`
+            <Variacion
+              actual={facturado}
+              anterior={facturadoAntes}
+              formato={plata}
+              contra={contra}
+            />
           }
         />
         <Stat
           label="Resultado"
           valor={plata(resultado)}
           tono={resultado < 0 ? "ambar" : "verde"}
-          detalle={`Facturado menos costo operativo · ${numero(pctMargen, 1)}%`}
+          detalle={
+            <Variacion
+              actual={resultado}
+              anterior={facturadoAntes - gastadoAntes}
+              formato={plata}
+              contra={contra}
+            />
+          }
         />
         <Stat
           label="Por cobrar"
@@ -274,7 +341,19 @@ export default async function ReportesPage({
               : "Últimos 12 meses"
           }
         />
-        <Stat label="Costo operativo" valor={plata(gastado)} detalle="Producir y vender" />
+        <Stat
+          label="Costo operativo"
+          valor={plata(gastado)}
+          detalle={
+            <Variacion
+              actual={gastado}
+              anterior={gastadoAntes}
+              formato={plata}
+              contra={contra}
+              masEsMejor={false}
+            />
+          }
+        />
         <Stat
           label="Invertido"
           valor={plata(invertido)}
@@ -287,6 +366,12 @@ export default async function ReportesPage({
           detalle={`${numero(pctRegalado, 1)}% de lo cosechado`}
         />
       </div>
+
+      <p className="mt-2.5 text-xs text-tinta-3">
+        {operaciones.length} entregas
+        {sinEntregar.length > 0 && `, ${sinEntregar.length} sin salir todavía`} · el resultado
+        es lo facturado menos el costo operativo, {numero(pctMargen, 1)}% de lo facturado.
+      </p>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
         <Card titulo="m² vendidos por mes">
@@ -327,9 +412,9 @@ export default async function ReportesPage({
           <Tabla
             columnas={[
               { titulo: "Canal" },
-              { titulo: "m²" },
-              { titulo: "Vendido" },
-              { titulo: "Margen" },
+              { titulo: "m²", num: true },
+              { titulo: "Vendido", num: true },
+              { titulo: "Margen", num: true },
             ]}
             vacio="No hay entregas en este período."
           >
@@ -347,11 +432,11 @@ export default async function ReportesPage({
                       {numero(c.operaciones)} ops
                     </span>
                   </td>
-                  <td className="td tabular-nums">{numero(c.m2)}</td>
-                  <td className="td whitespace-nowrap tabular-nums font-semibold">
+                  <td className="td td-num">{numero(c.m2)}</td>
+                  <td className="td td-num whitespace-nowrap font-semibold">
                     {plataCorta(c.vendido)}
                   </td>
-                  <td className="td whitespace-nowrap tabular-nums font-semibold text-pasto">
+                  <td className="td td-num whitespace-nowrap font-semibold text-pasto">
                     {plataCorta(c.margen)}
                   </td>
                 </tr>
@@ -373,8 +458,8 @@ export default async function ReportesPage({
             columnas={[
               { titulo: "Entrega" },
               { titulo: "Comprador" },
-              { titulo: "Vendido" },
-              { titulo: "Margen" },
+              { titulo: "Vendido", num: true },
+              { titulo: "Margen", num: true },
             ]}
             vacio="No hay entregas en este período."
           >
@@ -383,27 +468,34 @@ export default async function ReportesPage({
               const margen = Number(v.margen ?? 0);
               const pct = vendido > 0 ? (margen / vendido) * 100 : 0;
               return (
-                <tr key={v.venta_id}>
-                  <td className="td whitespace-nowrap">
+                <tr key={v.venta_id} className="transition hover:bg-crema">
+                  <td className="td whitespace-nowrap p-0">
+                    <Link
+                      href={`${sinModal}${sinModal.includes("?") ? "&" : "?"}ver=${v.venta_id}`}
+                      scroll={false}
+                      className="block px-2 py-2 sm:px-2.5 sm:py-1.5"
+                      title="Ver el detalle de esta operación"
+                    >
                     <Dato
                       principal={fechaBreve(v.fecha_entrega)}
                       secundario={v.estado !== "entregada" ? "sin salir" : undefined}
                       tonoSecundario="text-atencion-tx"
                     />
+                    </Link>
                   </td>
-                  <td className="td max-w-0 font-semibold">
+                  <td className="td max-w-0 font-semibold sm:max-w-none">
                     <Dato
                       principal={<span className="block truncate">{v.comprador}</span>}
                       secundario={v.canal === "distribuidor" ? "distribuidor" : "directa"}
                     />
                   </td>
-                  <td className="td tabular-nums font-semibold">
+                  <td className="td td-num font-semibold">
                     <Dato
                       principal={plataCorta(vendido)}
                       secundario={`${numero(Number(v.m2))} m\u00b2`}
                     />
                   </td>
-                  <td className="td tabular-nums font-semibold text-pasto">
+                  <td className="td td-num font-semibold text-pasto">
                     <Dato
                       principal={plataCorta(margen)}
                       secundario={`${numero(pct)}%`}
@@ -416,6 +508,8 @@ export default async function ReportesPage({
         </Card>
         </div>
       </div>
+
+      {sp.ver && <DetalleVenta ventaId={sp.ver} cerrar={sinModal} />}
     </>
   );
 }

@@ -5,6 +5,9 @@ import { EditarVenta } from "@/components/editar-venta";
 import { Dato } from "@/components/dato";
 import { Cobrar } from "@/components/cobrar";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
+import { DetalleVenta } from "@/components/detalle-venta";
+import { FiltroFechas, resolverRango } from "@/components/filtro-fechas";
+import { Variacion } from "@/components/variacion";
 import { Campo, Nota, Selector } from "@/components/campos";
 import { borrarVenta, cobrarVentas, crearVenta, editarVenta } from "@/lib/actions";
 import { fechaBreve, fechaCorta, fechaDM, fechaLarga, hoyISO, m2, numero, pesos } from "@/lib/format";
@@ -20,10 +23,33 @@ const ESTADOS = [
   { value: "anulada", label: "Anulada" },
 ];
 
-export default async function VentasPage() {
+export default async function VentasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    ver?: string;
+    p?: string;
+    desde?: string;
+    hasta?: string;
+  }>;
+}) {
+  // `?ver=<id>` abre el detalle de esa operación encima de la pantalla.
+  // Cerrarlo es volver a la misma URL sin el parámetro, así que el botón
+  // de atrás del navegador también lo cierra.
+  const sp = await searchParams;
+  const ver = sp.ver;
+  const rango = resolverRango(sp);
   const supabase = await createClient();
   const hoy = hoyISO();
-  const inicioMes = `${hoy.slice(0, 7)}-01`;
+
+  // La URL del período sin el `ver`: a donde vuelve el modal al cerrarse,
+  // para no perder el filtro puesto.
+  const sinModal = (() => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(sp)) if (k !== "ver" && v) q.set(k, String(v));
+    const cola = q.toString();
+    return cola ? `/ventas?${cola}` : "/ventas";
+  })();
 
   const [
     { data: clientes },
@@ -33,6 +59,7 @@ export default async function VentasPage() {
     { data: ventas },
     { data: porMes },
     { data: config },
+    { data: ventasAntes },
   ] = await Promise.all([
       supabase.from("clientes").select("id, nombre").eq("activo", true).order("nombre"),
       supabase.from("lotes").select("id, nombre").eq("activo", true).order("nombre"),
@@ -47,26 +74,45 @@ export default async function VentasPage() {
       supabase
         .from("ventas")
         .select("*, clientes!cliente_id(nombre), vinculante:clientes!vinculante_id(nombre), lotes(nombre)")
+        .gte("fecha", rango.desde)
+        .lte("fecha", rango.hasta)
         .order("fecha", { ascending: false })
-        .limit(80),
+        .limit(300),
       // Toda la historia: el grafico recorta segun el zoom que elijas, y
       // con doce meses la vista por ano perdia parte del ano mas viejo.
       supabase.from("v_ventas_por_mes").select("*").order("mes", { ascending: false }).limit(72),
       supabase.from("config").select("valor").eq("clave", "precio_m2_default").single(),
+      // El mismo tramo una vuelta para atrás: es lo que alimenta las
+      // flechitas de los carteles.
+      supabase
+        .from("ventas")
+        .select("m2, total, estado")
+        .gte("fecha", rango.anterior.desde)
+        .lte("fecha", rango.anterior.hasta),
     ]);
 
-  // Un pedido todavía no es una venta: no suma a los m² ni a lo facturado.
-  const activas = (ventas ?? []).filter(
-    (v: any) => v.estado === "confirmada" || v.estado === "entregada",
-  );
-  const delMes = activas.filter((v: any) => v.fecha >= inicioMes);
-  const m2Mes = delMes.reduce((a, v: any) => a + Number(v.m2 ?? 0), 0);
-  const totalMes = delMes.reduce((a, v: any) => a + Number(v.total ?? 0), 0);
-  const m2Anio = activas
-    .filter((v: any) => v.fecha.startsWith(hoy.slice(0, 4)))
-    .reduce((a, v: any) => a + Number(v.m2 ?? 0), 0);
-  const precioProm = m2Mes > 0 ? totalMes / m2Mes : 0;
+  /*
+   * Qué cuenta como venta hecha.
+   *
+   * Los mismos tres estados que mira Reportes: una venta cosechada ya
+   * tiene el pasto cortado y la mano de obra paga, así que suma igual que
+   * una entregada. Lo único que queda afuera es el presupuesto y el
+   * pedido, que todavía pueden no pasar. Si acá contáramos distinto que en
+   * Reportes, las dos pantallas dirían dos números para el mismo mes.
+   */
+  const CUENTAN = ["cosechada", "confirmada", "entregada"];
+  const activas = (ventas ?? []).filter((v: any) => CUENTAN.includes(v.estado));
+  const m2Periodo = activas.reduce((a, v: any) => a + Number(v.m2 ?? 0), 0);
+  const totalPeriodo = activas.reduce((a, v: any) => a + Number(v.total ?? 0), 0);
+  const precioProm = m2Periodo > 0 ? totalPeriodo / m2Periodo : 0;
   const precioDefault = Number(config?.valor ?? 0) || undefined;
+
+  // Los mismos tres números del tramo anterior, para las flechitas.
+  const antes = ((ventasAntes ?? []) as any[]).filter((v) => CUENTAN.includes(v.estado));
+  const m2Antes = antes.reduce((a, v) => a + Number(v.m2 ?? 0), 0);
+  const totalAntes = antes.reduce((a, v) => a + Number(v.total ?? 0), 0);
+  const precioAntes = m2Antes > 0 ? totalAntes / m2Antes : 0;
+  const contra = rango.anterior.etiqueta;
 
   // El grafico arma sus propias etiquetas segun como lo agrupes, asi que
   // desde aca va el mes crudo.
@@ -103,7 +149,7 @@ export default async function VentasPage() {
     <>
       <PageHeader
         titulo="Ventas"
-        bajada="m² vendidos por cliente y por fecha, con estado de cada operación."
+        bajada={`${rango.etiqueta}: m² vendidos por cliente, con el estado de cada operación.`}
         accion={
           <div className="flex gap-2">
             <Link href="/ventas/pedidos" className="btn-ghost">
@@ -116,11 +162,62 @@ export default async function VentasPage() {
         }
       />
 
+      <div className="mb-3">
+        <FiltroFechas base="/ventas" activo={sp.p} rango={rango} />
+      </div>
+
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
-        <Stat label="m² del mes" valor={m2(m2Mes)} tono="verde" detalle={`${delMes.length} operaciones`} />
-        <Stat label="Facturado del mes" valor={pesos(totalMes)} />
-        <Stat label="Precio promedio m²" valor={pesos(precioProm, 0)} />
-        <Stat label={`m² ${hoy.slice(0, 4)}`} valor={m2(m2Anio)} />
+        <Stat
+          label="m² vendidos"
+          valor={m2(m2Periodo)}
+          destacado
+          detalle={
+            <Variacion
+              actual={m2Periodo}
+              anterior={m2Antes}
+              formato={(n) => m2(n)}
+              contra={contra}
+              sobreOscuro
+            />
+          }
+        />
+        <Stat
+          label="Facturado"
+          valor={pesos(totalPeriodo)}
+          tono="verde"
+          detalle={
+            <Variacion
+              actual={totalPeriodo}
+              anterior={totalAntes}
+              formato={pesos}
+              contra={contra}
+            />
+          }
+        />
+        <Stat
+          label="Precio promedio m²"
+          valor={pesos(precioProm, 0)}
+          detalle={
+            <Variacion
+              actual={precioProm}
+              anterior={precioAntes}
+              formato={(n) => pesos(n, 0)}
+              contra={contra}
+            />
+          }
+        />
+        <Stat
+          label="Operaciones"
+          valor={numero(activas.length)}
+          detalle={
+            <Variacion
+              actual={activas.length}
+              anterior={antes.length}
+              formato={(n) => numero(n)}
+              contra={contra}
+            />
+          }
+        />
       </div>
 
       <div className="mt-3 space-y-3">
@@ -272,7 +369,7 @@ export default async function VentasPage() {
           <BarrasTiempo datos={serie} />
         </Card>
 
-        <Card titulo="Operaciones">
+        <Card titulo={`Operaciones · ${rango.etiqueta.toLowerCase()}`}>
           {/* En el celular quedan tres columnas: el comprador con sus m²
               debajo, el total con el precio por m² debajo, y el estado con
               el lapiz al lado. En la compu siguen todas separadas. */}
@@ -280,21 +377,22 @@ export default async function VentasPage() {
             columnas={[
               { titulo: "Fecha", desde: "sm" },
               { titulo: "Cliente" },
-              { titulo: "m²", desde: "sm" },
-              { titulo: "$/m²", desde: "sm" },
-              { titulo: "Total" },
+              { titulo: "m²", desde: "sm", num: true },
+              { titulo: "$/m²", desde: "sm", num: true },
+              { titulo: "Total", num: true },
               { titulo: "Estado" },
               { titulo: "", ancho: "w-11 sm:w-auto" },
             ]}
-            vacio="Todavía no cargaste ventas."
+            vacio="No hay ventas en este período."
           >
             {(ventas ?? []).map((v: any) => (
               <tr key={v.id}>
                 <td className="td hidden whitespace-nowrap sm:table-cell">{fechaBreve(v.fecha)}</td>
-                <td className="td max-w-0 font-medium">
+                <td className="td max-w-0 font-medium sm:max-w-none">
                   <Link
-                    href={`/ventas/${v.id}`}
-                    className="block truncate hover:underline"
+                    href={`${sinModal}${sinModal.includes("?") ? "&" : "?"}ver=${v.id}`}
+                    scroll={false}
+                    className="block truncate hover:underline sm:overflow-visible"
                     title={`Ver el detalle de la venta de ${v.clientes?.nombre}`}
                   >
                     {v.clientes?.nombre}
@@ -307,11 +405,11 @@ export default async function VentasPage() {
                     </span>
                   )}
                 </td>
-                <td className="td hidden tabular-nums sm:table-cell">{numero(v.m2)}</td>
-                <td className="td hidden tabular-nums sm:table-cell">
+                <td className="td td-num hidden sm:table-cell">{numero(v.m2)}</td>
+                <td className="td td-num hidden sm:table-cell">
                   {pesos(Number(v.precio_m2))}
                 </td>
-                <td className="td tabular-nums font-semibold">
+                <td className="td td-num font-semibold">
                   <Dato
                     principal={pesos(Number(v.total))}
                     secundario={<span className="sm:hidden">{numero(v.m2)} m&sup2;</span>}
@@ -349,6 +447,8 @@ export default async function VentasPage() {
           </Tabla>
         </Card>
       </div>
+
+      {ver && <DetalleVenta ventaId={ver} cerrar={sinModal} />}
     </>
   );
 }

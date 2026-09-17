@@ -135,11 +135,10 @@ export default async function ClientesPage({
           <Tabla
             columnas={[
               { titulo: "Cliente" },
-              { titulo: "Teléfono", desde: "sm" },
-              { titulo: "m² comprados", desde: "sm" },
-              { titulo: "Vendido", desde: "sm" },
-              { titulo: "Cobrado", desde: "sm" },
-              { titulo: "Saldo", align: "right" },
+              { titulo: "m² comprados", desde: "sm", num: true },
+              { titulo: "Vendido", desde: "sm", num: true },
+              { titulo: "Cobrado", desde: "sm", num: true },
+              { titulo: "Saldo", num: true },
               { titulo: "Última compra", ancho: "w-[3.6rem] sm:w-auto" },
               { titulo: "", ancho: "w-11 sm:w-auto" },
             ]}
@@ -154,12 +153,21 @@ export default async function ClientesPage({
               const saldo = Number(cta.saldo ?? 0);
               return (
                 <tr key={c.id}>
-                  <td className="td max-w-0 p-0">
+                  {/* max-w-0 solo en el celular: en la compu sobra el ancho
+                      y cortar "Céspedes Forestal" en "Cesp…" no ahorra nada. */}
+                  <td className="td max-w-0 p-0 sm:max-w-none">
                     <Link
                       href={`/ventas/clientes/${c.id}`}
-                      className="flex min-h-11 items-center gap-2 px-3 transition hover:bg-beige active:bg-beige"
+                      className="flex min-h-11 items-center gap-2 px-3 transition hover:bg-beige active:bg-beige sm:min-h-0 sm:py-1.5"
                     >
-                      <span className="truncate font-semibold">{c.nombre}</span>
+                      <span className="truncate font-semibold sm:overflow-visible">
+                        {c.nombre}
+                        {c.telefono && (
+                          <span className="block text-[11px] font-normal text-tinta-3">
+                            {c.telefono}
+                          </span>
+                        )}
+                      </span>
                       {vista === "todos" && c.canal === "distribuidor" && (
                         <span className="hidden sm:inline">
                           <Chip tono="verde">distribuidor</Chip>
@@ -170,21 +178,18 @@ export default async function ClientesPage({
                       </span>
                     </Link>
                   </td>
-                  <td className="td hidden text-xs text-tinta-2 sm:table-cell">
-                    {c.telefono ?? "—"}
-                  </td>
-                  <td className="td hidden tabular-nums sm:table-cell">
+                  <td className="td td-num hidden sm:table-cell">
                     {numero(cta.m2_vendidos)}
                   </td>
-                  <td className="td hidden tabular-nums sm:table-cell">
+                  <td className="td td-num hidden sm:table-cell">
                     {pesos(Number(cta.total_vendido ?? 0))}
                   </td>
-                  <td className="td hidden tabular-nums sm:table-cell">
+                  <td className="td td-num hidden sm:table-cell">
                     {pesos(Number(cta.total_cobrado ?? 0))}
                   </td>
                   <td
                     className={
-                      "td whitespace-nowrap text-right tabular-nums font-semibold sm:text-left " +
+                      "td td-num whitespace-nowrap font-semibold " +
                       (saldo > 0 ? "text-atencion-tx" : saldo < 0 ? "text-info-tx" : "text-tinta-3")
                     }
                   >

@@ -211,6 +211,14 @@ export type Columna = {
   /** Ancho en el celular, como clase de Tailwind. */
   ancho?: string;
   align?: "left" | "right" | "center";
+  /**
+   * Columna de números: plata, metros, cantidades.
+   *
+   * Alinea el encabezado a la derecha igual que la celda, que es la única
+   * forma de que se entienda qué título corresponde a qué columna cuando
+   * los números van pegados al borde. La celda tiene que llevar `.td-num`.
+   */
+  num?: boolean;
 };
 
 /**
@@ -295,23 +303,27 @@ export function Tabla({
   }
 
   const alineado = (c: Columna) =>
-    c.align === "right" ? "th-der" : c.align === "center" ? "th-centro" : "";
+    c.num || c.align === "right" ? "th-der" : c.align === "center" ? "th-centro" : "";
 
   const filas = Children.count(children);
   const clave = claveDeTabla(columnas, vacio ?? "");
   const titulo = resumen ?? `${filas} ${filas === 1 ? "fila" : "filas"}`;
 
   /*
-   * En el celular la tabla arranca plegada.
+   * El interruptor de plegado, con un default distinto en cada pantalla.
    *
-   * Una pantalla con tres tablas abiertas son cien filas de scroll antes
-   * de llegar a lo que buscabas. Cerradas, se ve el mapa de la pantalla
-   * de un vistazo y abrís la que te interesa.
+   * En el celular la tabla arranca cerrada —tres tablas abiertas son cien
+   * filas de scroll antes de llegar a lo que buscabas— y en la compu
+   * arranca abierta, pero se puede cerrar para sacarla del medio.
    *
-   * Va con un checkbox escondido y no con <details> porque hace falta que
-   * en la compu esté siempre abierta, y a un <details> cerrado no se le
-   * puede mostrar el contenido desde CSS: el navegador no lo dibuja. Con
-   * el checkbox alcanza `sm:block` y no hace falta nada de JavaScript.
+   * Un solo checkbox, sin marcar, quiere decir "nadie tocó nada": ahí la
+   * tabla está cerrada en el celular y abierta en la compu. Marcado
+   * quiere decir "lo tocaste", y entonces se da vuelta en las dos. Por eso
+   * las clases son `peer-checked:block sm:block sm:peer-checked:hidden`.
+   *
+   * Va con checkbox y no con <details> porque a un <details> cerrado no se
+   * le puede mostrar el contenido desde CSS: el navegador no lo dibuja.
+   * Así no hace falta una gota de JavaScript.
    */
   return (
     <div className="w-full overflow-hidden">
@@ -325,7 +337,15 @@ export function Tabla({
       />
       <label
         htmlFor={clave}
-        className="mb-2 flex min-h-11 cursor-pointer select-none items-center justify-between gap-3 rounded-xl bg-crema px-3.5 text-sm font-semibold text-tinta-2 peer-checked:[&_.flecha]:rotate-180 sm:hidden"
+        className={
+          "mb-2 flex min-h-11 cursor-pointer select-none items-center justify-between gap-3 " +
+          "rounded-xl bg-crema px-3.5 text-sm font-semibold text-tinta-2 " +
+          "peer-checked:[&_.flecha]:rotate-180 " +
+          // En la compu es un renglón fino: la tabla ya está abierta y esto
+          // es solo la manija para cerrarla.
+          "sm:mb-1 sm:min-h-0 sm:bg-transparent sm:px-0 sm:py-0.5 sm:text-xs sm:text-tinta-3 " +
+          "sm:[&_.flecha]:rotate-180 sm:peer-checked:[&_.flecha]:rotate-0"
+        }
       >
         <span className="truncate">{titulo}</span>
         <span aria-hidden className="flecha shrink-0 text-[10px] text-tinta-3 transition">
@@ -333,7 +353,7 @@ export function Tabla({
         </span>
       </label>
 
-      <div className="hidden peer-checked:block sm:block">
+      <div className="hidden peer-checked:block sm:block sm:peer-checked:hidden">
       <table className="w-full table-fixed border-collapse overflow-hidden rounded-xl sm:table-auto">
         <thead>
           <tr>

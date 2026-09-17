@@ -1,5 +1,10 @@
-import Link from "next/link";
-import { hoyISO, sumarDiasISO } from "@/lib/format";
+import {
+  ChipFiltro,
+  ChipsMoneda,
+  SepChips,
+  TiraChips,
+} from "@/components/chips-filtro";
+import { hoyISO, lunesDeISO, mesesAtrasISO, sumarDiasISO } from "@/lib/format";
 
 /**
  * El período de un reporte, elegido de lo grande a lo chico: año, mes y
@@ -21,6 +26,13 @@ export type Periodo = {
   mes?: number;
   /** 1 en adelante, según la lista que devuelve `semanasDelMes`. */
   semana?: number;
+  /** El atajo elegido, si se entró por "esta semana" o "semana pasada". */
+  atajo?: "semana" | "semana-1";
+  /**
+   * El mismo tramo una vuelta para atrás, contra el que se comparan los
+   * carteles: la semana anterior, el mes anterior, el año anterior.
+   */
+  anterior: { desde: string; hasta: string; etiqueta: string };
 };
 
 export const MESES = [
@@ -106,8 +118,34 @@ export function semanasDelMes(anio: number, mes: number) {
  * Sin nada en la URL cae en el mes en curso, que es lo que se mira el
  * 90% de las veces.
  */
-export function resolverPeriodo(sp: { a?: string; mes?: string; s?: string }): Periodo {
+export function resolverPeriodo(sp: {
+  a?: string;
+  mes?: string;
+  s?: string;
+  p?: string;
+}): Periodo {
   const hoy = hoyISO();
+
+  // Los dos atajos de semana mandan sobre año/mes/semana: una semana
+  // puede caer partida entre dos meses y no tiene sentido recortarla.
+  if (sp.p === "semana" || sp.p === "semana-1") {
+    const pasada = sp.p === "semana-1";
+    const lunes = pasada ? sumarDiasISO(lunesDeISO(hoy), -7) : lunesDeISO(hoy);
+    const hasta = pasada ? sumarDiasISO(lunes, 6) : hoy;
+    return {
+      desde: lunes,
+      hasta,
+      etiqueta: pasada ? "Semana pasada" : "Esta semana",
+      anio: Number(lunes.slice(0, 4)),
+      atajo: sp.p,
+      anterior: {
+        desde: sumarDiasISO(lunes, -7),
+        hasta: sumarDiasISO(hasta, -7),
+        etiqueta: pasada ? "la anterior" : "la semana pasada",
+      },
+    };
+  }
+
   const anio = Number(sp.a) || Number(hoy.slice(0, 4));
 
   // Sin mes en la URL solo cuando se pidió el año entero a propósito: si
@@ -121,6 +159,11 @@ export function resolverPeriodo(sp: { a?: string; mes?: string; s?: string }): P
       hasta: `${anio}-12-31`,
       etiqueta: `Año ${anio}`,
       anio,
+      anterior: {
+        desde: `${anio - 1}-01-01`,
+        hasta: `${anio - 1}-12-31`,
+        etiqueta: String(anio - 1),
+      },
     };
   }
 
@@ -128,6 +171,8 @@ export function resolverPeriodo(sp: { a?: string; mes?: string; s?: string }): P
   const s = Number(sp.s);
   if (s >= 1 && s <= semanas.length) {
     const sem = semanas[s - 1];
+    // Una semana del mes se compara contra los siete días de antes,
+    // aunque caigan en el mes anterior: es la semana real, no el casillero.
     return {
       desde: sem.desde,
       hasta: sem.hasta,
@@ -135,49 +180,28 @@ export function resolverPeriodo(sp: { a?: string; mes?: string; s?: string }): P
       anio,
       mes,
       semana: s,
+      anterior: {
+        desde: sumarDiasISO(sem.desde, -7),
+        hasta: sumarDiasISO(sem.hasta, -7),
+        etiqueta: "los 7 días de antes",
+      },
     };
   }
 
+  const primero = primerDiaDelMes(anio, mes);
+  const mesAtras = mesesAtrasISO(primero, 1);
   return {
-    desde: primerDiaDelMes(anio, mes),
+    desde: primero,
     hasta: ultimoDiaDelMes(anio, mes),
     etiqueta: `${MESES[mes - 1]} ${anio}`,
     anio,
     mes,
+    anterior: {
+      desde: mesAtras,
+      hasta: ultimoDiaDelMes(Number(mesAtras.slice(0, 4)), Number(mesAtras.slice(5, 7))),
+      etiqueta: MESES_CORTOS[Number(mesAtras.slice(5, 7)) - 1],
+    },
   };
-}
-
-function Chip({
-  href,
-  activo,
-  children,
-}: {
-  href: string;
-  activo: boolean;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className={
-        "inline-flex min-h-11 items-center rounded-full px-3.5 text-sm font-semibold transition sm:min-h-9 " +
-        (activo ? "bg-pasto text-crema" : "bg-beige text-tinta-2 hover:bg-borde")
-      }
-    >
-      {children}
-    </Link>
-  );
-}
-
-function Fila({ titulo, children }: { titulo: string; children: React.ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-2 border-t border-beige pt-3 first:border-0 first:pt-0">
-      <span className="w-14 shrink-0 text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
-        {titulo}
-      </span>
-      <div className="flex flex-1 flex-wrap gap-1.5">{children}</div>
-    </div>
-  );
 }
 
 export function FiltroPeriodo({
@@ -202,76 +226,90 @@ export function FiltroPeriodo({
     (p.s ? `&s=${p.s}` : "") +
     sufijoMoneda;
 
-  const semanas = periodo.mes ? semanasDelMes(periodo.anio, periodo.mes) : [];
+  const linkAtajo = (p: string) => `${base}?p=${p}${sufijoMoneda}`;
+  // Cambiar de moneda no te tiene que devolver al mes en curso.
+  const linkMoneda = (m: "ARS" | "USD") =>
+    (periodo.atajo ? `${base}?p=${periodo.atajo}` : `${base}?a=${periodo.anio}`) +
+    (!periodo.atajo && periodo.mes ? `&mes=${periodo.mes}` : "") +
+    (!periodo.atajo && periodo.semana ? `&s=${periodo.semana}` : "") +
+    (m === "USD" ? "&m=usd" : "");
+
+  // Con un atajo de semana puesto, ningún año ni mes queda elegido: la
+  // semana manda y puede estar partida entre dos meses.
+  const mesElegido = periodo.atajo ? undefined : periodo.mes;
+  const semanas = mesElegido ? semanasDelMes(periodo.anio, mesElegido) : [];
 
   return (
-    <div className="card space-y-3">
-      <Fila titulo="Año">
+    <div className="card space-y-1.5 p-3 sm:p-3.5">
+      {/* Fila 1: los atajos, los años y la moneda. */}
+      <TiraChips>
+        <ChipFiltro href={linkAtajo("semana")} activo={periodo.atajo === "semana"}>
+          Esta semana
+        </ChipFiltro>
+        <ChipFiltro href={linkAtajo("semana-1")} activo={periodo.atajo === "semana-1"}>
+          Semana pasada
+        </ChipFiltro>
+
+        <SepChips />
+
         {anios.map((a) => (
-          <Chip
+          <ChipFiltro
             key={a}
-            href={link({ a, mes: periodo.mes })}
-            activo={a === periodo.anio}
+            href={link({ a, mes: mesElegido })}
+            activo={!periodo.atajo && a === periodo.anio}
           >
             {a}
-          </Chip>
+          </ChipFiltro>
         ))}
-        <Chip href={link({ a: periodo.anio })} activo={!periodo.mes}>
+        <ChipFiltro
+          href={link({ a: periodo.anio })}
+          activo={!periodo.atajo && !periodo.mes}
+        >
           Todo el año
-        </Chip>
-      </Fila>
+        </ChipFiltro>
 
-      <Fila titulo="Mes">
-        {MESES.map((m, i) => (
-          <Chip
+        {moneda && (
+          <>
+            <SepChips />
+            <ChipsMoneda moneda={moneda} link={linkMoneda} />
+          </>
+        )}
+      </TiraChips>
+
+      {/* Fila 2: los doce meses, siempre abreviados. Enteros no entran en
+          un renglón y el filtro pasaba a ocupar media pantalla. */}
+      <TiraChips>
+        {MESES_CORTOS.map((m, i) => (
+          <ChipFiltro
             key={m}
             href={link({ a: periodo.anio, mes: i + 1 })}
-            activo={periodo.mes === i + 1}
+            activo={mesElegido === i + 1}
+            titulo={MESES[i]}
           >
-            {/* En el celular entran los doce con tres letras; en la compu, enteros. */}
-            <span className="sm:hidden">{MESES_CORTOS[i]}</span>
-            <span className="hidden sm:inline">{m}</span>
-          </Chip>
+            {m}
+          </ChipFiltro>
         ))}
-      </Fila>
+      </TiraChips>
 
-      {periodo.mes && (
-        <Fila titulo="Semana">
-          <Chip href={link({ a: periodo.anio, mes: periodo.mes })} activo={!periodo.semana}>
+      {/* Fila 3: las semanas del mes elegido. Si no hay mes, no va. */}
+      {mesElegido && (
+        <TiraChips>
+          <ChipFiltro
+            href={link({ a: periodo.anio, mes: mesElegido })}
+            activo={!periodo.semana}
+          >
             Todo el mes
-          </Chip>
+          </ChipFiltro>
           {semanas.map((s, i) => (
-            <Chip
+            <ChipFiltro
               key={s.desde}
-              href={link({ a: periodo.anio, mes: periodo.mes, s: i + 1 })}
+              href={link({ a: periodo.anio, mes: mesElegido, s: i + 1 })}
               activo={periodo.semana === i + 1}
             >
               {s.label}
-            </Chip>
+            </ChipFiltro>
           ))}
-        </Fila>
-      )}
-
-      {moneda && (
-        <Fila titulo="Moneda">
-          {(["ARS", "USD"] as const).map((m) => (
-            <Link
-              key={m}
-              href={
-                `${base}?a=${periodo.anio}` +
-                (periodo.mes ? `&mes=${periodo.mes}` : "") +
-                (periodo.semana ? `&s=${periodo.semana}` : "") +
-                (m === "USD" ? "&m=usd" : "")
-              }
-              className={
-                "inline-flex min-h-9 items-center rounded-full px-3.5 text-xs font-bold transition " +
-                (moneda === m ? "bg-pasto text-crema" : "bg-beige text-tinta-2 hover:bg-borde")
-              }
-            >
-              {m === "ARS" ? "Pesos" : "Dólares"}
-            </Link>
-          ))}
-        </Fila>
+        </TiraChips>
       )}
     </div>
   );

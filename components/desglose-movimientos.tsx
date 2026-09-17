@@ -106,7 +106,7 @@ export function Desglose({
           <details key={cat.nombre} className="group/cat">
             <summary className="flex min-h-12 cursor-pointer list-none items-center gap-2.5 py-1 pr-1 group-open/cat:[&_.flecha]:rotate-90">
               <Flecha />
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-tinta">
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold text-tinta sm:overflow-visible">
                 {cat.nombre}
                 {cat.tipoPlata !== normal && (
                   <span className="ml-1.5 align-middle">
@@ -142,7 +142,7 @@ export function Desglose({
                 <details key={sub.nombre} className="group/sub border-b border-beige last:border-0">
                   <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2.5 py-1 pr-1 group-open/sub:[&_.flecha]:rotate-90">
                     <Flecha />
-                    <span className="min-w-0 flex-1 truncate text-sm text-tinta-2">
+                    <span className="min-w-0 flex-1 truncate text-sm text-tinta-2 sm:overflow-visible">
                       {sub.nombre}
                     </span>
                     <span className="hidden w-20 shrink-0 text-right text-xs text-tinta-3 sm:block">

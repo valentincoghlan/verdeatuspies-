@@ -7,7 +7,8 @@ import {
   armarRamas,
   type LineaMov,
 } from "@/components/desglose-movimientos";
-import { dolares, fechaLarga, numero, pesos } from "@/lib/format";
+import { Variacion } from "@/components/variacion";
+import { dolares, fechaLarga, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
@@ -27,23 +28,32 @@ export const dynamic = "force-dynamic";
 export default async function MovimientosReportePage({
   searchParams,
 }: {
-  searchParams: Promise<{ a?: string; mes?: string; s?: string; m?: string }>;
+  searchParams: Promise<{ a?: string; mes?: string; s?: string; p?: string; m?: string }>;
 }) {
   const sp = await searchParams;
   const periodo = resolverPeriodo(sp);
   const enUsd = sp.m === "usd";
   const supabase = await createClient();
 
-  const { data } = await supabase
-    .from("v_movimientos")
-    .select(
-      "id, fecha, tipo, monto, monto_usd, detalle, cuenta, persona, cliente, lote, categoria, subcategoria, tipo_plata, origen",
-    )
-    .gte("fecha", periodo.desde)
-    .lte("fecha", periodo.hasta)
-    .order("fecha", { ascending: false });
+  const COLUMNAS =
+    "id, fecha, tipo, monto, monto_usd, detalle, cuenta, persona, cliente, lote, categoria, subcategoria, tipo_plata, origen";
+  const traer = (desde: string, hasta: string) =>
+    supabase
+      .from("v_movimientos")
+      .select(COLUMNAS)
+      .gte("fecha", desde)
+      .lte("fecha", hasta)
+      .order("fecha", { ascending: false });
+
+  // El tramo anterior va en la misma vuelta: es el que alimenta las
+  // flechitas de cada cartel.
+  const [{ data }, { data: dataAntes }] = await Promise.all([
+    traer(periodo.desde, periodo.hasta),
+    traer(periodo.anterior.desde, periodo.anterior.hasta),
+  ]);
 
   const filas = (data ?? []) as any[];
+  const filasAntes = (dataAntes ?? []) as any[];
 
   // En dólares se usa el monto_usd que quedó guardado con la cotización
   // del día del movimiento: es más fiel que reconvertir después.
@@ -70,6 +80,18 @@ export default async function MovimientosReportePage({
     .reduce((a, r) => a + r.total, 0);
   const noOperativo = totalSalidas - operativo;
 
+  // Los mismos cuatro números del tramo anterior, para las flechitas.
+  const sumaAntes = (tipo: string, soloOperativo = false) =>
+    filasAntes
+      .filter(
+        (l) =>
+          l.tipo === tipo && (!soloOperativo || (l.tipo_plata ?? "operativo") === "operativo"),
+      )
+      .reduce((a, l) => a + montoDe(l), 0);
+  const entradasAntes = sumaAntes("I");
+  const salidasAntes = sumaAntes("E");
+  const contra = periodo.anterior.etiqueta;
+
   return (
     <>
       <PageHeader
@@ -95,28 +117,55 @@ export default async function MovimientosReportePage({
           label="Entró"
           valor={plataGrande(totalEntradas)}
           tono="verde"
-          detalle={`${numero(entradas.length)} movimientos`}
+          detalle={
+            <Variacion
+              actual={totalEntradas}
+              anterior={entradasAntes}
+              formato={plataGrande}
+              contra={contra}
+            />
+          }
         />
         <Stat
           label="Salió"
           valor={plataGrande(totalSalidas)}
           tono="ambar"
-          detalle={`${numero(salidas.length)} movimientos`}
+          detalle={
+            <Variacion
+              actual={totalSalidas}
+              anterior={salidasAntes}
+              formato={plataGrande}
+              contra={contra}
+              masEsMejor={false}
+            />
+          }
         />
         <Stat
           label="Neto"
           valor={plataGrande(neto)}
           tono={neto < 0 ? "rojo" : "verde"}
           destacado
-          detalle="Lo que entró menos lo que salió"
+          detalle={
+            <Variacion
+              actual={neto}
+              anterior={entradasAntes - salidasAntes}
+              formato={plataGrande}
+              contra={contra}
+              sobreOscuro
+            />
+          }
         />
         <Stat
           label="Costo operativo"
           valor={plataGrande(operativo)}
           detalle={
-            noOperativo > 0
-              ? `${plataGrande(noOperativo)} no es costo de producir`
-              : "Todo lo que salió es de producir"
+            <Variacion
+              actual={operativo}
+              anterior={sumaAntes("E", true)}
+              formato={plataGrande}
+              contra={contra}
+              masEsMejor={false}
+            />
           }
         />
       </div>
@@ -146,6 +195,11 @@ export default async function MovimientosReportePage({
       </div>
 
       <p className="mt-3 text-xs text-tinta-3">
+        {noOperativo > 0 && (
+          <>
+            De lo que salió, {plataGrande(noOperativo)} no es costo de producir.{" "}
+          </>
+        )}
         Tocá cualquier rubro para abrirlo en subcategorías, y una subcategoría para ver los
         movimientos que la forman. Acá entra todo lo que pasó por la caja, también lo que no
         es costo de producir —inversión, reparto y ajustes van marcados con su etiqueta—, así
