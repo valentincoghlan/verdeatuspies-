@@ -240,15 +240,29 @@ export default async function ReportesPage({
     0,
   );
 
-  // Cada rubro dice qué clase de plata mueve (migración 0028). Solo el
-  // costo operativo entra en el resultado: plantar el campo o comprar el
-  // Tigre son inversión, un dividendo es reparto de la ganancia, y la
-  // cobranza de una venta ya está contada en Facturado.
+  /*
+   * Los dos costos del período, separados (migración 0039).
+   *
+   * COSECHA es variable: sale cada vez que cortás y entregás, y si un mes
+   * no vendés no lo gastás. MANTENIMIENTO es fijo: el campo hay que
+   * regarlo, fertilizarlo y cortarlo igual. Mirarlos juntos escondía la
+   * única pregunta que importa —si un mes malo fue por vender poco o por
+   * gastar de más en el campo—, así que ahora van separados y su suma es
+   * el costo total.
+   *
+   * Afuera queda todo lo demás: plantar el campo o comprar el Tigre son
+   * inversión, un dividendo es reparto de la ganancia, y la cobranza de
+   * una venta ya está contada en Facturado.
+   */
   const egresos = (pagos ?? []) as any[];
-  const suman = (xs: any[], tipo: string) =>
-    xs.filter((x) => (x.tipo_plata ?? "operativo") === tipo).reduce((a, x) => a + montoDe(x), 0);
+  const suman = (xs: any[], ...tipos: string[]) =>
+    xs
+      .filter((x) => tipos.includes(x.tipo_plata ?? "mantenimiento"))
+      .reduce((a, x) => a + montoDe(x), 0);
 
-  const gastado = suman(egresos, "operativo");
+  const costoCosecha = suman(egresos, "cosecha");
+  const costoMantenimiento = suman(egresos, "mantenimiento");
+  const gastado = costoCosecha + costoMantenimiento;
   const invertido = suman(egresos, "inversion");
   const fueraDeCosto = egresos.reduce((a, x) => a + montoDe(x), 0) - gastado;
 
@@ -263,7 +277,7 @@ export default async function ReportesPage({
   // septiembre, el pasto que vendés hoy se plantó hace meses— así que en
   // una ventana corta el cociente no mide nada. En septiembre daba
   // $ 11.290 con un solo pago cargado.
-  const gastado12 = suman((egresos12 ?? []) as any[], "operativo");
+  const gastado12 = suman((egresos12 ?? []) as any[], "cosecha", "mantenimiento");
   const m2Doce = ((ventas12 ?? []) as any[]).reduce((a, v) => a + Number(v.m2 ?? 0), 0);
   const costoPorM2 = m2Doce > 0 ? gastado12 / m2Doce : 0;
 
@@ -284,7 +298,9 @@ export default async function ReportesPage({
     (a, v) => a + conv(Number(v.facturado ?? 0), v.fecha_entrega ?? v.fecha),
     0,
   );
-  const gastadoAntes = suman((pagosAntes ?? []) as any[], "operativo");
+  const antesCosecha = suman((pagosAntes ?? []) as any[], "cosecha");
+  const antesMantenimiento = suman((pagosAntes ?? []) as any[], "mantenimiento");
+  const gastadoAntes = antesCosecha + antesMantenimiento;
   const contra = rango.anterior.etiqueta;
 
   const mejores = operaciones
@@ -374,8 +390,35 @@ export default async function ReportesPage({
           }
         />
         <Stat
-          label="Costo operativo"
+          label="Costo de cosecha"
+          valor={plata(costoCosecha)}
+          detalle={
+            <Variacion
+              actual={costoCosecha}
+              anterior={antesCosecha}
+              formato={plata}
+              contra={contra}
+              masEsMejor={false}
+            />
+          }
+        />
+        <Stat
+          label="Costo de mantenimiento"
+          valor={plata(costoMantenimiento)}
+          detalle={
+            <Variacion
+              actual={costoMantenimiento}
+              anterior={antesMantenimiento}
+              formato={plata}
+              contra={contra}
+              masEsMejor={false}
+            />
+          }
+        />
+        <Stat
+          label="Costo total"
           valor={plata(gastado)}
+          tono="ambar"
           detalle={
             <Variacion
               actual={gastado}
@@ -402,7 +445,8 @@ export default async function ReportesPage({
       <p className="mt-2.5 text-xs text-tinta-3">
         {operaciones.length} entregas
         {sinEntregar.length > 0 && `, ${sinEntregar.length} sin salir todavía`} · el resultado
-        es lo facturado menos el costo operativo, {numero(pctMargen, 1)}% de lo facturado.
+        es lo facturado menos la cosecha y el mantenimiento, {numero(pctMargen, 1)}% de lo
+        facturado. La inversión queda afuera: no es costo de este período.
       </p>
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">

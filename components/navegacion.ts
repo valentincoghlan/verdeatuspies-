@@ -29,8 +29,10 @@ export const SECCIONES: Seccion[] = [
   {
     label: "Ventas",
     items: [
-      // En el orden en que pasan: se toma el pedido, se cosecha, se
-      // entrega y queda la venta.
+      // Pedidos es el módulo: adentro de cada pedido pasa todo el
+      // recorrido —cosechar, entregar, cobrar— sin cambiar de pantalla.
+      // Cosecha queda como la herramienta de contar pilas, y Ventas como
+      // la mirada de plata sobre lo mismo.
       { href: "/ventas/pedidos", label: "Pedidos", icono: "pedidos" },
       { href: "/ventas/cosecha", label: "Cosecha", icono: "cosecha" },
       { href: "/ventas", label: "Ventas", icono: "ventas" },

@@ -14,14 +14,19 @@ const LADOS = [
 ];
 
 const PLATA = [
-  { value: "operativo", label: "Costo operativo" },
+  { value: "cosecha", label: "Costo de cosecha" },
+  { value: "mantenimiento", label: "Costo de mantenimiento" },
   { value: "inversion", label: "Inversión" },
   { value: "cobranza", label: "Cobranza" },
   { value: "financiero", label: "Financiero" },
 ];
 
-const CHIP_PLATA: Record<string, { texto: string; tono: "verde" | "azul" | "neutro" | "ambar" }> = {
-  operativo: { texto: "operativo", tono: "ambar" },
+const CHIP_PLATA: Record<
+  string,
+  { texto: string; tono: "verde" | "azul" | "neutro" | "ambar" | "rojo" }
+> = {
+  cosecha: { texto: "cosecha", tono: "ambar" },
+  mantenimiento: { texto: "mantenimiento", tono: "rojo" },
   inversion: { texto: "inversión", tono: "azul" },
   cobranza: { texto: "cobranza", tono: "verde" },
   financiero: { texto: "financiero", tono: "neutro" },
@@ -67,8 +72,16 @@ export default async function ConfigDatosPage() {
           <p className="mb-1.5 font-bold text-tinta">Y qué clase de plata mueve:</p>
           <ul className="space-y-1">
             <li>
-              <strong>Costo operativo</strong> — producir y vender esta temporada. Es el único que
-              entra en el resultado y en el costo por m².
+              <strong>Costo de cosecha</strong> — lo que sale cada vez que cortás y entregás. Si no
+              cortás, no lo gastás.
+            </li>
+            <li>
+              <strong>Costo de mantenimiento</strong> — lo que cuesta tener el campo vivo, vendas o
+              no: mano de obra, fertilizante, nafta, luz, impuestos.
+            </li>
+            <li className="text-tinta-3">
+              Los dos son los que entran en el resultado del período: facturado menos cosecha menos
+              mantenimiento.
             </li>
             <li>
               <strong>Inversión</strong> — lo que montó el campo. Se hizo una vez y se paga con las
@@ -148,7 +161,7 @@ export default async function ConfigDatosPage() {
                     <select
                       name="tipo_plata"
                       aria-label={`Qué clase de plata mueve ${r.nombre}`}
-                      defaultValue={r.tipo_plata ?? "operativo"}
+                      defaultValue={r.tipo_plata ?? "mantenimiento"}
                       className="h-9 rounded-lg border-[1.5px] border-borde bg-white px-2 text-sm text-tinta"
                     >
                       {PLATA.map((x) => (
@@ -166,8 +179,8 @@ export default async function ConfigDatosPage() {
                   </Formulario>
                   ) : (
                     <span className="ml-auto">
-                      <Chip tono={CHIP_PLATA[r.tipo_plata ?? "operativo"].tono}>
-                        {CHIP_PLATA[r.tipo_plata ?? "operativo"].texto}
+                      <Chip tono={CHIP_PLATA[r.tipo_plata ?? "mantenimiento"].tono}>
+                        {CHIP_PLATA[r.tipo_plata ?? "mantenimiento"].texto}
                       </Chip>
                     </span>
                   )}

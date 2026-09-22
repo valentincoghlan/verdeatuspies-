@@ -694,8 +694,14 @@ export async function cambiarEstadoVenta(fd: FormData) {
  */
 export async function editarVenta(fd: FormData) {
   const { supabase } = await sesion();
+  const id = txt(fd, "id")!;
   const metros = dec(fd, "m2");
   const estado = txt(fd, "estado") ?? "confirmada";
+
+  // Cuántos metros tenía antes: es lo que dice cuánto se movió el pedido
+  // y, con eso, cuánto hay que mover la cosecha que lo está cubriendo.
+  const { data: antes } = await supabase.from("ventas").select("m2").eq("id", id).maybeSingle();
+  const metrosAntes = Number(antes?.m2 ?? 0);
 
   const { error } = await supabase
     .from("ventas")
@@ -709,10 +715,68 @@ export async function editarVenta(fd: FormData) {
       lote_id: txt(fd, "lote_id"),
       notas: txt(fd, "notas"),
     })
-    .eq("id", txt(fd, "id")!);
+    .eq("id", id);
   if (error) throw new Error(`No se pudo guardar la venta: ${error.message}`);
 
-  bump("/ventas", "/ventas/pedidos", "/administracion");
+  await seguirALosMetros(supabase, id, metrosAntes, metros);
+
+  bump("/ventas", "/ventas/pedidos", "/administracion", "/ventas/cosecha");
+}
+
+/**
+ * Si cambian los metros del pedido, la cosecha abierta los sigue.
+ *
+ * Pasa todo el tiempo: te piden 628 m², arrancás a cortar y a mitad de
+ * camino te lo bajan a 578. El contador seguía mostrando el objetivo
+ * viejo y te pedía 144 pilas que ya nadie iba a comprar, sin manera de
+ * corregirlo desde la pantalla.
+ *
+ * Se mueve por diferencia y no se pisa el número: si alguien había
+ * puesto un objetivo de 700 para un pedido de 628 —porque cortaba de más
+ * para stock—, al bajar el pedido a 578 el objetivo queda en 650 y esos
+ * 72 m² de más siguen ahí. Lo mismo con los metros que la cosecha tenía
+ * reservados para ese pedido.
+ *
+ * Solo toca las cosechas ABIERTAS. Una cerrada es historia: dice lo que
+ * se cortó ese día, y eso no cambia porque después se renegocie el
+ * pedido.
+ */
+async function seguirALosMetros(
+  supabase: Sb,
+  ventaId: string,
+  antes: number,
+  ahora: number | null,
+) {
+  if (ahora === null || !Number.isFinite(antes)) return;
+  const delta = Math.round((ahora - antes) * 100) / 100;
+  if (Math.abs(delta) < 0.01) return;
+
+  const { data: enganches } = await supabase
+    .from("cosecha_ventas")
+    .select("cosecha_id, m2, cosechas!inner(id, estado, objetivo_m2)")
+    .eq("venta_id", ventaId)
+    .eq("cosechas.estado", "abierta");
+
+  for (const e of (enganches ?? []) as any[]) {
+    const cosecha = Array.isArray(e.cosechas) ? e.cosechas[0] : e.cosechas;
+    if (!cosecha) continue;
+
+    const objetivo = Math.max(0, Math.round((Number(cosecha.objetivo_m2 ?? 0) + delta) * 100) / 100);
+    await supabase.from("cosechas").update({ objetivo_m2: objetivo }).eq("id", e.cosecha_id);
+
+    // Lo que esta cosecha tenía apartado para el pedido. En cero se deja
+    // en cero: significa que el reparto todavía no se hizo.
+    const reservado = Number(e.m2 ?? 0);
+    if (reservado > 0) {
+      await supabase
+        .from("cosecha_ventas")
+        .update({ m2: Math.max(0, Math.round((reservado + delta) * 100) / 100) })
+        .eq("cosecha_id", e.cosecha_id)
+        .eq("venta_id", ventaId);
+    }
+
+    bump(`/ventas/cosecha/${e.cosecha_id}`);
+  }
 }
 
 export async function borrarVenta(fd: FormData) {
@@ -1345,6 +1409,9 @@ export async function crearTanda(fd: FormData) {
     persona_id: pago.personaId,
     venta_id: ventaId,
     cliente_id: ventaId ? (clientePorVenta.get(ventaId) ?? null) : clienteSuelto,
+    // Los metros del pedido viajan con la parte: son los que definieron
+    // el reparto, y son los que la pantalla muestra al desarmar el pago.
+    metros: ventaId ? (porVenta.get(ventaId)?.m2 ?? null) : null,
     monto,
     moneda: pago.enDolares ? "USD" : "ARS",
     cotizacion: mep,
@@ -1860,8 +1927,115 @@ export async function crearCosecha(fd: FormData) {
     if (error) throw new Error(`No se pudieron guardar los lotes: ${error.message}`);
   }
 
-  bump("/ventas/cosecha");
+  bump("/ventas/cosecha", "/ventas/pedidos", "/ventas");
   if (data?.id) redirect(`/ventas/cosecha/${data.id}`);
+}
+
+/**
+ * Cosechar un pedido desde la pantalla de Pedidos, sin ir a ningún lado.
+ *
+ * Son dos caminos, y el de todos los días es el primero:
+ *
+ *   directo  el pasto ya está cortado y lo único que falta es anotarlo.
+ *            Se pide cuándo, cuántos m² y de qué lote salieron, y con
+ *            eso queda: la cosecha nace cerrada, con los metros escritos
+ *            a mano, y el pedido pasa a "cosechado" en el acto. Nadie
+ *            cuenta una pila.
+ *
+ *   conteo   el contador de siempre, para cuando se corta ahora y se va
+ *            contando por tramo de líneas. Acá solo se abre la cosecha
+ *            —con el pedido y el objetivo ya puestos— y se manda a la
+ *            pantalla del contador.
+ *
+ * Los lotes vienen en dos listas paralelas, `lote_id` y `m2_lote`: la
+ * fila 1 de una con la fila 1 de la otra. En el modo conteo los m² no
+ * viajan, porque salen de las pilas.
+ */
+export async function cosecharPedido(fd: FormData) {
+  const { supabase, user } = await sesion();
+
+  const ventaId = txt(fd, "venta_id");
+  if (!ventaId) throw new Error("No se sabe para qué pedido es esta cosecha.");
+
+  const directo = txt(fd, "modo") !== "conteo";
+  const fecha = txt(fd, "fecha") ?? hoyISO();
+
+  const lotes = fd.getAll("lote_id").map(String).filter(Boolean);
+  if (lotes.length === 0) throw new Error("Elegí de qué lote salió el pasto.");
+
+  // Los m² de cada lote, en el mismo orden que los lotes. Un lote sin
+  // número queda en cero y no se guarda: se eligió y no se cargó nada.
+  const metrosPorLote = fd
+    .getAll("m2_lote")
+    .map((v) => Number(String(v).replace(",", ".")))
+    .map((n) => (Number.isFinite(n) && n > 0 ? n : 0));
+
+  const { data: pedido } = await supabase
+    .from("ventas")
+    .select("m2, estado, fecha_entrega")
+    .eq("id", ventaId)
+    .maybeSingle();
+  if (!pedido) throw new Error("No se encontró el pedido.");
+
+  const cortado = directo ? metrosPorLote.reduce((a, b) => a + b, 0) : 0;
+  if (directo && cortado <= 0) throw new Error("Poné cuántos m² cortaste.");
+
+  // El objetivo es lo que pidió el comprador: es contra eso que la
+  // pantalla mide cuánto falta. En el modo directo, si se cortó de más,
+  // el objetivo sigue siendo el pedido y la cosecha lo pasa.
+  const objetivo = dec(fd, "objetivo_m2") ?? Number(pedido.m2 ?? 0);
+
+  const { data: nueva, error: errCosecha } = await supabase
+    .from("cosechas")
+    .insert({
+      fecha,
+      lote_id: lotes[0] ?? null,
+      venta_id: ventaId,
+      objetivo_m2: objetivo > 0 ? objetivo : cortado,
+      modo: directo ? "directo" : "conteo",
+      estado: directo ? "cerrada" : "abierta",
+      pan_largo_m: dec(fd, "pan_largo_m") ?? 0.62,
+      pan_ancho_m: dec(fd, "pan_ancho_m") ?? 0.4,
+      panes_por_pila: num(fd, "panes_por_pila") ?? 2,
+      notas: txt(fd, "notas"),
+      created_by: user.id,
+    })
+    .select("id")
+    .single();
+  if (errCosecha || !nueva?.id) {
+    throw new Error(`No se pudo abrir la cosecha: ${errCosecha?.message ?? "sin id"}`);
+  }
+
+  const { error: errLotes } = await supabase.from("cosechas_lotes").insert(
+    lotes.map((lote_id, i) => ({
+      cosecha_id: nueva.id,
+      lote_id,
+      // En el modo conteo los m² salen de las pilas: acá no se escribe
+      // nada, si no se contarían dos veces.
+      m2: directo ? metrosPorLote[i] ?? 0 : null,
+    })),
+  );
+  if (errLotes) throw new Error(`No se pudieron guardar los lotes: ${errLotes.message}`);
+
+  // El pedido queda enganchado a la cosecha desde el minuto cero, en los
+  // dos modos: es lo que hace que el contador sepa para quién corta.
+  const { error: errReparto } = await supabase
+    .from("cosecha_ventas")
+    .insert({ cosecha_id: nueva.id, venta_id: ventaId, m2: directo ? cortado : 0 });
+  if (errReparto) throw new Error(`No se pudo enganchar el pedido: ${errReparto.message}`);
+
+  if (directo) {
+    // Cortado y asignado: el pedido avanza un escalón. Solo desde
+    // "pedido", que una entregada no vuelve para atrás por esto.
+    await supabase
+      .from("ventas")
+      .update({ estado: "cosechada" })
+      .eq("id", ventaId)
+      .eq("estado", "pedido");
+  }
+
+  bump("/ventas/pedidos", "/ventas/cosecha", "/ventas", "/administracion");
+  if (!directo) redirect(`/ventas/cosecha/${nueva.id}`);
 }
 
 /**
@@ -1899,14 +2073,14 @@ export async function guardarCarga(fd: FormData) {
   );
   if (error) throw new Error(`No se pudo guardar la carga: ${error.message}`);
 
-  bump("/ventas/cosecha", `/ventas/cosecha/${cosechaId}`);
+  bump("/ventas/cosecha", `/ventas/cosecha/${cosechaId}`, "/ventas/pedidos");
 }
 
 export async function borrarCarga(fd: FormData) {
   const { supabase } = await sesion();
   const cosechaId = txt(fd, "cosecha_id")!;
   await supabase.from("cosecha_cargas").delete().eq("id", txt(fd, "id")!);
-  bump("/ventas/cosecha", `/ventas/cosecha/${cosechaId}`);
+  bump("/ventas/cosecha", `/ventas/cosecha/${cosechaId}`, "/ventas/pedidos");
 }
 
 export async function cambiarEstadoCosecha(fd: FormData) {
@@ -1916,7 +2090,7 @@ export async function cambiarEstadoCosecha(fd: FormData) {
     .from("cosechas")
     .update({ estado: txt(fd, "estado") ?? "cerrada" })
     .eq("id", id);
-  bump("/ventas/cosecha", `/ventas/cosecha/${id}`);
+  bump("/ventas/cosecha", `/ventas/cosecha/${id}`, "/ventas/pedidos", "/ventas");
 }
 
 /**
@@ -1978,7 +2152,7 @@ export async function repartirCosecha(fd: FormData) {
 export async function borrarCosecha(fd: FormData) {
   const { supabase } = await sesion();
   await supabase.from("cosechas").delete().eq("id", txt(fd, "id")!);
-  bump("/ventas/cosecha");
+  bump("/ventas/cosecha", "/ventas/pedidos", "/ventas");
   redirect("/ventas/cosecha");
 }
 
@@ -2114,7 +2288,9 @@ export async function guardarCategoria(fd: FormData) {
     // Una categoría nueva hereda la clase de plata de su rubro; si es un
     // rubro nuevo, arranca como costo operativo.
     const padreId = txt(fd, "padre_id");
-    let heredado = tipoPlata ?? "operativo";
+    // Sin nada elegido cae en mantenimiento: es el costo de fondo y lo
+    // deja adentro del resultado en vez de esconderlo (migración 0039).
+    let heredado = tipoPlata ?? "mantenimiento";
     if (padreId) {
       const { data: padre } = await supabase
         .from("categorias")

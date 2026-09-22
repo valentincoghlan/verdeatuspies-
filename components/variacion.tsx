@@ -47,12 +47,23 @@ export function Variacion({
   const dif = actual - anterior;
   const pct = (dif / Math.abs(anterior)) * 100;
 
-  if (Math.abs(pct) < 0.5) {
+  if (anterior > 0 && Math.abs(pct) < 0.5) {
     return <span className={apagado}>Igual que {contra}</span>;
   }
 
   const subio = dif > 0;
   const bien = subio === masEsMejor;
+
+  /*
+   * El porcentaje solo se muestra si el período anterior dio positivo.
+   *
+   * Con una base negativa el número sale bien de la calculadora y mal de
+   * la cabeza: pasar de perder $ 2.133.929 a ganar $ 8.203.150 daba
+   * "+484%", como si hubiera crecido cinco veces, cuando en realidad
+   * cambió de signo. En ese caso se muestra solo la diferencia en plata,
+   * que es lo único que se entiende.
+   */
+  const conPorcentaje = anterior > 0;
   const color = sobreOscuro
     ? bien
       ? "text-brote"
@@ -69,10 +80,13 @@ export function Variacion({
       <span className="font-semibold tabular-nums">
         {formato(Math.abs(dif))}
       </span>
-      <span className="tabular-nums opacity-80">
-        {numero(Math.abs(pct), 0)}%
+      {conPorcentaje && (
+        <span className="tabular-nums opacity-80">{numero(Math.abs(pct), 0)}%</span>
+      )}
+      <span className={apagado}>
+        vs {contra}
+        {!conPorcentaje && " (venía en rojo)"}
       </span>
-      <span className={apagado}>vs {contra}</span>
     </span>
   );
 }

@@ -86,7 +86,7 @@ export default async function CosechaPage({
     <>
       <PageHeader
         titulo="Cosecha"
-        bajada="Contá las pilas por tramo de líneas y la app te dice cuánto llevás y cuánto falta."
+        bajada="El contador de pilas, para cuando se corta y se cuenta en el momento. Si el pasto ya está cortado, cerrá la cosecha desde el pedido."
       />
 
       <div className="mb-3">
@@ -218,6 +218,11 @@ export default async function CosechaPage({
                   </td>
                   <td className="td">
                     <Chip tono={c.estado === "cerrada" ? "verde" : "ambar"}>{c.estado}</Chip>
+                    {/* Las cargadas de una no tienen conteo atrás: conviene
+                        que se note, para no buscar unas pilas que no están. */}
+                    {c.modo === "directo" && (
+                      <span className="block text-xs text-tinta-3 sm:ml-1 sm:inline">sin conteo</span>
+                    )}
                   </td>
                   {/* El lápiz entra a la cosecha: ahí se sigue contando o
                       se cierra, según cómo esté. */}

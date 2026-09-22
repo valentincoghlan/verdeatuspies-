@@ -13,7 +13,9 @@ import { Tanda } from "@/components/tanda";
 import { FechaDeCarga, ProveedorCarga } from "@/components/carga";
 import { PedidosDeCarga } from "@/components/pedidos-de-carga";
 import { PersonaDeCarga } from "@/components/persona-de-carga";
+import { PagoRepartido } from "@/components/pago-repartido";
 import { crearMovimiento, crearPersona, crearTanda } from "@/lib/actions";
+import { agruparTandas } from "@/lib/tandas";
 import { esAdmin } from "@/lib/rol";
 import { fechaBreve, fechaDM, hoyISO, numero, pesos } from "@/lib/format";
 import { Formulario, Guardar } from "@/components/guardar";
@@ -106,7 +108,11 @@ export default async function CajaPage({
         // `monto` está siempre en pesos, sin importar en qué moneda se
         // escribió: por eso se suman todos. Los ajustes de saldo quedan
         // afuera: corrigen un arrastre, no son plata que se movió.
-        .select("tipo, monto")
+        //
+        // Las tres claves de la tanda viajan para poder contar pagos y no
+        // filas: si no, el cartel diría "52 movimientos" y en la tabla se
+        // verían diez.
+        .select("id, tipo, monto, tanda_id, cuenta_id, persona_id")
         .neq("categoria", "Ajustes")
         .gte("fecha", rango.desde)
         .lte("fecha", rango.hasta),
@@ -127,6 +133,9 @@ export default async function CajaPage({
   const todos = (totales ?? []) as any[];
   const ingresos = todos.filter((m) => m.tipo === "I").reduce((a, m) => a + Number(m.monto), 0);
   const egresos = todos.filter((m) => m.tipo === "E").reduce((a, m) => a + Number(m.monto), 0);
+  // Cuántos pagos hubo en el período: una tanda cuenta una vez, que es
+  // como se ven en la tabla.
+  const cuantosPagos = agruparTandas(todos, (m: any) => Number(m.monto)).length;
 
   // El saldo en pesos y el de dólares se cuentan por separado: una misma
   // cuenta puede tener movimientos en las dos monedas.
@@ -199,6 +208,28 @@ export default async function CajaPage({
     });
   }
   const pedidosElegibles = [...porId.values()];
+
+  /*
+    La tanda se vuelve a juntar para mostrarla.
+
+    Un día de cosecha que abasteció diez pedidos son diez movimientos —uno
+    por pedido, con su parte proporcional a los metros—, y así se guardan:
+    es lo que hace que el costo de cada cosecha cierre. Pero en la lista
+    eso no fue lo que pasó: salió UNA plata de UNA cuenta. Se muestra el
+    pago entero y, tocándolo, a dónde fue.
+  */
+  const metrosDe = (m: any) =>
+    Number(m.metros ?? 0) || Number(porId.get(m.venta_id)?.m2 ?? 0);
+
+  const pagos = agruparTandas(lista, (m: any) => Number(m.monto));
+
+  const desarmar = (partes: any[]) =>
+    partes.map((m) => ({
+      id: m.id as string,
+      quien: (m.cliente ?? porId.get(m.venta_id)?.comprador ?? "Sin pedido") as string,
+      m2: metrosDe(m),
+      monto: Number(m.monto),
+    }));
 
   // Quiénes deben plata hoy: en un cobro son los únicos que pueden ser
   // "quién pagó", y eligiendo uno la lista de entregas queda en las suyas.
@@ -305,17 +336,17 @@ export default async function CajaPage({
             rango={rango}
             categorias={nombresCategoria}
             cuentas={opcionesCuenta.map((c) => c.nombre)}
-            cuantos={todos.length}
+            cuantos={cuantosPagos}
           />
           <p className="mb-3 text-sm text-tinta-2">
-            {todos.length} movimientos (sin contar ajustes de saldo) · entró{" "}
+            {cuantosPagos} movimientos (sin contar ajustes de saldo) · entró{" "}
             <strong className="text-pasto">{pesos(ingresos)}</strong> · salió{" "}
             <strong className="text-atencion-tx">{pesos(egresos)}</strong> · diferencia{" "}
             <strong className="text-tinta">{pesos(ingresos - egresos)}</strong>
           </p>
           {todos.length > lista.length && (
             <p className="mb-3 text-sm text-tinta-2">
-              Mostrando los {lista.length} más recientes de {todos.length} del período. Achicá el
+              Mostrando los {pagos.length} más recientes de {cuantosPagos} del período. Achicá el
               rango de fechas para ver el resto.
             </p>
           )}
@@ -332,15 +363,25 @@ export default async function CajaPage({
             ]}
             vacio="No hay movimientos en este período."
           >
-            {lista.map((m) => (
+            {pagos.map((pago) => {
+              // La cabeza tiene la fecha, la categoría, la cuenta y la
+              // persona: en una tanda esas cuatro son iguales en todas
+              // las partes, porque son las que definen el pago.
+              const m = pago.cabeza as any;
+              const repartido = pago.partes.length > 0;
+              const metros = repartido
+                ? pago.partes.reduce((a, p) => a + metrosDe(p), 0)
+                : metrosDe(m);
+
+              return (
               <tr key={m.id}>
-                <td className="td whitespace-nowrap px-1.5 text-[11px] sm:px-3 sm:text-sm">
+                <td className="td whitespace-nowrap px-1.5 align-top text-[11px] sm:px-3 sm:text-sm">
                   {/* Sin año: la tarjeta ya dice de qué período es, y con
                       el año la fecha salía cortada ("03/09/2"). */}
                   <span className="sm:hidden">{fechaDM(m.fecha)}</span>
                   <span className="hidden sm:inline">{fechaBreve(m.fecha)}</span>
                 </td>
-                <td className="td">
+                <td className="td align-top">
                   <span className="td-envuelve block text-[13px] font-semibold leading-tight sm:text-sm">
                     {m.categoria ?? "—"}
                   </span>
@@ -349,8 +390,9 @@ export default async function CajaPage({
                       {m.subcategoria}
                     </span>
                   )}
+                  {repartido && <PagoRepartido partes={desarmar(pago.partes)} />}
                 </td>
-                <td className="td">
+                <td className="td align-top">
                   <span className="block text-[13px] leading-tight sm:text-sm">
                     {m.persona ?? "—"}
                   </span>
@@ -362,26 +404,31 @@ export default async function CajaPage({
                       (m.tipo === "I" ? "text-pasto" : "text-atencion-tx")
                     }
                   >
-                    {m.tipo === "I" ? "+" : "−"} {pesos(Number(m.monto))}
+                    {m.tipo === "I" ? "+" : "−"} {pesos(pago.total)}
                   </span>
-                  {m.metros ? (
+                  {metros > 0 ? (
                     <span className="block text-[11px] leading-tight text-tinta-3">
-                      {numero(m.metros)} m²
+                      {numero(metros)} m²
                     </span>
                   ) : null}
                 </td>
-                <td className="td hidden text-tinta-2 sm:table-cell">{m.detalle ?? "—"}</td>
-                <td className="td hidden text-tinta-2 sm:table-cell">{m.cuenta ?? "—"}</td>
+                <td className="td hidden align-top text-tinta-2 sm:table-cell">
+                  {m.detalle ?? "—"}
+                </td>
+                <td className="td hidden align-top text-tinta-2 sm:table-cell">
+                  {m.cuenta ?? "—"}
+                </td>
                 <td
                   className={
-                    "td hidden whitespace-nowrap tabular-nums font-semibold sm:table-cell " +
+                    "td hidden whitespace-nowrap align-top tabular-nums font-semibold sm:table-cell " +
                     (m.tipo === "I" ? "text-pasto" : "text-atencion-tx")
                   }
                 >
-                  {m.tipo === "I" ? "+" : "−"} {pesos(Number(m.monto))}
+                  {m.tipo === "I" ? "+" : "−"} {pesos(pago.total)}
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </Tabla>
         </Card>
 

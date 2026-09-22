@@ -27,6 +27,11 @@ export type LineaMov = {
   subcategoria: string | null;
   tipo_plata: string | null;
   origen: string | null;
+  /**
+   * Entre cuántos pedidos se repartió este pago. Solo lo traen los que
+   * vinieron de una tanda; el resto es un movimiento y nada más.
+   */
+  partes?: number;
 };
 
 export type Rama = {
@@ -39,7 +44,8 @@ export type Rama = {
 
 /** Cómo se llama cada clase de plata cuando no es la normal de ese lado. */
 const ETIQUETA_PLATA: Record<string, string> = {
-  operativo: "operativo",
+  cosecha: "cosecha",
+  mantenimiento: "mantenimiento",
   inversion: "inversión",
   financiero: "financiero",
   cobranza: "cobranza",
@@ -52,7 +58,14 @@ function concepto(l: LineaMov) {
 
 /** Lo que acompaña abajo, en chico: de qué cuenta salió y a qué lote fue. */
 function contexto(l: LineaMov) {
-  const partes = [l.cuenta, l.lote, l.detalle?.trim() ? l.persona : null].filter(Boolean);
+  const partes = [
+    l.cuenta,
+    l.lote,
+    l.detalle?.trim() ? l.persona : null,
+    // Un pago repartido se muestra junto: que se sepa que ese número es
+    // de varios pedidos y no de uno.
+    l.partes ? `repartido entre ${l.partes} pedidos` : null,
+  ].filter(Boolean);
   return partes.join(" · ");
 }
 
@@ -73,7 +86,7 @@ export function Desglose({
   tono,
   plata,
   vacio,
-  normal,
+  normales,
 }: {
   ramas: Rama[];
   total: number;
@@ -82,12 +95,12 @@ export function Desglose({
   plata: (n: number) => string;
   vacio: string;
   /**
-   * Qué clase de plata es la esperable de este lado: cobranza en lo que
-   * entra, operativo en lo que sale. Solo se marca con chip lo que se
-   * sale de eso; si no, el cartelito aparece en todas las filas y deja
-   * de avisar nada.
+   * Qué clases de plata son las esperables de este lado: la cobranza en
+   * lo que entra, y cosecha y mantenimiento en lo que sale. Solo se marca
+   * con chip lo que se sale de eso —una inversión, un ajuste—; si no, el
+   * cartelito aparece en todas las filas y deja de avisar nada.
    */
-  normal: string;
+  normales: string[];
 }) {
   if (ramas.length === 0) {
     return (
@@ -108,7 +121,7 @@ export function Desglose({
               <Flecha />
               <span className="min-w-0 flex-1 truncate text-sm font-semibold text-tinta sm:overflow-visible">
                 {cat.nombre}
-                {cat.tipoPlata !== normal && (
+                {!normales.includes(cat.tipoPlata) && (
                   <span className="ml-1.5 align-middle">
                     <Chip tono="neutro">{ETIQUETA_PLATA[cat.tipoPlata] ?? cat.tipoPlata}</Chip>
                   </span>
@@ -219,7 +232,7 @@ export function armarRamas(lineas: LineaMov[], monto: (l: LineaMov) => number): 
       cat = {
         nombre: nombreCat,
         total: 0,
-        tipoPlata: l.tipo_plata ?? "operativo",
+        tipoPlata: l.tipo_plata ?? "mantenimiento",
         subs: [],
         cantidad: 0,
       };

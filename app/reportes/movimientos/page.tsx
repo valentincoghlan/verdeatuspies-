@@ -8,6 +8,7 @@ import {
   type LineaMov,
 } from "@/components/desglose-movimientos";
 import { Variacion } from "@/components/variacion";
+import { agruparTandas } from "@/lib/tandas";
 import { dolares, fechaLarga, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -35,8 +36,10 @@ export default async function MovimientosReportePage({
   const enUsd = sp.m === "usd";
   const supabase = await createClient();
 
+  // Las tres últimas son las claves de la tanda: sirven para volver a
+  // juntar un pago que se repartió entre varios pedidos.
   const COLUMNAS =
-    "id, fecha, tipo, monto, monto_usd, detalle, cuenta, persona, cliente, lote, categoria, subcategoria, tipo_plata, origen";
+    "id, fecha, tipo, monto, monto_usd, detalle, cuenta, persona, cliente, lote, categoria, subcategoria, tipo_plata, origen, tanda_id, cuenta_id, persona_id";
   const traer = (desde: string, hasta: string) =>
     supabase
       .from("v_movimientos")
@@ -62,22 +65,46 @@ export default async function MovimientosReportePage({
   const plata = enUsd ? (n: number) => dolares(n, 2) : (n: number) => pesos(n);
   const plataGrande = enUsd ? (n: number) => dolares(n) : (n: number) => pesos(n);
 
-  const entradas = filas.filter((l) => l.tipo === "I") as LineaMov[];
-  const salidas = filas.filter((l) => l.tipo === "E") as LineaMov[];
+  /*
+    Un pago repartido entre varios pedidos se cuenta como uno.
 
-  const ramasEntradas = armarRamas(entradas, montoDe);
-  const ramasSalidas = armarRamas(salidas, montoDe);
+    Adentro sigue siendo una fila por pedido —es lo que hace que el costo
+    de cada cosecha cierre—, pero acá se mira la caja: salió una plata de
+    una cuenta. De paso, cada línea queda con el monto en la moneda que se
+    está mirando, que es la que después dibuja el desglose.
+  */
+  const juntar = (lineas: any[]): LineaMov[] =>
+    agruparTandas(lineas, montoDe).map((p) => {
+      const cabeza = p.cabeza as any;
+      if (!p.partes.length) return { ...cabeza, monto: montoDe(cabeza) };
+      return {
+        ...cabeza,
+        monto: p.total,
+        partes: p.partes.length,
+        // El cliente de la primera parte no es el del pago: el pago fue
+        // de todos. Sin él, la línea se nombra por su detalle o su persona.
+        cliente: null,
+      };
+    });
+
+  const entradas = juntar(filas.filter((l) => l.tipo === "I"));
+  const salidas = juntar(filas.filter((l) => l.tipo === "E"));
+
+  const ramasEntradas = armarRamas(entradas, (l) => l.monto);
+  const ramasSalidas = armarRamas(salidas, (l) => l.monto);
 
   const totalEntradas = ramasEntradas.reduce((a, r) => a + r.total, 0);
   const totalSalidas = ramasSalidas.reduce((a, r) => a + r.total, 0);
   const neto = totalEntradas - totalSalidas;
 
-  // Cuánto de lo que salió es costo de producir y vender, y cuánto es
-  // otra cosa. Sin este corte, un mes con una compra de maquinaria parece
-  // un desastre operativo.
-  const operativo = ramasSalidas
-    .filter((r) => r.tipoPlata === "operativo")
-    .reduce((a, r) => a + r.total, 0);
+  // Los dos costos del período, separados. Sin este corte, un mes con una
+  // compra de maquinaria parece un desastre operativo, y no se ve si lo
+  // que se fue de precio fue cortar o mantener.
+  const deTipo = (t: string) =>
+    ramasSalidas.filter((r) => r.tipoPlata === t).reduce((a, r) => a + r.total, 0);
+  const costoCosecha = deTipo("cosecha");
+  const costoMantenimiento = deTipo("mantenimiento");
+  const operativo = costoCosecha + costoMantenimiento;
   const noOperativo = totalSalidas - operativo;
 
   // Los mismos cuatro números del tramo anterior, para las flechitas.
@@ -85,7 +112,9 @@ export default async function MovimientosReportePage({
     filasAntes
       .filter(
         (l) =>
-          l.tipo === tipo && (!soloOperativo || (l.tipo_plata ?? "operativo") === "operativo"),
+          l.tipo === tipo &&
+          (!soloOperativo ||
+            ["cosecha", "mantenimiento"].includes(l.tipo_plata ?? "mantenimiento")),
       )
       .reduce((a, l) => a + montoDe(l), 0);
   const entradasAntes = sumaAntes("I");
@@ -177,7 +206,7 @@ export default async function MovimientosReportePage({
             total={totalEntradas}
             tono="verde"
             plata={plata}
-            normal="cobranza"
+            normales={["cobranza"]}
             vacio="No entró plata en este período."
           />
         </Card>
@@ -188,7 +217,7 @@ export default async function MovimientosReportePage({
             total={totalSalidas}
             tono="ambar"
             plata={plata}
-            normal="operativo"
+            normales={["cosecha", "mantenimiento"]}
             vacio="No salió plata en este período."
           />
         </Card>

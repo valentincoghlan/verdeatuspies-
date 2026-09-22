@@ -42,8 +42,10 @@ app/
   mantenimiento/cortes           cortes por lote y control de atraso
   mantenimiento/fertilizaciones  agenda, aplicación y catálogo de productos
   mantenimiento/lluvias          mm reales del pluviómetro vs. pronóstico
-  ventas                         ventas por cliente, m² por mes
-  ventas/cosecha                 cosechas: contar pilas y repartirlas entre pedidos
+  ventas/pedidos                 EL MÓDULO: el recorrido entero de cada pedido
+  ventas                         ventas por cliente, m² por mes (la mirada de plata)
+  ventas/cosecha                 el contador de pilas y el historial de cosechas
+  ventas/[id]                    la ficha de una venta: cobros, gastos, margen
   ventas/clientes                clientes y cuenta corriente
   administracion                 cobros, pagos, saldos, caja
   config                         lotes, zonas, integraciones, equipo
@@ -55,6 +57,8 @@ lib/
   hydrawise.ts                   integración con la API de Hunter
   clima.ts                       Open-Meteo
   caudal.ts                      mm/hora de cada zona (la regla vive solo ahi)
+  etapas.ts                      las etapas del recorrido de un pedido (nombres y colores)
+  metros.ts                      el diccionario de m² y el embudo del período
   mail.ts                        plantilla HTML + envío con Resend
   format.ts                      pesos, m², mm, fechas, días entre fechas
   supabase/{server,client}.ts    clientes de Supabase (server usa cookies; admin usa service role)
@@ -115,6 +119,51 @@ middleware.ts                    protege todas las rutas menos /login, /auth y /
 
 Cada notificación lleva una `clave_unica` para no duplicarse entre corridas. El mail es
 un digest: junta todo lo pendiente en un solo envío.
+
+## El recorrido de un pedido
+
+Un pedido no tiene "estados" repartidos por pantalla: tiene **un camino**, y
+`/ventas/pedidos` es el módulo donde pasa entero. Cada tarjeta trae el botón del
+paso que sigue, así que nunca hay que cambiar de pantalla para avanzar.
+
+```
+pedido → en cosecha → cosechado → entregado → cobrado
+```
+
+**La etapa no se guarda.** La calcula `v_flujo_pedidos` cada vez, a partir de tres
+cosas que ya existen: el estado de la venta, si tiene una cosecha **abierta**
+encima y cuánta plata entró contra ella. Como nadie la mueve a mano, no puede
+quedar desfasada. Los nombres, colores y el orden viven en `lib/etapas.ts` **y en
+ningún otro lado**.
+
+| Etapa | Cuándo | El botón de la tarjeta |
+|---|---|---|
+| `pedido` | Tomado, sin cortar nada | Cosechar |
+| `en_cosecha` | Hay un contador de pilas abierto para ese pedido | Seguir contando |
+| `cosechado` | `ventas.estado` es `cosechada`/`confirmada` | Se entregó |
+| `entregado` | `ventas.estado` es `entregada` y debe plata | Registrar el cobro |
+| `cobrado` | Entregada y sin saldo (tolerancia de $0,50) | — |
+
+Afuera del camino quedan `presupuesto` (todavía no es un pedido) y `anulado`.
+Un contador abierto **manda sobre el estado**: un pedido cosechado a medias con
+una segunda cosecha en curso vuelve a leerse como `en_cosecha`, porque lo que hay
+para hacer hoy es terminarla.
+
+**Las dos maneras de cosechar** (columna `cosechas.modo`):
+
+| Modo | Cuándo se usa | Cómo salen los m² |
+|---|---|---|
+| `conteo` | Se corta ahora y se va contando por tramo de líneas | pilas × panes × largo × ancho |
+| `directo` | El pasto ya está cortado y solo hay que anotarlo | escritos a mano en `cosechas_lotes.m2` |
+
+El directo es el de todos los días y se hace desde la tarjeta del pedido:
+cuándo, cuántos metros y de qué lote. Nace **cerrada**, se engancha al pedido y lo
+pasa a `cosechado` en el acto. El de conteo abre el contador de siempre y te lleva
+a `/ventas/cosecha/[id]`. Los dos pasan por `cosecharPedido()`.
+
+Cuidado con una cosa: una cosecha **abierta** ya está en `cosecha_ventas` (el
+contador necesita saber para quién corta) pero todavía no cortó nada. Por eso
+`v_flujo_pedidos` solo cuenta como cosechado lo que asignó una cosecha **cerrada**.
 
 ## Cómo funcionan los riegos
 

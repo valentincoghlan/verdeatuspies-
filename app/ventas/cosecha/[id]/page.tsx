@@ -74,6 +74,9 @@ export default async function ContarCosechaPage({
   const filas = (cargas ?? []) as any[];
   const proxima = Number(c.ultima_linea ?? 0) + 1;
   const cerrada = c.estado === "cerrada";
+  // Una cosecha cargada de una no tiene pilas que contar: los m² se
+  // escribieron a mano por lote. El contador no aplica.
+  const directa = c.modo === "directo";
 
   const desglose = ((porLote ?? []) as any[])
     .filter((x) => x.lote)
@@ -131,7 +134,7 @@ export default async function ContarCosechaPage({
         }
       />
 
-      {desglose.length > 1 && (
+      {(directa || desglose.length > 1) && desglose.length > 0 && (
         <div className="mb-3 rounded-2xl border border-borde bg-crema p-3.5">
           <p className="text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">
             De dónde salió
@@ -149,6 +152,22 @@ export default async function ContarCosechaPage({
         </div>
       )}
 
+      {directa ? (
+        <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
+          <Stat label="Cosechado" valor={m2(cortado)} destacado detalle="Cargado a mano, sin conteo" />
+          <Stat
+            label="Objetivo"
+            valor={m2(objetivo)}
+            detalle={falta > 0 ? `faltan ${m2(falta)}` : "cubierto"}
+          />
+          <Stat
+            label="Lotes"
+            valor={c.lote ?? "—"}
+            detalle={`${desglose.length} de donde salió`}
+          />
+          <Stat label="Estado" valor={cerrada ? "Cerrada" : "Abierta"} detalle={fechaLarga(c.fecha)} />
+        </div>
+      ) : (
       <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
         <Stat
           label="Falta cortar"
@@ -168,6 +187,7 @@ export default async function ContarCosechaPage({
           detalle={`Pan de ${numero(c.pan_largo_m, 2)} × ${numero(c.pan_ancho_m, 2)} m`}
         />
       </div>
+      )}
 
       {/* Barra de avance: se ve de lejos, con el celular en la mano. */}
       <div className="mt-4 h-4 overflow-hidden rounded-full bg-beige">
@@ -175,7 +195,7 @@ export default async function ContarCosechaPage({
       </div>
 
       <div className="mt-3 space-y-3">
-        {!cerrada && (
+        {!cerrada && !directa && (
           <Card titulo="Contar">
             {/* Los tres campos en una sola fila: cuando se abre el teclado del
                 celular queda muy poca pantalla y hay que verlos todos juntos. */}
@@ -288,7 +308,9 @@ export default async function ContarCosechaPage({
         >
           {filas.length === 0 ? (
             <p className="rounded-[16px] bg-crema py-8 text-center text-[15px] text-tinta-2">
-              Todavía no contaste nada.
+              {directa
+                ? `Esta cosecha se cargó de una: ${m2(cortado)} escritos a mano, sin contar pilas.`
+                : "Todavía no contaste nada."}
             </p>
           ) : (
             <details className="group">
