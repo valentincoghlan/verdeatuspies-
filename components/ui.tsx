@@ -189,27 +189,37 @@ export function CardPlegable({
    *
    * Antes era texto negro sobre blanco con una flechita gris: igual que
    * el encabezado de cualquier tarjeta, así que el ojo lo salteaba
-   * buscando dónde cargar. Cerrada va en verde con un "+" lleno; abierta
-   * se apaga sola, porque ahí lo que importa es el formulario y no el
-   * cartel de arriba. El "+" gira 45 grados y queda una cruz de cerrar.
+   * buscando dónde cargar. Cerrada es una barra verde llena con texto
+   * crema, que es el único bloque de ese color en una pantalla de cartas
+   * blancas sobre fondo cálido: se encuentra sin leer.
+   *
+   * Abierta se apaga sola —vuelve a blanco— porque ahí lo que importa es
+   * el formulario y no el cartel de arriba, y porque dos o tres barras
+   * verdes abiertas al mismo tiempo serían una pared. El "+" gira 45
+   * grados y queda una cruz de cerrar.
    */
   return (
     <section className="card overflow-hidden p-0">
       <details className="group" open={abierta}>
-        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 bg-hecho-bg px-4 transition group-open:bg-white sm:px-5">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 bg-pasto px-4 transition group-open:bg-white sm:px-5">
           <span className="min-w-0">
-            <span className="block text-sm font-bold text-pasto-oscuro group-open:text-tinta">
+            <span className="block text-sm font-bold text-crema group-open:text-tinta">
               {titulo}
             </span>
+            {/* pasto-nav y no pasto-claro: en 12px la bajada queda en 4,6:1
+                con el claro y en 5,8:1 con este. El piso del proyecto es
+                4,5 y esto se lee con sol. */}
             {bajada && (
-              <span className="block truncate text-xs text-pasto group-open:text-tinta-3">
+              <span className="block truncate text-xs text-pasto-nav group-open:text-tinta-3">
                 {bajada}
               </span>
             )}
           </span>
+          {/* Sobre verde fuerte el círculo va al revés: crema con el "+"
+              verde. Un círculo verde sobre verde no se vería. */}
           <span
             aria-hidden
-            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-pasto text-xl font-bold leading-none text-crema transition group-open:rotate-45 group-open:bg-crema group-open:text-tinta-3"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-crema text-xl font-bold leading-none text-pasto transition group-open:rotate-45 group-open:bg-crema group-open:text-tinta-3"
           >
             +
           </span>

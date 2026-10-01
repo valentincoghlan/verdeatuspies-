@@ -230,7 +230,7 @@ export default async function Dashboard() {
             </Link>
             <Link
               href="/ventas/pedidos#nuevo"
-              className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-pasto/20 bg-hecho-bg px-3 text-sm font-bold text-pasto-oscuro transition active:scale-[.98]"
+              className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl bg-pasto px-3 text-sm font-bold text-crema transition active:scale-[.98]"
             >
               <span aria-hidden className="text-lg leading-none">
                 +
