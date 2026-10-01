@@ -229,8 +229,8 @@ export default async function Dashboard() {
               Cargar movimiento
             </Link>
             <Link
-              href="/ventas/pedidos"
-              className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-borde-boton bg-white px-3 text-sm font-bold text-pasto transition active:scale-[.98]"
+              href="/ventas/pedidos#nuevo"
+              className="flex min-h-12 items-center justify-center gap-1.5 rounded-2xl border-[1.5px] border-pasto/20 bg-hecho-bg px-3 text-sm font-bold text-pasto-oscuro transition active:scale-[.98]"
             >
               <span aria-hidden className="text-lg leading-none">
                 +

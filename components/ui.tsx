@@ -181,24 +181,46 @@ export function CardPlegable({
   bajada?: string;
   children: ReactNode;
   abierta?: boolean;
+  /** Ancla para llegar desde otra pantalla. Abre la tarjeta al caer acá. */
   id?: string;
 }) {
+  /*
+   * Cerrada tiene que leerse como un botón, no como un título.
+   *
+   * Antes era texto negro sobre blanco con una flechita gris: igual que
+   * el encabezado de cualquier tarjeta, así que el ojo lo salteaba
+   * buscando dónde cargar. Cerrada va en verde con un "+" lleno; abierta
+   * se apaga sola, porque ahí lo que importa es el formulario y no el
+   * cartel de arriba. El "+" gira 45 grados y queda una cruz de cerrar.
+   */
   return (
-    <section id={id} className="card p-0">
+    <section className="card overflow-hidden p-0">
       <details className="group" open={abierta}>
-        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 sm:px-5">
+        <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 bg-hecho-bg px-4 transition group-open:bg-white sm:px-5">
           <span className="min-w-0">
-            <span className="block text-sm font-bold text-tinta">{titulo}</span>
-            {bajada && <span className="block truncate text-xs text-tinta-3">{bajada}</span>}
+            <span className="block text-sm font-bold text-pasto-oscuro group-open:text-tinta">
+              {titulo}
+            </span>
+            {bajada && (
+              <span className="block truncate text-xs text-pasto group-open:text-tinta-3">
+                {bajada}
+              </span>
+            )}
           </span>
           <span
             aria-hidden
-            className="flex size-8 shrink-0 items-center justify-center rounded-full bg-crema text-xs text-tinta-2 transition group-open:rotate-180"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-pasto text-xl font-bold leading-none text-crema transition group-open:rotate-45 group-open:bg-crema group-open:text-tinta-3"
           >
-            ▾
+            +
           </span>
         </summary>
-        <div className="border-t border-beige p-4 sm:p-5">{children}</div>
+        {/* El ancla va acá adentro, no en la <section>: el navegador abre
+            un <details> cerrado solo cuando el fragmento al que vas cae
+            adentro de él. Puesto afuera, el atajo te deja en la tarjeta
+            pero cerrada. */}
+        <div id={id} className="border-t border-beige p-4 sm:p-5">
+          {children}
+        </div>
       </details>
     </section>
   );

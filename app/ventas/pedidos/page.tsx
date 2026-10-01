@@ -246,7 +246,7 @@ export default async function PedidosPage({
       </div>
 
       <div className="mt-3 space-y-3">
-        <CardPlegable titulo="Nuevo pedido" bajada="Cuándo sale, para quién y cuánto">
+        <CardPlegable id="nuevo" titulo="Nuevo pedido" bajada="Cuándo sale, para quién y cuánto">
           <Formulario action={crearPedido} className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {/* Primero cuándo se entrega, que es lo que define todo lo demás. */}
             <Campo label="Entrega" name="fecha_entrega" type="date" required />
