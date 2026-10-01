@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardPlegable, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Campo, Nota, Opciones, Selector } from "@/components/campos";
@@ -360,6 +361,7 @@ export default async function CajaPage({
               { titulo: "Detalle", desde: "sm" },
               { titulo: "Cuenta", desde: "sm" },
               { titulo: "Monto", desde: "sm" },
+              { titulo: "" },
             ]}
             vacio="No hay movimientos en este período."
           >
@@ -425,6 +427,18 @@ export default async function CajaPage({
                   }
                 >
                   {m.tipo === "I" ? "+" : "−"} {pesos(pago.total)}
+                </td>
+                <td className="td px-1 text-right align-top sm:px-3">
+                  {/* Corregir lo que se cargó mal. Va como link y no como
+                      formulario desplegable: la ficha necesita media
+                      pantalla y acá lo que importa es la lista. */}
+                  <Link
+                    href={`/administracion/${m.id}`}
+                    aria-label="Corregir este movimiento"
+                    className="-my-2 inline-flex size-11 items-center justify-center rounded-full text-tinta-3 transition active:bg-crema hover:text-pasto sm:-my-1 sm:size-9"
+                  >
+                    ✎
+                  </Link>
                 </td>
               </tr>
               );

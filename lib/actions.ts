@@ -1595,6 +1595,142 @@ export async function saldarCliente(fd: FormData) {
   );
 }
 
+/**
+ * Corregir un movimiento ya cargado.
+ *
+ * Se carga desde el campo, con el celular en una mano y a veces con la
+ * plata todavía en la mano: se escribe mal el monto, se elige la cuenta
+ * de al lado, falta el detalle. Hasta ahora la única salida era borrarlo
+ * —y borrar es solo del dueño— y cargarlo de nuevo.
+ *
+ * Puede cualquiera del equipo, igual que cargar: el que se equivocó
+ * escribiendo el número es el que tiene que poder arreglarlo. Borrar
+ * sigue siendo solo del dueño, que es lo que no deja rastro.
+ *
+ * Lo que NO se toca acá es de qué venta cuelga el movimiento: eso tiene
+ * su propio camino en Pedidos, donde se ve contra qué entrega se está
+ * imputando.
+ */
+export async function editarMovimiento(fd: FormData) {
+  const { supabase } = await sesion();
+  const id = txt(fd, "id");
+  if (!id) throw new Error("Falta el movimiento a editar.");
+
+  const { data: actual } = await supabase
+    .from("movimientos")
+    .select("id, tanda_id, cuenta_id, persona_id, moneda, cotizacion")
+    .eq("id", id)
+    .maybeSingle();
+  if (!actual) throw new Error("No encontré ese movimiento.");
+
+  const categoriaId = txt(fd, "categoria_id");
+  await exigirCategoria(supabase, categoriaId);
+
+  const personaId = await idPorNombreOCrear(supabase, "personas", txt(fd, "persona"), {
+    tipo: "otro",
+  });
+
+  // Lo que es del pago entero y no de cada pedacito. En una tanda esto
+  // vale para todas las partes: son las que definen qué pago fue.
+  const comun = {
+    fecha: txt(fd, "fecha") ?? hoyISO(),
+    categoria_id: categoriaId,
+    cuenta_id: txt(fd, "cuenta_id"),
+    persona_id: personaId,
+    lote_id: txt(fd, "lote_id"),
+    detalle: txt(fd, "detalle"),
+    notas: txt(fd, "notas"),
+  };
+
+  /*
+    Un pago repartido entre pedidos son varias filas, cada una con su
+    parte proporcional a los metros. El monto de cada parte no se toca
+    desde acá: cambiar una sola rompería el reparto en silencio. Se
+    corrigen los datos del pago —fecha, rubro, cuenta, quién, detalle— en
+    todas las partes a la vez, y si el número está mal se borra el pago
+    entero y se vuelve a cargar.
+  */
+  if (actual.tanda_id) {
+    const { error } = await supabase
+      .from("movimientos")
+      .update(comun)
+      .eq("tanda_id", actual.tanda_id)
+      .eq("cuenta_id", actual.cuenta_id)
+      .eq("persona_id", actual.persona_id);
+    if (error) throw new Error(`No se pudo guardar el cambio: ${error.message}`);
+  } else {
+    // El monto se escribe en la moneda en que se guardó. La cotización
+    // no se recalcula: es la del día en que pasó, no la de hoy.
+    const escrito = dec(fd, "monto");
+    if (escrito === null) throw new Error("Falta el monto.");
+
+    const enDolares = actual.moneda === "USD";
+    const cotizacion = actual.cotizacion ? Number(actual.cotizacion) : null;
+    const monto =
+      enDolares && cotizacion ? Number((escrito * cotizacion).toFixed(2)) : escrito;
+    const montoUsd = enDolares
+      ? escrito
+      : cotizacion
+        ? Number((monto / cotizacion).toFixed(2))
+        : null;
+
+    const { error } = await supabase
+      .from("movimientos")
+      .update({ ...comun, monto, monto_usd: montoUsd })
+      .eq("id", id);
+    if (error) throw new Error(`No se pudo guardar el cambio: ${error.message}`);
+  }
+
+  bump(
+    "/administracion",
+    "/administracion/disponibilidades",
+    "/reportes",
+    "/reportes/movimientos",
+    "/ventas",
+    "/ventas/pedidos",
+    "/ventas/clientes",
+    "/",
+  );
+  redirect("/administracion");
+}
+
+/**
+ * Borrar un pago repartido: se van todas sus partes juntas.
+ *
+ * De a una no serviría: quedarían las otras nueve y el pago seguiría
+ * ahí, por menos plata. Como borrar, es solo del dueño.
+ */
+export async function borrarTanda(fd: FormData) {
+  const { supabase } = await soloAdmin("borrar movimientos");
+  const id = txt(fd, "id");
+  if (!id) throw new Error("Falta el movimiento.");
+
+  const { data: m } = await supabase
+    .from("movimientos")
+    .select("tanda_id, cuenta_id, persona_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!m?.tanda_id) throw new Error("Ese movimiento no es parte de un pago repartido.");
+
+  await supabase
+    .from("movimientos")
+    .delete()
+    .eq("tanda_id", m.tanda_id)
+    .eq("cuenta_id", m.cuenta_id)
+    .eq("persona_id", m.persona_id);
+
+  bump(
+    "/administracion",
+    "/administracion/disponibilidades",
+    "/reportes",
+    "/reportes/movimientos",
+    "/ventas",
+    "/ventas/pedidos",
+    "/",
+  );
+  redirect("/administracion");
+}
+
 export async function borrarMovimiento(fd: FormData) {
   // Un movimiento borrado le cambia el saldo a todos y no deja rastro.
   const { supabase } = await soloAdmin("borrar movimientos");
