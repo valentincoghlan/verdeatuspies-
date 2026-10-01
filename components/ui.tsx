@@ -114,7 +114,7 @@ export function Plegable({
   children: ReactNode;
 }) {
   return (
-    <details open={abierta} className="card group p-0">
+    <details open={abierta} className="card card-plano group">
       <summary className="flex cursor-pointer list-none items-center gap-2 p-4">
         <h2 className="text-[11px] font-bold uppercase tracking-[.08em] text-tinta-3">{titulo}</h2>
         {detalle && <span className="text-xs text-tinta-3">{detalle}</span>}
@@ -199,7 +199,7 @@ export function CardPlegable({
    * grados y queda una cruz de cerrar.
    */
   return (
-    <section className="card overflow-hidden p-0">
+    <section className="card card-plano overflow-hidden">
       <details className="group" open={abierta}>
         <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 bg-pasto px-4 transition group-open:bg-white sm:px-5">
           <span className="min-w-0">
