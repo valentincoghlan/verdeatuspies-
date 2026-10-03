@@ -1081,6 +1081,9 @@ async function movimientoDe(
         ? Number((monto / cotizacion).toFixed(2))
         : null;
 
+  const ventaId = txt(fd, "venta_id");
+  const clienteId = await clienteDelMovimiento(sb, fd, ventaId);
+
   return {
     fecha: txt(fd, "fecha") ?? hoyISO(),
     cuenta_id: txt(fd, "cuenta_id") ?? (await idPorNombre(sb, "cuentas", txt(fd, "cuenta"))),
@@ -1103,11 +1106,31 @@ async function movimientoDe(
     cotizacion,
     monto_usd: montoUsd,
     lote_id: txt(fd, "lote_id"),
-    venta_id: txt(fd, "venta_id"),
-    cliente_id: txt(fd, "cliente_id"),
+    venta_id: ventaId,
+    cliente_id: clienteId,
     notas: txt(fd, "notas"),
     created_by: userId,
   };
+}
+
+/**
+ * De quién es este movimiento.
+ *
+ * El formulario de Movimientos deja elegir el PEDIDO, no el cliente: es
+ * lo que se tiene en la cabeza cuando entra una transferencia ("esto es
+ * de la entrega del jueves"). Pero la cuenta corriente suma por cliente,
+ * así que un cobro sin `cliente_id` quedaba colgado de la venta y era
+ * invisible en el saldo del comprador: la plata estaba, el saldo no
+ * bajaba, y no había forma de darse cuenta mirando la pantalla.
+ *
+ * Si el formulario mandó el cliente, manda ese. Si no, sale del pedido.
+ */
+async function clienteDelMovimiento(sb: Sb, fd: FormData, ventaId: string | null) {
+  const escrito = txt(fd, "cliente_id");
+  if (escrito || !ventaId) return escrito;
+
+  const { data } = await sb.from("ventas").select("cliente_id").eq("id", ventaId).maybeSingle();
+  return (data?.cliente_id as string | null) ?? null;
 }
 
 /* ------------------------------------------------------------------ */
