@@ -26,8 +26,8 @@ export type Periodo = {
   mes?: number;
   /** 1 en adelante, según la lista que devuelve `semanasDelMes`. */
   semana?: number;
-  /** El atajo elegido, si se entró por "esta semana" o "semana pasada". */
-  atajo?: "semana" | "semana-1";
+  /** El atajo elegido, si se entró por uno de los chips sueltos. */
+  atajo?: "semana" | "semana-1" | "todo";
   /**
    * El mismo tramo una vuelta para atrás, contra el que se comparan los
    * carteles: la semana anterior, el mes anterior, el año anterior.
@@ -126,6 +126,20 @@ export function resolverPeriodo(sp: {
 }): Periodo {
   const hoy = hoyISO();
 
+  // Sin recorte: la ficha de un cliente arranca así, mostrando todo lo que
+  // compró desde siempre. No tiene tramo anterior contra el cual comparar
+  // —no hay nada antes de todo—, así que va vacío.
+  if (sp.p === "todo") {
+    return {
+      desde: "0001-01-01",
+      hasta: "9999-12-31",
+      etiqueta: "Todo",
+      anio: Number(hoy.slice(0, 4)),
+      atajo: "todo",
+      anterior: { desde: "0001-01-01", hasta: "0001-01-01", etiqueta: "—" },
+    };
+  }
+
   // Los dos atajos de semana mandan sobre año/mes/semana: una semana
   // puede caer partida entre dos meses y no tiene sentido recortarla.
   if (sp.p === "semana" || sp.p === "semana-1") {
@@ -208,11 +222,14 @@ export function FiltroPeriodo({
   base,
   periodo,
   moneda,
+  conTodo,
 }: {
   base: string;
   periodo: Periodo;
   /** Si va, aparece el interruptor de pesos/dólares. */
   moneda?: "ARS" | "USD";
+  /** Suma el chip "Todo", que saca el recorte de fechas. */
+  conTodo?: boolean;
 }) {
   const hoy = hoyISO();
   const esteAnio = Number(hoy.slice(0, 4));
@@ -243,6 +260,14 @@ export function FiltroPeriodo({
     <div className="card space-y-1.5 p-3 sm:p-3.5">
       {/* Fila 1: los atajos, los años y la moneda. */}
       <TiraChips>
+        {conTodo && (
+          <>
+            <ChipFiltro href={linkAtajo("todo")} activo={periodo.atajo === "todo"}>
+              Todo
+            </ChipFiltro>
+            <SepChips />
+          </>
+        )}
         <ChipFiltro href={linkAtajo("semana")} activo={periodo.atajo === "semana"}>
           Esta semana
         </ChipFiltro>
