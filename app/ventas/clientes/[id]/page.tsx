@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Card, Chip, PageHeader, Stat, Tabla } from "@/components/ui";
 import { Dato } from "@/components/dato";
 import { FiltroPeriodo, resolverPeriodo } from "@/components/filtro-periodo";
+import { CopiarResumen } from "@/components/copiar-resumen";
 import { fechaBreve, fechaLarga, m2, numero, pesos } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -170,11 +171,37 @@ export default async function ClientePage({
         <Card
           titulo={`Resumen · ${periodo.etiqueta}`}
           accion={
-            !todo && (
-              <span className="text-xs text-tinta-3">
-                del {fechaLarga(periodo.desde)} al {fechaLarga(periodo.hasta)}
-              </span>
-            )
+            <div className="flex items-center gap-3">
+              {!todo && (
+                <span className="hidden text-xs text-tinta-3 sm:inline">
+                  del {fechaLarga(periodo.desde)} al {fechaLarga(periodo.hasta)}
+                </span>
+              )}
+              <CopiarResumen
+                datos={{
+                  cliente: cliente.nombre,
+                  periodo: periodo.etiqueta,
+                  desde: periodo.desde,
+                  hasta: periodo.hasta,
+                  todo,
+                  saldoAnterior,
+                  entregado,
+                  metros: metrosPeriodo,
+                  cobrado,
+                  saldoCierre,
+                  compras: entregas.map((v) => ({
+                    fecha: fechaDe(v),
+                    total: Number(v.total),
+                    m2: Number(v.m2),
+                  })),
+                  pagos: pagosPeriodo.map((p: any) => ({
+                    fecha: p.fecha as string,
+                    monto: Number(p.monto),
+                    medio: (p.cuenta ?? null) as string | null,
+                  })),
+                }}
+              />
+            </div>
           }
         >
           <div className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-4">
