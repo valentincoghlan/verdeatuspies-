@@ -332,6 +332,7 @@ export default async function CajaPage({
             lotes={opcionesLote}
             pedidos={pedidosElegibles}
             hoy={hoy}
+            mep={mep}
             accion={crearTanda}
           />
         </CardPlegable>

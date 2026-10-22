@@ -50,6 +50,33 @@ export const montoDe = (r: Renglon) => {
 
 export const totalDe = (rs: Renglon[]) => rs.reduce((a, r) => a + montoDe(r), 0);
 
+export type CuentaDeRenglon = { id: string; moneda?: string };
+
+/**
+ * Lo que vale el renglón **en pesos**.
+ *
+ * La cuenta decide en qué moneda se escribió y la cotización lo pasa a
+ * pesos. Es la misma cuenta que hace el servidor al guardar, y tiene que
+ * ser la misma: la deuda de una entrega está en pesos, así que comparar
+ * contra ella los 2.700 dólares escritos haría creer que un cobro tapa
+ * mil veces menos de lo que tapa.
+ *
+ * Sin cotización ni MEP se devuelve lo escrito, igual que el guardado:
+ * el movimiento queda sin valorizar y eso se ve, no se inventa un número.
+ */
+export const enPesosDe = (r: Renglon, cuentas: CuentaDeRenglon[], mep: number | null) => {
+  const monto = montoDe(r);
+  if (cuentas.find((c) => c.id === r.cuenta)?.moneda !== "USD") return monto;
+
+  const escrita = Number(String(r.cotizacion).replace(/\./g, "").replace(",", "."));
+  const dolar = Number.isFinite(escrita) && escrita > 0 ? escrita : mep;
+
+  return dolar ? Math.round(monto * dolar * 100) / 100 : monto;
+};
+
+export const totalEnPesos = (rs: Renglon[], cuentas: CuentaDeRenglon[], mep: number | null) =>
+  rs.reduce((a, r) => a + enPesosDe(r, cuentas, mep), 0);
+
 /** Los que tienen plata y cuenta: los únicos que se van a guardar. */
 export const renglonesValidos = (rs: Renglon[]) => rs.filter((r) => montoDe(r) > 0 && r.cuenta);
 

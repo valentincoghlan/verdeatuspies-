@@ -5,12 +5,12 @@ import { FechaDeCarga, ProveedorCarga, useCarga } from "@/components/carga";
 import { PedidosDeCarga, type PedidoElegible } from "@/components/pedidos-de-carga";
 import { QuePaso, type Rubro } from "@/components/que-paso";
 import {
-  montoDe,
+  enPesosDe,
   Renglon,
   Renglones,
   renglonVacio,
   renglonesValidos,
-  totalDe,
+  totalEnPesos,
 } from "@/components/renglones";
 import { cancelarDeLaMasVieja, repartirProporcional } from "@/lib/reparto";
 import { Formulario, Guardar } from "@/components/guardar";
@@ -53,11 +53,13 @@ export function Tanda(props: Parametros) {
 type Parametros = {
   rubros: Rubro[];
   admin: boolean;
-  cuentas: { id: string; nombre: string }[];
+  cuentas: { id: string; nombre: string; moneda?: string }[];
   personas: string[];
   lotes: { value: string; label: string }[];
   pedidos: PedidoElegible[];
   hoy: string;
+  /** Para pasar a pesos los renglones en dólares que no traigan cotización. */
+  mep: number | null;
   accion: (fd: FormData) => Promise<void>;
 };
 
@@ -69,6 +71,7 @@ function FormularioDeTanda({
   lotes,
   pedidos,
   hoy,
+  mep,
   accion,
 }: Parametros) {
   const carga = useCarga();
@@ -76,7 +79,8 @@ function FormularioDeTanda({
     renglonVacio(cuentas[0]?.id ?? ""),
   ]);
 
-  const total = totalDe(renglones);
+  // En pesos: es la moneda en la que está la deuda de cada entrega.
+  const total = totalEnPesos(renglones, cuentas, mep);
   const listos = renglonesValidos(renglones);
   const esCobro = (carga?.lado ?? "E") === "I";
 
@@ -135,7 +139,7 @@ function FormularioDeTanda({
   const cobro =
     esCobro && destinos.length
       ? cancelarDeLaMasVieja(
-          listos.map((r) => ({ id: r.key, monto: montoDe(r) })),
+          listos.map((r) => ({ id: r.key, monto: enPesosDe(r, cuentas, mep) })),
           destinos.map((d) => ({ id: d.id, debe: d.pendiente, fecha: d.fecha })),
         )
       : null;
