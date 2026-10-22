@@ -11,12 +11,18 @@ export type CuentaOpcion = { nombre: string; moneda: string };
  *
  * Van de la mano: la cuenta decide en qué moneda se carga (todas son
  * pesos menos USD) y el monto se valoriza solo en la otra moneda con el
- * dólar MEP del día. Antes había que escribir la cotización a mano en un
- * campo aparte y era opcional: si te la olvidabas, el movimiento quedaba
- * sin valorizar y el negocio se mide en dólares.
+ * dólar MEP del día. La cotización a mano volvió, pero sólo en dólares y
+ * con el MEP ya puesto: así no se puede olvidar —si no la tocás queda la
+ * del día— y se puede cambiar cuando el dólar del negocio no es el del
+ * mercado.
  *
- * El formulario manda `cuenta`, `monto` y `moneda`; el server action se
- * encarga de guardar las dos cifras.
+ * Eso pasa cada vez que cobrás una venta en dólares: lo que vale ese
+ * pago contra la deuda no es el MEP, es el dólar que pactaste con el
+ * comprador. Con 2.000 dólares a 1.560 le estás bajando $3.120.000 de
+ * deuda, y al MEP del día sería otro número.
+ *
+ * El formulario manda `cuenta`, `monto`, `moneda` y `cotizacion`; el
+ * server action se encarga de guardar las dos cifras.
  */
 export function CuentaYMonto({
   cuentas,
@@ -27,20 +33,29 @@ export function CuentaYMonto({
 }) {
   const [cuenta, setCuenta] = useState("");
   const [monto, setMonto] = useState("");
+  const [cotizacion, setCotizacion] = useState("");
 
   const moneda = cuentas.find((c) => c.nombre === cuenta)?.moneda ?? "ARS";
   const enDolares = moneda === "USD";
 
   // Los montos se escriben con coma, como en el teclado del celular.
-  const valor = Number(monto.replace(/\./g, "").replace(",", "."));
-  const hayValor = monto.trim() !== "" && Number.isFinite(valor) && valor !== 0;
+  const aNumero = (texto: string) => {
+    const n = Number(texto.replace(/\./g, "").replace(",", "."));
+    return texto.trim() !== "" && Number.isFinite(n) && n !== 0 ? n : null;
+  };
+
+  const valor = aNumero(monto);
+  const pactada = enDolares ? aNumero(cotizacion) : null;
+
+  // La que manda para valorizar: la escrita si hay, y si no el MEP.
+  const dolar = pactada ?? mep;
 
   const equivalente =
-    !hayValor || !mep
+    valor === null || !dolar
       ? null
       : enDolares
-        ? pesos(valor * mep)
-        : dolares(valor / mep, 2);
+        ? pesos(valor * dolar)
+        : dolares(valor / dolar, 2);
 
   return (
     <>
@@ -77,12 +92,40 @@ export function CuentaYMonto({
         />
         <p className="mt-1 text-xs text-tinta-3">
           {equivalente
-            ? `Son ${equivalente} al MEP de hoy`
+            ? `Son ${equivalente}${pactada ? ` a ${pesos(pactada)}` : " al MEP de hoy"}`
             : mep
               ? `Dólar MEP ${pesos(mep)}`
               : "Falta la cotización del día"}
         </p>
       </div>
+
+      {/* Sólo en dólares: en una cuenta en pesos el dólar del día alcanza
+          y un campo más sería ruido en una pantalla que se usa parada. */}
+      {enDolares && (
+        <div className="col-span-1">
+          <label className="label" htmlFor="cotizacion">
+            Cotización{" "}
+            <span className="font-normal text-tinta-3">la que pactaste</span>
+          </label>
+          <input
+            id="cotizacion"
+            name="cotizacion"
+            type="text"
+            inputMode="decimal"
+            value={cotizacion}
+            onChange={(e) => setCotizacion(e.target.value)}
+            placeholder={mep ? String(Math.round(mep)) : "1560"}
+            className="input"
+          />
+          <p className="mt-1 text-xs text-tinta-3">
+            {pactada
+              ? "Con esta valoriza el pago"
+              : mep
+                ? `Vacío = MEP de hoy, ${pesos(mep)}`
+                : "Sin MEP del día: conviene escribirla"}
+          </p>
+        </div>
+      )}
     </>
   );
 }
