@@ -24,6 +24,13 @@ export type Renglon = {
   persona: string;
   cuenta: string;
   monto: string;
+  /**
+   * El dólar con el que se valoriza ESTE renglón. Vacío = el MEP del
+   * día. Sólo se pide cuando la cuenta del renglón es en dólares, y es
+   * por renglón y no arriba porque un mismo cobro puede entrar mitad en
+   * pesos y mitad en dólares a un valor pactado.
+   */
+  cotizacion: string;
 };
 
 let proximo = 0;
@@ -32,6 +39,7 @@ export const renglonVacio = (cuenta = ""): Renglon => ({
   persona: "",
   cuenta,
   monto: "",
+  cotizacion: "",
 });
 
 /** Lo que se escribió, como número. Vacío o basura vale cero. */
@@ -57,7 +65,7 @@ export function Renglones({
 }: {
   renglones: Renglon[];
   onChange: (rs: Renglon[]) => void;
-  cuentas: { id: string; nombre: string }[];
+  cuentas: { id: string; nombre: string; moneda?: string }[];
   /** Sin esto no se pide persona: sirve para los cobros. */
   personas?: string[];
   etiquetaPersona?: string;
@@ -149,6 +157,27 @@ export function Renglones({
                   ))}
                 </select>
               </div>
+              {/* Sólo si ESTE renglón va a una cuenta en dólares: lo que
+                  el pago vale contra la deuda es el dólar que pactaron,
+                  no el del mercado. Vacío sigue siendo el MEP del día. */}
+              {cuentas.find((c) => c.id === r.cuenta)?.moneda === "USD" && (
+                <div className="min-w-0 sm:w-28 sm:shrink-0">
+                  <label className="label" htmlFor={`${r.key}-cotizacion`}>
+                    Cotización
+                  </label>
+                  <input
+                    id={`${r.key}-cotizacion`}
+                    name={`r_${r.key}_cotizacion`}
+                    type="text"
+                    inputMode="decimal"
+                    value={r.cotizacion}
+                    onChange={(e) => cambiar(r.key, "cotizacion", e.target.value)}
+                    placeholder="MEP"
+                    className="input bg-white text-right"
+                  />
+                </div>
+              )}
+
               {/* En la compu cierra la línea; en el celular, debajo. */}
               {renglones.length > 1 && (
                 <button

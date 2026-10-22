@@ -1255,6 +1255,31 @@ async function mepActual(supabase: Awaited<ReturnType<typeof sesion>>["supabase"
 }
 
 export async function crearMovimiento(fd: FormData) {
+  /*
+   * Un movimiento contra VARIAS ventas no es un movimiento: son varios,
+   * uno por venta, porque cada fila guarda su `venta_id` y es lo que hace
+   * que el margen de cada operación cierre.
+   *
+   * Repartir plata entre entregas ya lo sabe hacer `crearTanda` —cancela
+   * de la más vieja, deja a cuenta lo que sobra, ata las partes con un
+   * `tanda_id`—, así que acá no se reescribe: se arma el renglón único
+   * que esa función espera y se le pasa la posta. Con una sola venta
+   * elegida no cambia nada y sigue por el camino de siempre.
+   */
+  if (fd.getAll("venta_id").map(String).filter(Boolean).length > 1) {
+    const cuentaId = String(fd.get("cuenta_id") ?? "");
+    // `crearTanda` trabaja por id de cuenta. Sin él descartaría el
+    // renglón y no guardaría nada sin decir por qué.
+    if (!cuentaId) throw new Error("Elegí la cuenta antes de repartir entre varias ventas.");
+
+    const clave = "uno";
+    fd.set(`r_${clave}_monto`, String(fd.get("monto") ?? ""));
+    fd.set(`r_${clave}_cuenta`, cuentaId);
+    fd.set(`r_${clave}_persona`, String(fd.get("persona") ?? ""));
+    fd.set(`r_${clave}_cotizacion`, String(fd.get("cotizacion") ?? ""));
+    return crearTanda(fd);
+  }
+
   const { supabase, user } = await sesion();
   const mep = await mepActual(supabase);
   const tipo = txt(fd, "tipo") === "I" ? "I" : "E";
@@ -1293,21 +1318,30 @@ export async function crearTanda(fd: FormData) {
   const mep = await mepActual(supabase);
   const tipo = txt(fd, "tipo") === "I" ? "I" : "E";
 
-  // Los renglones llegan como r_<clave>_persona / _monto / _cuenta.
-  const porClave = new Map<string, { persona: string; monto: string; cuenta: string }>();
+  // Los renglones llegan como r_<clave>_persona / _monto / _cuenta /
+  // _cotizacion (esta última sólo si la cuenta del renglón es en USD).
+  type Campo = "persona" | "monto" | "cuenta" | "cotizacion";
+  const porClave = new Map<string, Record<Campo, string>>();
   for (const [campo, valor] of fd.entries()) {
-    const m = /^r_(.+)_(persona|monto|cuenta)$/.exec(campo);
+    const m = /^r_(.+)_(persona|monto|cuenta|cotizacion)$/.exec(campo);
     if (!m) continue;
-    const fila = porClave.get(m[1]) ?? { persona: "", monto: "", cuenta: "" };
-    fila[m[2] as "persona" | "monto" | "cuenta"] = String(valor);
+    const fila = porClave.get(m[1]) ?? { persona: "", monto: "", cuenta: "", cotizacion: "" };
+    fila[m[2] as Campo] = String(valor);
     porClave.set(m[1], fila);
   }
+
+  const aNumero = (t: string) => {
+    const n = Number(String(t).replace(/\./g, "").replace(",", "."));
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
 
   const renglones = [...porClave.entries()]
     .map(([clave, r]) => ({
       ...r,
       clave,
       valor: Number(String(r.monto).replace(/\./g, "").replace(",", ".")),
+      // El dólar pactado de este renglón, si se escribió.
+      pactada: aNumero(r.cotizacion),
     }))
     .filter((r) => r.cuenta && Number.isFinite(r.valor) && r.valor > 0);
 
@@ -1406,6 +1440,8 @@ export async function crearTanda(fd: FormData) {
     personaId: string | null;
     enDolares: boolean;
     enPesos: number;
+    /** El dólar con el que se valorizó este renglón. */
+    dolar: number | null;
   };
   const pagos: Pagado[] = [];
   for (const r of renglones) {
@@ -1413,10 +1449,12 @@ export async function crearTanda(fd: FormData) {
       tipo: "otro",
     });
     const enDolares = monedaDe.get(r.cuenta) === "USD";
+    // El dólar del renglón: el pactado si se escribió, si no el MEP.
+    const dolar = r.pactada ?? mep;
     // `monto` va siempre en pesos; en dólares se escribe la divisa y los
-    // pesos salen del MEP, como en movimientoDe().
-    const enPesos = enDolares && mep ? Number((r.valor * mep).toFixed(2)) : r.valor;
-    pagos.push({ clave: r.clave, cuenta: r.cuenta, personaId, enDolares, enPesos });
+    // pesos salen de esa cotización, como en movimientoDe().
+    const enPesos = enDolares && dolar ? Number((r.valor * dolar).toFixed(2)) : r.valor;
+    pagos.push({ clave: r.clave, cuenta: r.cuenta, personaId, enDolares, enPesos, dolar });
   }
 
   const filas: Record<string, unknown>[] = [];
@@ -1437,8 +1475,10 @@ export async function crearTanda(fd: FormData) {
     metros: ventaId ? (porVenta.get(ventaId)?.m2 ?? null) : null,
     monto,
     moneda: pago.enDolares ? "USD" : "ARS",
-    cotizacion: mep,
-    monto_usd: mep ? Number((monto / mep).toFixed(2)) : null,
+    // La del renglón, no la del día: si el cobro se pactó a otro dólar,
+    // es con ese que tiene que poder reconstruirse la parte en divisa.
+    cotizacion: pago.dolar,
+    monto_usd: pago.dolar ? Number((monto / pago.dolar).toFixed(2)) : null,
   });
 
   if (tipo === "I" && elegidas.length > 0) {

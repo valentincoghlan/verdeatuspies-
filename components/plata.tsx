@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Elegir } from "@/components/elegir";
 import { dolares, pesos } from "@/lib/format";
 
-export type CuentaOpcion = { nombre: string; moneda: string };
+export type CuentaOpcion = { nombre: string; moneda: string; id?: string };
 
 /**
  * Cuenta y monto, juntos.
@@ -35,7 +35,8 @@ export function CuentaYMonto({
   const [monto, setMonto] = useState("");
   const [cotizacion, setCotizacion] = useState("");
 
-  const moneda = cuentas.find((c) => c.nombre === cuenta)?.moneda ?? "ARS";
+  const elegida = cuentas.find((c) => c.nombre === cuenta);
+  const moneda = elegida?.moneda ?? "ARS";
   const enDolares = moneda === "USD";
 
   // Los montos se escriben con coma, como en el teclado del celular.
@@ -60,6 +61,9 @@ export function CuentaYMonto({
   return (
     <>
       <input type="hidden" name="moneda" value={moneda} />
+      {/* El id además del nombre: con varias ventas elegidas el guardado
+          pasa por el mismo camino que la tanda, que trabaja por id. */}
+      {elegida?.id && <input type="hidden" name="cuenta_id" value={elegida.id} />}
 
       <Elegir
         label="Cuenta"

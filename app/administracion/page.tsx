@@ -241,6 +241,9 @@ export default async function CajaPage({
   const cuentasConId = (cuentas ?? []).map((c: any) => ({
     id: c.id as string,
     nombre: c.nombre as string,
+    // La moneda viaja con la cuenta: es la que decide si el renglón
+    // pide cotización.
+    moneda: (c.moneda ?? "ARS") as string,
   }));
 
   return (
@@ -273,7 +276,7 @@ export default async function CajaPage({
             <QuePaso rubros={rubros} admin={admin} />
 
             {/* Cuánto */}
-            <CuentaYMonto cuentas={opcionesCuenta} mep={mep} />
+            <CuentaYMonto cuentas={cuentasConId} mep={mep} />
             <FechaDeCarga hoy={hoy} className="col-span-1" />
 
             {/* Con quién y dónde */}
@@ -298,9 +301,13 @@ export default async function CajaPage({
             {/* Cualquier movimiento se puede colgar de una venta: un
                 cobro, un flete, la mano de obra de esa cosecha. De ahí
                 sale el margen real de cada operación. */}
+            {/* Varias, igual que en la carga múltiple: un cobro suele
+                tapar dos o tres entregas del mismo comprador, y antes
+                había que cargarlo como tanda sólo por eso. */}
             <PedidosDeCarga
               pedidos={pedidosElegibles}
               hoy={hoy}
+              multiple
               className="col-span-2 sm:col-span-3"
             />
 
